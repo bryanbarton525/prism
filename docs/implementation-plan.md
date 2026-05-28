@@ -17,7 +17,7 @@ application that can be exposed as either:
 ## Goals
 
 - Reduce paid model token usage by moving narrow subtasks to local models.
-- Keep each local agent small, inspectable, and specialized.
+- Keep each local agent small, inspectable, and specialized around a single tool domain.
 - Preserve orchestration by the main LLM instead of building an autonomous
   multi-agent swarm.
 - Make local agent behavior reproducible through versioned constitutions,
@@ -40,8 +40,9 @@ application that can be exposed as either:
 
 1. **Orchestrator-first**: Prism returns structured evidence and suggestions;
    the calling LLM decides what to do with them.
-2. **Narrow specialists**: each agent has a small constitution, clear inputs,
-   explicit non-goals, and a bounded output schema.
+2. **Narrow specialists**: each agent is tool-specific (for example GitHub CLI,
+   web/docs search, kubectl, Argo), with clear inputs, explicit non-goals, and
+   a bounded output schema.
 3. **Local by default**: requests run against a configurable local Ollama host.
 4. **Auditable prompts**: all agent prompts and constitutions live in the repo.
 5. **Shared core, thin adapters**: CLI and MCP entry points call the same Go
@@ -117,11 +118,10 @@ Target layout:
 ```text
 agents/
 |-- README.md
-|-- researcher.md
-|-- planner.md
-|-- implementer.md
-|-- test-designer.md
-`-- reviewer.md
+|-- github-cli.md
+|-- web-docs-search.md
+|-- kubectl.md
+`-- argo.md
 
 skills/
 `-- <skill-name>/SKILL.md    # Agent Skills spec (see skills/README.md)
@@ -156,21 +156,22 @@ Optional:
 - `token_budget` - soft target for assembled prompt size (orchestrator planning).
 - `metadata` - arbitrary key-value strings for integrations.
 
-Example `agents/researcher.md`:
+Example `agents/github-cli.md`:
 
 ```markdown
 ---
-id: researcher
-name: Researcher
-description: Summarize supplied references and local context for the orchestrator.
+id: github-cli
+name: GitHub CLI
+description: Inspect pull requests, runs, and repository metadata with gh-oriented workflows.
 model: llama3.1:8b
-context_budget: 8192
-temperature: 0.2
+context_budget: 6144
+temperature: 0.1
 allowed_skills:
-  - repo-skim
-  - doc-summary
-latency_budget_ms: 45000
-tools: []
+  - gh-pr-triage
+  - gh-actions-diagnostics
+latency_budget_ms: 30000
+tools:
+  - gh
 ---
 
 # Researcher constitution
@@ -285,21 +286,22 @@ supporting the intended editor integration path.
 
 ## Agent specialization boundaries
 
-The first local agents should cover tasks that are valuable but bounded. They
-should not make repository mutations directly in the first version; instead
-they return findings, patches, outlines, or commands for the orchestrator to
-review.
+Prism targets laptop-hosted Ollama models, so sub-agents must be highly
+constrained and tool-specific. The first-party set should map to operational
+surfaces, not broad reasoning personas.
+
+The first version should default to read-oriented and diagnostics-oriented
+operations. Any write capability must be explicit, auditable, and opt-in.
 
 | Agent | Primary job | Should avoid |
 | --- | --- | --- |
-| Researcher | Summarize local docs, fetched references, or pasted context. | Final implementation decisions. |
-| Planner | Break a task into steps, risks, and acceptance checks. | Writing code or broad product strategy. |
-| Implementer | Produce small, focused code or patch suggestions from supplied context. | Unscoped refactors or direct writes. |
-| Test Designer | Propose focused tests, fixtures, and validation commands. | Treating tests as a substitute for review. |
-| Reviewer | Find correctness, safety, maintainability, and test gaps. | Style-only feedback unless it blocks clarity. |
+| GitHub CLI agent | Query PR state, CI run status, commit metadata, and workflow logs through `gh`. | Freeform code generation, architectural planning, or direct git writes. |
+| Web/docs search agent | Retrieve and summarize targeted docs, API references, and troubleshooting pages. | Opinionated design decisions without source-backed evidence. |
+| Kubernetes kubectl agent | Inspect cluster state, events, logs, pods, and rollout status using `kubectl`. | Applying destructive changes without explicit orchestrator approval. |
+| Argo agent | Inspect Argo CD / Argo Workflows status, sync health, and failure diagnostics. | Treating Argo as generic Kubernetes reasoning without Argo-specific context. |
 
-The orchestrator should pick one agent at a time and provide only the minimum
-context needed for that specialty.
+The orchestrator should pick one agent at a time, attach only required skills,
+and pass only the minimum context needed for that exact tool domain.
 
 ## Prompt and tooling references
 
@@ -326,7 +328,7 @@ Each agent spec body (or linked constitution) should include:
 - required input assumptions,
 - output contract,
 - refusal or escalation conditions,
-- allowed tools, and
+- allowed tools (for example `gh`, `kubectl`), and
 - quality checklist.
 
 Initial external tooling references are summarized in [tooling references](tooling-references.md). Core references:
@@ -393,7 +395,7 @@ All agents should return a normalized envelope:
 
 ```json
 {
-  "agent_id": "reviewer",
+  "agent_id": "github-cli",
   "model": "llama3.1:8b",
   "status": "ok",
   "summary": "High-level result.",
@@ -480,7 +482,7 @@ At a minimum, the benchmark suite must demonstrate:
 
 ### 5. Agent hardening
 
-- Tune each initial constitution against real tasks.
+- Tune each tool-specific constitution against real tasks.
 - Add per-agent model recommendations.
 - Add output validation and retry rules where they improve reliability.
 - Document agent and **skill** selection guidance for orchestrators.
@@ -501,7 +503,8 @@ At a minimum, the benchmark suite must demonstrate:
 
 - Which Go MCP SDK should be adopted as the primary dependency after a quick
   spike against current protocol support?
-- Which Ollama models should be recommended for each first-party agent?
+- Which Ollama models should be recommended per tool-specific agent profile
+  (gh/docs/kubectl/argo)?
 - Should Prism support streaming output in the first MCP version or defer it
   until non-streaming calls are stable?
 - How much local filesystem access should any agent receive after the read-only

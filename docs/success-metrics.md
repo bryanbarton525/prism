@@ -67,11 +67,10 @@ project once baselines exist.
 
 | Agent | `latency_budget_ms` |
 | --- | --- |
-| Researcher | 45000 |
-| Planner | 30000 |
-| Implementer | 60000 |
-| Test Designer | 45000 |
-| Reviewer | 45000 |
+| GitHub CLI agent | 30000 |
+| Web/docs search agent | 35000 |
+| Kubernetes kubectl agent | 45000 |
+| Argo agent | 45000 |
 
 ## Test types
 

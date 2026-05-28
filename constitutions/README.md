@@ -13,13 +13,10 @@ and [agent skills](../skills/README.md).
 
 ## Initial agents
 
-- [Researcher](researcher.md) - summarize supplied references and local context.
-- [Planner](planner.md) - decompose tasks into implementation steps and risks.
-- [Implementer](implementer.md) - propose focused code changes from bounded
-  context.
-- [Test Designer](test-designer.md) - design validation coverage and commands.
-- [Reviewer](reviewer.md) - identify correctness, safety, and maintainability
-  risks.
+- [GitHub CLI](github-cli.md) - inspect PRs, CI runs, commit metadata, and logs using `gh`.
+- [Web/docs search](web-docs-search.md) - gather source-backed documentation findings.
+- [Kubernetes kubectl](kubectl.md) - inspect pods, events, rollouts, and cluster state.
+- [Argo](argo.md) - inspect Argo CD/Workflows sync status and diagnostics.
 
 ## Shared rules
 
@@ -41,7 +38,7 @@ the shared result envelope described in the implementation plan:
 
 ```json
 {
-  "agent_id": "planner",
+  "agent_id": "github-cli",
   "status": "ok",
   "summary": "",
   "findings": [],
