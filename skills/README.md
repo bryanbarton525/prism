@@ -6,6 +6,10 @@ may follow, which reduces scope creep and improves accuracy on specialized work.
 
 Skills in this repository follow the [Agent Skills specification](https://agentskills.io/specification),
 including [frontmatter requirements](https://agentskills.io/specification#frontmatter).
+Authoring should also follow the
+[Anthropic skill-creator baseline](https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md)
+for practical writing patterns, eval-first iteration, and trigger-friendly
+descriptions.
 
 ## Directory layout
 
@@ -21,6 +25,21 @@ skills/
 ```
 
 Optional subdirectories (`scripts/`, `references/`, `assets/`) follow the spec.
+
+## Authoring baseline
+
+When writing or revising Prism skills, use the Anthropic `skill-creator`
+guidance as the default pattern:
+
+1. Capture intent and triggering contexts clearly.
+2. Write or revise `SKILL.md` with strong "when to use" language in
+   `description`.
+3. Define realistic test prompts and iterate skill quality with evals.
+4. Keep instructions concise and move bulky material to `references/`.
+
+Prism-specific constraint: even with this authoring pattern, run-time behavior
+is still enforced by `allowed_skills` in agent specs and explicit `skill_names`
+on each invocation.
 
 ## `SKILL.md` frontmatter
 

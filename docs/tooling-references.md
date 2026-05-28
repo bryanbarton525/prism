@@ -33,6 +33,9 @@ be checked during the coding spike before dependencies are pinned.
 
 - Agent Skills specification: <https://agentskills.io/specification>
 - Frontmatter rules: <https://agentskills.io/specification#frontmatter>
+- Anthropic skill-creator reference: <https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md>
+  - Use this as the writing and iteration baseline for `SKILL.md` quality
+    (clear trigger descriptions, realistic eval prompts, and iterative refinement).
   - Each skill is a directory with `SKILL.md` (YAML frontmatter + Markdown body).
   - Required fields: `name`, `description`.
   - Prism passes **explicit skill names** on every `run`; the runtime loads only

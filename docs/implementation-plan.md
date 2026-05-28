@@ -188,6 +188,9 @@ A critical requirement: **each run must attach one or more Agent Skills** so
 the local model receives only the procedures relevant to the subtask. This
 matches the [Agent Skills frontmatter spec](https://agentskills.io/specification#frontmatter)
 and prevents scope creep from loading the entire skill library.
+Skill authoring should follow the Anthropic
+[`skill-creator` SKILL.md pattern](https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md)
+for high-signal descriptions, evaluation loops, and iterative refinement.
 
 `RunRequest` fields (conceptual):
 
