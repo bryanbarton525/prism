@@ -30,3 +30,14 @@ on that run.
 Initial constitutions live in `constitutions/` while this directory is populated.
 New work should add `agents/<id>.md` files; constitutions can be merged into the
 spec body or referenced via `constitution_path` until migration completes.
+
+
+## Initial targeted agent specs
+
+- `agents/github-cli.md`
+- `agents/web-docs-search.md`
+- `agents/kubectl.md`
+- `agents/argo.md`
+
+Each spec uses Markdown + YAML frontmatter and references a matching
+constitution plus an `allowed_skills` list.
