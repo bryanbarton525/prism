@@ -24,7 +24,20 @@ skills/
 `-- README.md
 ```
 
-Optional subdirectories (`scripts/`, `references/`, `assets/`) follow the spec.
+Prism requirement: every skill directory must include both `references/` and
+`scripts/` so the runtime can pass focused documentation, helper CLIs, and
+deterministic data-collection logic to the local agent. `assets/` remains
+optional.
+
+## Required per-skill structure
+
+Every `skills/<name>/` directory must contain:
+
+- `SKILL.md`
+- `references/REFERENCE.md` (or equivalent focused docs)
+- `scripts/` with one or more executable helpers for repeatable data gathering
+
+This is a hard project rule for Prism, not just a recommendation.
 
 ## Authoring baseline
 

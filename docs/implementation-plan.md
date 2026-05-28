@@ -318,8 +318,15 @@ constitutions/                # initial behavior contracts (migrate into agents/
 
 skills/                       # Agent Skills directories (required at run time)
 |-- README.md
-`-- <skill-name>/SKILL.md
+`-- <skill-name>/
+    |-- SKILL.md
+    |-- references/REFERENCE.md
+    `-- scripts/collect.sh
 ```
+
+Prism requirement: each skill must include both `references/` and `scripts/`
+subdirectories so domain references, CLI usage, and deterministic helper
+commands can be passed to the agent as scoped resources.
 
 Each agent spec body (or linked constitution) should include:
 
