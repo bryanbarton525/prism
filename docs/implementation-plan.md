@@ -49,6 +49,19 @@ application that can be exposed as either:
 6. **Safe capability grants**: tools are opt-in per agent and visible in agent
    metadata.
 
+
+## Vision guardrails
+
+- Prism is a **delegation layer**, not a replacement orchestrator.
+- Prefer **single-agent, single-invocation** calls with explicit skills over
+  multi-agent swarms.
+- The orchestrator selects the agent **and** which Agent Skills to attach; Prism
+  enforces allowlists and loads only that skill set.
+- Every agent output must include **confidence and evidence** the orchestrator
+  can verify.
+- Optimize for **cost predictability, token savings, and debuggability** over
+  autonomous breadth.
+
 ## Recommended architecture
 
 Build Prism as a Go module with a shared core and two interface adapters.
@@ -64,8 +77,9 @@ prism
 |-- internal/mcp/              # MCP server adapter
 |-- internal/cli/              # Cobra command handlers
 |-- internal/tooling/          # optional local tools exposed to agents
-|-- constitutions/             # versioned agent behavior contracts
-|-- skills/                    # optional procedural skill packs
+|-- agents/                    # Markdown + frontmatter agent specs
+|-- constitutions/             # initial contracts (migrate into agents/)
+|-- skills/                    # Agent Skills directories (SKILL.md)
 `-- docs/                      # architecture and planning documents
 ```
 
@@ -85,30 +99,115 @@ type AgentRunner interface {
 The runner is responsible for:
 
 - resolving an agent by ID,
-- loading its constitution and prompt template,
+- loading its Markdown+frontmatter spec, constitution, and attached Agent Skills,
 - validating requested tools against the agent allowlist,
 - assembling the Ollama request,
 - enforcing timeout and context-budget limits,
 - normalizing the result into a stable response schema, and
 - returning enough metadata for the orchestrator to judge usefulness.
 
-### Agent specification
+### Agent specification (Markdown + frontmatter)
 
-Each specialist should have a machine-readable spec plus a human-readable
-constitution. A first pass can use YAML or JSON front matter in Markdown.
+**Decision:** each Prism agent is defined by a single Markdown file with YAML
+frontmatter. This is the machine-readable spec and the human-readable contract
+in one artifact.
 
-Suggested fields:
+Target layout:
 
-- `id`: stable agent identifier, such as `researcher` or `test-designer`.
-- `summary`: one-line description shown to orchestrators.
-- `model`: default Ollama model, with optional alternates.
-- `context_budget`: maximum prompt/input size to send to the local model.
-- `temperature`: conservative default, usually low for analysis agents.
-- `tools`: explicit allowlist of local tools the runtime may expose.
-- `inputs`: expected request shape.
-- `outputs`: expected response shape.
-- `constitution`: path to the versioned behavior contract.
-- `skills`: optional referenced procedural skill documents.
+```text
+agents/
+|-- README.md
+|-- researcher.md
+|-- planner.md
+|-- implementer.md
+|-- test-designer.md
+`-- reviewer.md
+
+skills/
+`-- <skill-name>/SKILL.md    # Agent Skills spec (see skills/README.md)
+```
+
+During migration, behavior contracts may still live under `constitutions/` while
+agent specs are introduced under `agents/`. The runtime should accept either
+until all agents are consolidated.
+
+#### Frontmatter fields (Prism)
+
+Required:
+
+- `id` - stable agent identifier (matches filename stem).
+- `name` - display name for orchestrators and CLI output.
+- `description` - one-line summary of when to delegate to this agent.
+- `model` - default Ollama model tag.
+- `context_budget` - maximum prompt/input size for the local model.
+- `allowed_skills` - skill `name` values this agent may use (subset of `skills/`).
+- `latency_budget_ms` - hard budget for benchmark and runtime warnings.
+
+Recommended:
+
+- `temperature` - conservative default (often low for analysis agents).
+- `tools` - explicit allowlist of Prism-local tools (empty in read-only phase).
+- `outputs` - short description of the response schema sections expected.
+- `constitution_path` - optional path if the Markdown body is not the constitution.
+
+Optional:
+
+- `models` - alternate Ollama tags if the default is unavailable.
+- `token_budget` - soft target for assembled prompt size (orchestrator planning).
+- `metadata` - arbitrary key-value strings for integrations.
+
+Example `agents/researcher.md`:
+
+```markdown
+---
+id: researcher
+name: Researcher
+description: Summarize supplied references and local context for the orchestrator.
+model: llama3.1:8b
+context_budget: 8192
+temperature: 0.2
+allowed_skills:
+  - repo-skim
+  - doc-summary
+latency_budget_ms: 45000
+tools: []
+---
+
+# Researcher constitution
+
+(body: mission, boundaries, output contract, refusal rules)
+```
+
+Parsing uses standard YAML frontmatter delimiters (`---`) and a Markdown body.
+The Go runtime should validate frontmatter at load time and fail fast on unknown
+required fields or skill references.
+
+#### Agent Skills on every invocation
+
+A critical requirement: **each run must attach one or more Agent Skills** so
+the local model receives only the procedures relevant to the subtask. This
+matches the [Agent Skills frontmatter spec](https://agentskills.io/specification#frontmatter)
+and prevents scope creep from loading the entire skill library.
+
+`RunRequest` fields (conceptual):
+
+- `agent_id`
+- `task` - user/orchestrator task text or structured input path
+- `skill_names` - required list of skill IDs to attach (must be subset of
+  `allowed_skills`)
+- `format` - `json` or `markdown`
+
+Runtime assembly order:
+
+1. Load agent spec frontmatter and constitution body.
+2. Validate `skill_names` against `allowed_skills`.
+3. Load each skill's metadata (`name`, `description`) and then the full
+   `SKILL.md` body for attached skills only.
+4. Build the Ollama prompt with constitution + skills + task input.
+5. Return normalized `RunResult` with usage and timing metadata for benchmarks.
+
+The orchestrator (Cursor, Copilot, etc.) is responsible for choosing skills; Prism
+is responsible for enforcement and progressive disclosure.
 
 ## MCP versus CLI tradeoffs
 
@@ -136,7 +235,7 @@ Initial commands:
 ```text
 prism agent list
 prism agent show <agent-id>
-prism run <agent-id> --input task.md --format json
+prism run <agent-id> --skills repo-skim --input task.md --format json
 prism run <agent-id> --stdin --format markdown
 prism config doctor
 prism mcp serve
@@ -164,7 +263,8 @@ Costs:
 Initial MCP surface:
 
 - `list_agents`: returns agent IDs, summaries, model hints, and input schemas.
-- `run_agent`: invokes one specialist with a bounded task request.
+- `run_agent`: invokes one specialist with a bounded task request and required
+  `skill_names`.
 - `get_constitution`: returns the constitution text for auditability.
 - `doctor`: reports Ollama connectivity, model availability, and config state.
 
@@ -203,19 +303,20 @@ context needed for that specialty.
 Repository layout for prompt assets:
 
 ```text
-constitutions/
+agents/                       # Markdown + frontmatter agent specs (target)
 |-- README.md
-|-- researcher.md
-|-- planner.md
-|-- implementer.md
-|-- test-designer.md
-`-- reviewer.md
+`-- <agent-id>.md
 
-skills/
-`-- README.md                 # future procedural skill packs
+constitutions/                # initial behavior contracts (migrate into agents/)
+|-- README.md
+`-- <agent-id>.md
+
+skills/                       # Agent Skills directories (required at run time)
+|-- README.md
+`-- <skill-name>/SKILL.md
 ```
 
-Each constitution should include:
+Each agent spec body (or linked constitution) should include:
 
 - mission,
 - operating boundaries,
@@ -310,11 +411,17 @@ silently repairing the output.
 
 ### Testing strategy
 
-- Unit test agent spec parsing and validation.
-- Unit test prompt assembly with golden files.
+- Unit test Markdown + YAML frontmatter parsing for `agents/*.md`.
+- Unit test Agent Skills loading and frontmatter validation (`name`,
+  `description`, directory name match) per agentskills.io.
+- Unit test prompt assembly with golden files, including **skill attachment**
+  (only requested skills appear in the prompt).
 - Unit test Ollama request construction without requiring a running daemon.
+- **Benchmark suite** - executable tests that compare `orchestrator_only` vs
+  `prism_delegated` modes and emit token, cost, latency, and pass-rate reports.
+  See [success metrics](success-metrics.md).
 - Add integration tests behind an opt-in flag for a real local Ollama server.
-- Add CLI tests for command parsing and JSON output.
+- Add CLI tests for command parsing, `--skills` flags, and JSON output.
 - Add MCP adapter tests around tool registration and request translation.
 
 ### Observability
@@ -322,6 +429,20 @@ silently repairing the output.
 The CLI should support `--verbose` and `--json` output. The MCP server should
 log startup state, available agents, Ollama health, request IDs, duration, and
 validation failures without logging full user prompts by default.
+
+
+## Success metrics
+
+Prism is not successful until benchmarks prove **token and cost savings** with
+acceptable **pass-rate** and **latency**. See [success metrics](success-metrics.md)
+for targets, report format, and CI expectations.
+
+At a minimum, the benchmark suite must demonstrate:
+
+- measurable orchestrator token reduction vs baseline scenarios,
+- a cost-vs-time comparison report (orchestrator-only vs Prism-delegated),
+- pass-rate on golden task fixtures, and
+- compliance with per-agent `latency_budget_ms` values from agent spec frontmatter.
 
 ## Milestones
 
@@ -336,8 +457,9 @@ validation failures without logging full user prompts by default.
 - Initialize the Go module.
 - Add Cobra root command.
 - Add `agent list`, `agent show`, and `config doctor`.
-- Load constitutions from disk.
-- Validate agent specs.
+- Load `agents/*.md` specs (Markdown + frontmatter) and constitutions.
+- Validate agent specs and Agent Skills references.
+- Add `prism run --skills <name>...` (required skills flag).
 
 ### 3. Local model execution
 
@@ -358,7 +480,8 @@ validation failures without logging full user prompts by default.
 - Tune each initial constitution against real tasks.
 - Add per-agent model recommendations.
 - Add output validation and retry rules where they improve reliability.
-- Document agent selection guidance for orchestrators.
+- Document agent and **skill** selection guidance for orchestrators.
+- Run the benchmark suite and tune targets in `testdata/benchmarks/thresholds.yaml`.
 
 ## Key risks and mitigations
 
@@ -376,9 +499,10 @@ validation failures without logging full user prompts by default.
 - Which Go MCP SDK should be adopted as the primary dependency after a quick
   spike against current protocol support?
 - Which Ollama models should be recommended for each first-party agent?
-- Should agent specs live as Markdown front matter, separate YAML files, or Go
-  embedded assets for release builds?
 - Should Prism support streaming output in the first MCP version or defer it
   until non-streaming calls are stable?
 - How much local filesystem access should any agent receive after the read-only
   phase?
+- How should orchestrators discover available Agent Skills
+  (`list_skills` CLI/MCP tool vs static manifest)?
+- Should skill validation use `skills-ref` in CI or a Go-native validator?

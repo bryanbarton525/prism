@@ -7,7 +7,8 @@ Prism is a planning-stage Go project for running specialized sub-agents on
 local Ollama models while keeping tools such as Cursor, Copilot, and other
 LLMs in the role of orchestrator. The goal is to reduce operating and
 development cost, limit main-model token use, and preserve useful latency by
-delegating focused tasks to local agents with narrow constitutions.
+delegating focused tasks to local agents with narrow constitutions and explicit
+Agent Skills attached per invocation.
 
 ## Planning artifacts
 
@@ -17,6 +18,10 @@ delegating focused tasks to local agents with narrow constitutions.
   protocol references, and evaluation notes.
 - [Agent constitutions](constitutions/README.md) - initial system contracts for
   local specialist agents.
+- [Agent specifications](agents/README.md) - Markdown + frontmatter agent spec format.
+- [Agent skills](skills/README.md) - Agent Skills layout and run-time attachment rules.
+- [Success metrics](docs/success-metrics.md) - benchmark targets for token, cost,
+  latency, and pass-rate validation.
 
 ## Initial direction
 

@@ -28,6 +28,18 @@ be checked during the coding spike before dependencies are pinned.
   - Start with health, model listing, and chat/generate calls.
   - Prefer explicit timeouts and context cancellation on every request.
 
+
+## Agent Skills
+
+- Agent Skills specification: <https://agentskills.io/specification>
+- Frontmatter rules: <https://agentskills.io/specification#frontmatter>
+  - Each skill is a directory with `SKILL.md` (YAML frontmatter + Markdown body).
+  - Required fields: `name`, `description`.
+  - Prism passes **explicit skill names** on every `run`; the runtime loads only
+    those skills and validates them against the agent's `allowed_skills` list.
+  - Prefer progressive disclosure: metadata for discovery, full `SKILL.md` only
+    when a skill is attached to a run.
+
 ## Go standard library
 
 Use the standard library for the first implementation wherever practical:
