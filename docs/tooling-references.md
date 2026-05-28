@@ -1,0 +1,48 @@
+# Tooling references
+
+These references anchor the first Prism implementation. Versions and APIs should
+be checked during the coding spike before dependencies are pinned.
+
+## Go CLI
+
+- Cobra: <https://github.com/spf13/cobra>
+  - Use for `prism` command routing, subcommands, flags, help text, and shell
+    completion.
+  - Keep command handlers thin; they should translate CLI input into core
+    `AgentRunner` requests.
+
+## Model Context Protocol
+
+- MCP specification and docs: <https://modelcontextprotocol.io/>
+- Go MCP SDK: <https://github.com/modelcontextprotocol/go-sdk>
+  - Use for `prism mcp serve` when the MCP adapter is introduced.
+  - Keep MCP tool names and schemas aligned with CLI JSON result envelopes.
+  - Isolate protocol-specific code under `internal/mcp/` so SDK churn does not
+    leak into the core runtime.
+
+## Local model runtime
+
+- Ollama: <https://ollama.com/>
+- Ollama API documentation: <https://github.com/ollama/ollama/blob/main/docs/api.md>
+  - Use `http://127.0.0.1:11434` as the default host.
+  - Start with health, model listing, and chat/generate calls.
+  - Prefer explicit timeouts and context cancellation on every request.
+
+## Go standard library
+
+Use the standard library for the first implementation wherever practical:
+
+- `context` for cancellation and deadlines.
+- `encoding/json` for request and result envelopes.
+- `net/http` for the initial Ollama client.
+- `os` and `path/filepath` for config and constitution loading.
+- `testing` for unit tests and golden prompt tests.
+
+## Evaluation checklist
+
+Before adding a dependency, confirm that it:
+
+1. solves a concrete problem in the current milestone,
+2. has active maintenance and a compatible license,
+3. does not force Prism's core runtime to depend on an adapter concern, and
+4. can be tested without requiring a running editor integration.
