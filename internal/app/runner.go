@@ -28,6 +28,8 @@ type AgentRunner interface {
 	// GetConstitution returns the resolved constitution text and its source for
 	// a given agent ID. Useful for auditing and MCP get_constitution calls.
 	GetConstitution(ctx context.Context, agentID string) (Constitution, error)
+	// Doctor reports Ollama connectivity, registry state, and skill layout.
+	Doctor(ctx context.Context) (result.DoctorResult, error)
 }
 
 // Constitution holds the resolved constitution text and provenance.

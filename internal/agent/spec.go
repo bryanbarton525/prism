@@ -40,19 +40,23 @@ type Spec struct {
 
 // Summary is a lightweight agent descriptor suitable for list output.
 type Summary struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Model       string `json:"model"`
+	ID              string   `json:"id"`
+	Name            string   `json:"name"`
+	Description     string   `json:"description"`
+	Model           string   `json:"model"`
+	AllowedSkills   []string `json:"allowed_skills,omitempty"`
+	LatencyBudgetMS int      `json:"latency_budget_ms,omitempty"`
 }
 
 // ToSummary returns a lightweight view of the spec.
 func (s *Spec) ToSummary() Summary {
 	return Summary{
-		ID:          s.ID,
-		Name:        s.Name,
-		Description: s.Description,
-		Model:       s.Model,
+		ID:              s.ID,
+		Name:            s.Name,
+		Description:     s.Description,
+		Model:           s.Model,
+		AllowedSkills:   s.AllowedSkills,
+		LatencyBudgetMS: s.LatencyBudgetMS,
 	}
 }
 

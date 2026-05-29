@@ -61,6 +61,8 @@ func init() {
 
 	rootCmd.AddCommand(newAgentCmd())
 	rootCmd.AddCommand(newRunCmd())
+	rootCmd.AddCommand(newConfigCmd())
+	rootCmd.AddCommand(newMCPCmd())
 }
 
 func envOrDefault(key, def string) string {
