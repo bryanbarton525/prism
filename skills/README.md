@@ -1,5 +1,10 @@
 # Agent skills
 
+Prism loads skills from `skills/<name>/` when you pass `--skills` on the CLI or
+`skill_names` to MCP `run_agent`. Use `prism config doctor` to validate layout.
+
+See [docs/usage.md](../docs/usage.md) for examples.
+
 Prism agents are invoked with **explicit Agent Skills** attached to each run.
 Skills narrow what the local model is allowed to assume and which procedures it
 may follow, which reduces scope creep and improves accuracy on specialized work.

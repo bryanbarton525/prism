@@ -1,35 +1,233 @@
 # Prism
 
-Just as a prism separates light into distinct, pure colors, this project
-separates work into small, specialized local agents.
+Just as a prism separates light into distinct, pure colors, this project separates work into small, specialized local agents.
 
-Prism is a planning-stage Go project for running specialized sub-agents on
-local Ollama models while keeping tools such as Cursor, Copilot, and other
-LLMs in the role of orchestrator. The goal is to reduce operating and
-development cost, limit main-model token use, and preserve useful latency by
-delegating focused tasks to local agents with narrow constitutions and explicit
-Agent Skills attached per invocation.
+Prism runs **tool-specific specialist agents** on local [Ollama](https://ollama.com/) models. A primary LLM (Cursor, Copilot, etc.) stays the **orchestrator**—it picks the agent, attaches skills, and judges results. Prism handles loading specs, assembling prompts, calling Ollama, and returning a normalized JSON envelope.
 
-## Planning artifacts
+## Features (current)
 
-- [Implementation plan](docs/implementation-plan.md) - architecture,
-  interface tradeoffs, agent boundaries, and Go implementation approach.
-- [Tooling references](docs/tooling-references.md) - initial libraries,
-  protocol references, and evaluation notes.
-- [Agent constitutions](constitutions/README.md) - initial system contracts for
-  local specialist agents.
-- [Agent specifications](agents/README.md) - Markdown + frontmatter agent spec format.
-- [Agent skills](skills/README.md) - Agent Skills layout and run-time attachment rules.
-- [Success metrics](docs/success-metrics.md) - benchmark targets for token, cost,
-  latency, and pass-rate validation.
+- **Shared runtime** (`AgentRunner`) used by both CLI and MCP
+- **Agent specs** — Markdown + YAML frontmatter under `agents/`
+- **Agent Skills** — per-invocation skill attachment from `skills/` (not the full library)
+- **CLI** — `agent`, `run`, `config doctor`, `mcp serve`
+- **MCP server** — `list_agents`, `run_agent`, `get_constitution`, `doctor`
+- **Contract tests** — agent/skill validation and prompt golden checks
 
-## Initial direction
+## Requirements
 
-Prism should be implemented as a shared Go core with two thin interfaces:
+- Go 1.22+
+- [Ollama](https://ollama.com/) running locally (default `http://127.0.0.1:11434`)
+- Models referenced in agent specs (default tag `llama3.1:8b` — pull or edit specs to match what you have)
 
-1. A Cobra-based CLI for local development, scripting, and early validation.
-2. An MCP server adapter for editor and agent integrations once the agent
-   contract is stable.
+## Install
 
-This lets the project prove local Ollama agent behavior quickly without
-locking the design to one integration surface.
+From the repository root:
+
+```bash
+go install ./cmd/prism
+```
+
+Or build a binary:
+
+```bash
+go build -o prism ./cmd/prism
+```
+
+Run from the **repository root** (or pass `--root`) so `agents/` and `skills/` resolve correctly.
+
+## Quick start
+
+```bash
+# Health check: Ollama, agents, skills
+prism config doctor
+
+# List specialists
+prism agent list
+
+# Inspect one agent (frontmatter + constitution body)
+prism agent show github-cli
+
+# Show resolved constitution only
+prism agent constitution github-cli
+
+# Run a task (requires at least one --skills value)
+prism run github-cli --skills gh-pr-triage --input task.md
+
+# Same via stdin, Markdown output
+echo "Summarize PR #42 CI status" | prism run github-cli --skills gh-pr-triage --format markdown
+```
+
+`prism run` calls Ollama. Ensure the agent’s `model` is available (`ollama pull llama3.1:8b` or change the spec).
+
+## CLI reference
+
+Global flags (all subcommands):
+
+| Flag | Env | Default | Purpose |
+|------|-----|---------|---------|
+| `--root` | — | current directory | Repo root for `agents/`, `skills/`, `constitutions/` |
+| `--agent-dir` | `PRISM_AGENT_DIR` | `<root>/agents` | Agent spec directory |
+| `--skills-dir` | — | `<root>/skills` | Skills root directory |
+| `--ollama-host` | `PRISM_OLLAMA_HOST` | `http://127.0.0.1:11434` | Ollama base URL |
+| `--verbose` | — | off | Log to stderr |
+| `--json` | — | off | JSON output where supported |
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `prism agent list [--json]` | List registered agents |
+| `prism agent show <id> [--json]` | Full spec + constitution body |
+| `prism agent constitution <id> [--json]` | Resolved constitution text |
+| `prism run <id> --skills <name>...` | Run one agent (see flags below) |
+| `prism config doctor [--json]` | Connectivity and registry diagnostics |
+| `prism mcp serve` | Start MCP server on stdio |
+
+**`prism run` flags**
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--skills` | yes | One or more skill names (must be in agent `allowed_skills`) |
+| `--input <file>` | * | Task text from file |
+| `--stdin` | * | Read task from stdin |
+| `--format` | no | `json` (default) or `markdown` |
+
+\* Provide task via `--input`, `--stdin`, or a pipe (stdin detected automatically).
+
+### Run result (JSON)
+
+Every run returns a normalized envelope (CLI and MCP):
+
+```json
+{
+  "agent_id": "github-cli",
+  "model": "llama3.1:8b",
+  "status": "ok",
+  "summary": "...",
+  "findings": [],
+  "artifacts": [],
+  "confidence": "",
+  "usage": {
+    "prompt_tokens_estimate": 0,
+    "completion_tokens_estimate": 0,
+    "duration_ms": 0
+  },
+  "skills_used": ["gh-pr-triage"],
+  "constitution_source": "legacy",
+  "raw_output": "..."
+}
+```
+
+`status` may be `ok`, `error`, `validation_fail`, or `timeout`.
+
+## MCP server
+
+Prism speaks MCP over **stdio**. Logs go to **stderr**; JSON-RPC uses stdin/stdout.
+
+### Cursor
+
+Add to `~/.cursor/mcp.json` (or `.cursor/mcp.json` in a project):
+
+```json
+{
+  "mcpServers": {
+    "prism": {
+      "command": "prism",
+      "args": [
+        "mcp",
+        "serve",
+        "--root",
+        "/absolute/path/to/prism"
+      ],
+      "env": {
+        "PRISM_OLLAMA_HOST": "http://127.0.0.1:11434"
+      }
+    }
+  }
+}
+```
+
+Use the full path to `prism` in `command` if it is not on your `PATH`. Reload MCP in Cursor after editing.
+
+### MCP tools
+
+| Tool | Arguments | Description |
+|------|-----------|-------------|
+| `list_agents` | (none) | Agent summaries, models, allowed skills |
+| `get_constitution` | `agent_id` | Constitution text and source |
+| `doctor` | (none) | Ollama + registry health |
+| `run_agent` | `agent_id`, `task`, `skill_names`, `format?` | Full agent run (same schema as CLI) |
+
+Example `run_agent` payload:
+
+```json
+{
+  "agent_id": "github-cli",
+  "task": "What failed in the latest CI run?",
+  "skill_names": ["gh-pr-triage"],
+  "format": "json"
+}
+```
+
+### Test with MCP Inspector
+
+```bash
+cd /path/to/prism
+npx @modelcontextprotocol/inspector prism mcp serve --root "$(pwd)"
+```
+
+See [docs/usage.md](docs/usage.md) for more examples and troubleshooting.
+
+## Built-in agents
+
+| ID | Domain |
+|----|--------|
+| `github-cli` | `gh` — PRs, CI, repo metadata |
+| `web-docs-search` | Docs and API reference lookup |
+| `kubectl` | Cluster inspection |
+| `argo` | Argo CD / Argo Workflows diagnostics |
+
+Each agent declares `allowed_skills` in its spec. Skills live under `skills/<name>/` with `SKILL.md`, `references/`, and `scripts/`.
+
+## Project layout
+
+```text
+cmd/prism/           CLI entrypoint
+internal/
+  agent/             Agent spec parsing and registry
+  skill/             SKILL.md loader and validation
+  app/               AgentRunner, prompt assembly
+  ollama/            HTTP client for Ollama
+  result/            RunResult and DoctorResult schemas
+  cli/               Cobra commands
+  mcp/               MCP stdio adapter
+agents/              Agent specs (*.md)
+skills/              Agent Skills directories
+constitutions/       Legacy contracts (fallback resolution)
+docs/                Architecture and usage docs
+testdata/benchmarks/ CI threshold fixtures
+```
+
+## Testing
+
+```bash
+go test ./...
+```
+
+Contract tests under `internal/benchmark/` validate all `agents/*.md` and `skills/*` layouts. Integration tests against a live Ollama server are not required for default CI.
+
+## Documentation
+
+| Document | Contents |
+|----------|----------|
+| [docs/usage.md](docs/usage.md) | Detailed CLI/MCP usage, examples, troubleshooting |
+| [docs/implementation-plan.md](docs/implementation-plan.md) | Architecture, milestones, design decisions |
+| [docs/success-metrics.md](docs/success-metrics.md) | Benchmark targets and report format |
+| [docs/tooling-references.md](docs/tooling-references.md) | Dependencies and external specs |
+| [agents/README.md](agents/README.md) | Agent spec frontmatter |
+| [skills/README.md](skills/README.md) | Skill directory layout and rules |
+| [constitutions/README.md](constitutions/README.md) | Legacy constitution layout |
+
+## License
+
+See [LICENSE](LICENSE).

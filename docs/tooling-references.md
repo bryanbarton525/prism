@@ -1,7 +1,7 @@
 # Tooling references
 
-These references anchor the first Prism implementation. Versions and APIs should
-be checked during the coding spike before dependencies are pinned.
+These references anchor the Prism implementation. Versions and APIs should be
+re-checked before major dependency upgrades.
 
 ## Go CLI
 
@@ -15,10 +15,10 @@ be checked during the coding spike before dependencies are pinned.
 
 - MCP specification and docs: <https://modelcontextprotocol.io/>
 - Go MCP SDK: <https://github.com/modelcontextprotocol/go-sdk>
-  - Use for `prism mcp serve` when the MCP adapter is introduced.
-  - Keep MCP tool names and schemas aligned with CLI JSON result envelopes.
-  - Isolate protocol-specific code under `internal/mcp/` so SDK churn does not
-    leak into the core runtime.
+  - Powers `prism mcp serve` (`internal/mcp/`).
+  - MCP tool names and schemas align with CLI JSON result envelopes.
+  - Protocol-specific code stays in `internal/mcp/` so SDK churn does not leak
+    into the core runtime.
 
 ## Local model runtime
 

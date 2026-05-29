@@ -1,8 +1,11 @@
 # Agent specifications
 
-Each Prism agent is defined as **Markdown with YAML frontmatter**. The frontmatter
-is the machine-readable spec; the Markdown body is the constitution (behavior
-contract) unless `constitution_path` points elsewhere.
+Each Prism agent is defined as **Markdown with YAML frontmatter**. The runtime
+loads every `agents/*.md` file (except `README.md`) at startup via `prism agent
+list`, `prism run`, and MCP tools.
+
+The frontmatter is the machine-readable spec; the Markdown body is the
+constitution (behavior contract) unless `constitution_path` points elsewhere.
 
 ## Required frontmatter
 

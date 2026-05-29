@@ -5,10 +5,13 @@ agents. They are intentionally narrower than general system prompts: each one
 states what the agent is for, what it must not do, what context it needs, and
 how it should report results back to the primary orchestrator.
 
-**Target format:** each agent will be defined under `agents/<id>.md` as Markdown
-with YAML frontmatter (spec) plus a constitution body. These files are the initial
-constitution-only artifacts during migration. See [agent specifications](../agents/README.md)
-and [agent skills](../skills/README.md).
+**Runtime resolution:** for each agent, Prism uses (1) `constitution_path` in the
+agent spec, (2) the spec Markdown body, or (3) `constitutions/<id>.md` as a
+legacy fallback. Inspect with `prism agent constitution <id>`.
+
+Agent specs live under `agents/<id>.md`. This directory holds constitution-only
+artifacts during migration. See [agent specifications](../agents/README.md),
+[agent skills](../skills/README.md), and [docs/usage.md](../docs/usage.md).
 
 
 ## Initial agents

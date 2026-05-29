@@ -1,5 +1,11 @@
 # Prism implementation plan
 
+> **Status:** Milestones 1–4 are implemented on `main` (CLI, shared runtime, Ollama
+> client, MCP adapter, contract tests). See [usage.md](usage.md) and the
+> [README](../README.md) for current commands. This document remains the design
+> reference and roadmap for later milestones (benchmark suite depth, streaming,
+> agent hardening).
+
 ## Problem statement
 
 Prism lets a primary LLM orchestrator delegate focused work to local
