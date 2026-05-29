@@ -1,0 +1,4 @@
+# Benchmark targets for CI (see docs/success-metrics.md).
+token_reduction_percent_min: 35
+pass_rate_delegated_min: 0.90
+latency_budget_compliance_min: 0.95

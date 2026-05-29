@@ -84,3 +84,8 @@ func truncateToTokenBudget(text string, tokenBudget int) string {
 	}
 	return text[:charBudget-len(notice)] + notice
 }
+
+// AssemblePromptForTest exposes assemblePrompt for golden tests in internal/benchmark.
+func AssemblePromptForTest(constitution string, skills map[string]*skill.Skill, skillNames []string, task string) (string, string) {
+	return assemblePrompt(constitution, skills, skillNames, task)
+}
