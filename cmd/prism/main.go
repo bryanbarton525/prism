@@ -1,7 +1,14 @@
+// Command prism is the entry point for the Prism CLI.
 package main
 
-import "github.com/bryanbarton525/prism/internal/cli"
+import (
+	"os"
+
+	"github.com/bryanbarton525/prism/internal/cli"
+)
 
 func main() {
-	cli.Execute()
+	if err := cli.Execute(); err != nil {
+		os.Exit(1)
+	}
 }

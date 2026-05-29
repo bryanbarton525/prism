@@ -1,105 +1,183 @@
-// Package agent provides loading, validation, and registry of Prism agent
-// specs and their associated Agent Skills.
+// Package agent loads and validates Prism agent specifications.
 package agent
 
-// Spec holds the normalized runtime representation of a Prism agent loaded
-// from an agents/<id>.md file (Markdown with YAML frontmatter).
+import (
+	"bytes"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"gopkg.in/yaml.v3"
+)
+
+// Spec holds the parsed YAML frontmatter and Markdown body of an agent file.
 type Spec struct {
-	// --- Required frontmatter ---
+	// Required frontmatter fields.
+	ID              string   `yaml:"id"               json:"id"`
+	Name            string   `yaml:"name"             json:"name"`
+	Description     string   `yaml:"description"      json:"description"`
+	Model           string   `yaml:"model"            json:"model"`
+	ContextBudget   int      `yaml:"context_budget"   json:"context_budget"`
+	AllowedSkills   []string `yaml:"allowed_skills"   json:"allowed_skills"`
+	LatencyBudgetMS int      `yaml:"latency_budget_ms" json:"latency_budget_ms"`
 
-	// ID is the stable agent identifier; must match the file stem.
-	ID string `yaml:"id"`
-	// Name is the display name shown in CLI and orchestrator output.
-	Name string `yaml:"name"`
-	// Description explains when to delegate work to this agent.
-	Description string `yaml:"description"`
-	// Model is the default Ollama model tag.
-	Model string `yaml:"model"`
-	// ContextBudget is the maximum prompt/input size for the local model (tokens).
-	ContextBudget int `yaml:"context_budget"`
-	// AllowedSkills lists skill directory names this agent may use at run time.
-	AllowedSkills []string `yaml:"allowed_skills"`
-	// LatencyBudgetMS is the hard deadline for benchmark and runtime warnings (ms).
-	LatencyBudgetMS int `yaml:"latency_budget_ms"`
+	// Recommended frontmatter fields.
+	Temperature      float64  `yaml:"temperature"       json:"temperature,omitempty"`
+	Tools            []string `yaml:"tools"             json:"tools,omitempty"`
+	Outputs          string   `yaml:"outputs"           json:"outputs,omitempty"`
+	ConstitutionPath string   `yaml:"constitution_path" json:"constitution_path,omitempty"`
 
-	// --- Recommended frontmatter ---
+	// Optional frontmatter fields.
+	Models      []string          `yaml:"models"      json:"models,omitempty"`
+	TokenBudget int               `yaml:"token_budget" json:"token_budget,omitempty"`
+	Metadata    map[string]string `yaml:"metadata"    json:"metadata,omitempty"`
 
-	// Temperature is the conservative sampling default for this agent.
-	Temperature float64 `yaml:"temperature,omitempty"`
-	// Tools enumerates the Prism-local CLI tools this agent may invoke.
-	Tools []string `yaml:"tools,omitempty"`
-	// Outputs describes the expected response schema sections.
-	Outputs string `yaml:"outputs,omitempty"`
-	// ConstitutionPath is an optional path to a separate constitution file.
-	// When set, the Markdown body of the agent spec is not the constitution.
-	ConstitutionPath string `yaml:"constitution_path,omitempty"`
-
-	// --- Optional frontmatter ---
-
-	// Models lists alternate Ollama tags when the default is unavailable.
-	Models []string `yaml:"models,omitempty"`
-	// TokenBudget is a soft target for assembled prompt size (orchestrator
-	// planning hint, separate from ContextBudget).
-	TokenBudget int `yaml:"token_budget,omitempty"`
-	// Metadata holds arbitrary string key-value pairs for integrations.
-	Metadata map[string]string `yaml:"metadata,omitempty"`
-
-	// --- Resolved fields (not from frontmatter) ---
-
-	// FilePath is the absolute or repo-relative path of the source file.
-	FilePath string `yaml:"-"`
-	// Body is the raw Markdown body that follows the frontmatter block.
-	Body string `yaml:"-"`
-	// Constitution is the resolved behavior contract text. It is populated by
-	// LoaderOptions.ResolveConstitution and may come from Body, ConstitutionPath,
-	// or the legacy constitutions/ directory.
-	Constitution string `yaml:"-"`
+	// Body is the Markdown text after the closing frontmatter delimiter.
+	// It serves as the inline constitution when ConstitutionPath is empty.
+	Body string `yaml:"-" json:"body,omitempty"`
 }
 
-// SkillSpec holds the normalized runtime representation of an Agent Skill
-// loaded from a skills/<name>/SKILL.md file.
-type SkillSpec struct {
-	// --- Required frontmatter per Agent Skills spec ---
-
-	// Name is the lowercase-hyphenated identifier that must match the
-	// containing directory name.
-	Name string `yaml:"name"`
-	// Description explains what the skill does and when to use it (≤1024 chars).
-	Description string `yaml:"description"`
-
-	// --- Optional frontmatter ---
-
-	// License identifies the license of the skill content.
-	License string `yaml:"license,omitempty"`
-	// Compatibility describes environment requirements (e.g. "Requires ollama").
-	Compatibility string `yaml:"compatibility,omitempty"`
-	// Metadata holds arbitrary string key-value pairs.
-	Metadata map[string]string `yaml:"metadata,omitempty"`
-	// AllowedTools is an experimental space-separated tool pre-approval list.
-	AllowedTools string `yaml:"allowed-tools,omitempty"`
-
-	// --- Resolved fields ---
-
-	// DirPath is the directory that contains SKILL.md.
-	DirPath string `yaml:"-"`
-	// Body is the full Markdown body of SKILL.md.
-	Body string `yaml:"-"`
-}
-
-// Summary returns a concise view of the agent for list display.
+// Summary is a lightweight agent descriptor suitable for list output.
 type Summary struct {
-	ID          string
-	Name        string
-	Description string
-	Model       string
+	ID              string   `json:"id"`
+	Name            string   `json:"name"`
+	Description     string   `json:"description"`
+	Model           string   `json:"model"`
+	AllowedSkills   []string `json:"allowed_skills,omitempty"`
+	LatencyBudgetMS int      `json:"latency_budget_ms,omitempty"`
 }
 
-// ToSummary converts a Spec into a Summary.
+// ToSummary returns a lightweight view of the spec.
 func (s *Spec) ToSummary() Summary {
 	return Summary{
-		ID:          s.ID,
-		Name:        s.Name,
-		Description: s.Description,
-		Model:       s.Model,
+		ID:              s.ID,
+		Name:            s.Name,
+		Description:     s.Description,
+		Model:           s.Model,
+		AllowedSkills:   s.AllowedSkills,
+		LatencyBudgetMS: s.LatencyBudgetMS,
 	}
+}
+
+// AllowsSkill reports whether the named skill is in the agent's allowed_skills.
+func (s *Spec) AllowsSkill(name string) bool {
+	for _, a := range s.AllowedSkills {
+		if a == name {
+			return true
+		}
+	}
+	return false
+}
+
+// ResolveConstitution returns the constitution text for this agent following
+// a three-priority chain:
+//
+//  1. constitution_path field (resolved relative to rootDir)
+//  2. inline spec body (Markdown after the frontmatter block)
+//  3. legacy constitutions/<id>.md (relative to rootDir)
+//
+// The second return value names the source: "path", "body", or "legacy".
+func (s *Spec) ResolveConstitution(rootDir string) (text, source string, err error) {
+	if s.ConstitutionPath != "" {
+		full := s.ConstitutionPath
+		if !filepath.IsAbs(full) {
+			full = filepath.Join(rootDir, full)
+		}
+		data, readErr := os.ReadFile(full)
+		if readErr != nil {
+			return "", "", fmt.Errorf("reading constitution_path %s: %w", full, readErr)
+		}
+		return strings.TrimSpace(string(data)), "path", nil
+	}
+
+	if s.Body != "" {
+		return s.Body, "body", nil
+	}
+
+	legacyPath := filepath.Join(rootDir, "constitutions", s.ID+".md")
+	data, readErr := os.ReadFile(legacyPath)
+	if readErr != nil {
+		if os.IsNotExist(readErr) {
+			return "", "none", nil
+		}
+		return "", "", fmt.Errorf("reading legacy constitution %s: %w", legacyPath, readErr)
+	}
+	return strings.TrimSpace(string(data)), "legacy", nil
+}
+
+// ParseFile reads a Markdown+frontmatter agent spec file from path.
+func ParseFile(path string) (*Spec, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading agent spec %s: %w", path, err)
+	}
+	return Parse(data, path)
+}
+
+// Parse parses raw bytes that begin with a YAML frontmatter block delimited by
+// "---". The sourcePath is used only for error messages and id-stem validation.
+func Parse(data []byte, sourcePath string) (*Spec, error) {
+	const delim = "---"
+
+	content := strings.TrimSpace(string(data))
+	if !strings.HasPrefix(content, delim) {
+		return nil, fmt.Errorf("%s: missing frontmatter delimiter", sourcePath)
+	}
+
+	rest := strings.TrimPrefix(content, delim)
+	idx := strings.Index(rest, "\n"+delim)
+	if idx < 0 {
+		return nil, fmt.Errorf("%s: unclosed frontmatter block", sourcePath)
+	}
+
+	frontmatter := strings.TrimSpace(rest[:idx])
+	body := strings.TrimSpace(rest[idx+len("\n"+delim):])
+
+	spec := &Spec{}
+	dec := yaml.NewDecoder(bytes.NewBufferString(frontmatter))
+	dec.KnownFields(false)
+	if err := dec.Decode(spec); err != nil {
+		return nil, fmt.Errorf("%s: YAML parse error: %w", sourcePath, err)
+	}
+	spec.Body = body
+
+	if err := validate(spec, sourcePath); err != nil {
+		return nil, err
+	}
+	return spec, nil
+}
+
+func validate(s *Spec, src string) error {
+	var missing []string
+	if s.ID == "" {
+		missing = append(missing, "id")
+	}
+	if s.Name == "" {
+		missing = append(missing, "name")
+	}
+	if s.Description == "" {
+		missing = append(missing, "description")
+	}
+	if s.Model == "" {
+		missing = append(missing, "model")
+	}
+	if s.ContextBudget == 0 {
+		missing = append(missing, "context_budget")
+	}
+	if len(s.AllowedSkills) == 0 {
+		missing = append(missing, "allowed_skills")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("%s: missing required frontmatter fields: %s",
+			src, strings.Join(missing, ", "))
+	}
+
+	if src != "" {
+		stem := strings.TrimSuffix(filepath.Base(src), filepath.Ext(src))
+		if stem != "." && stem != s.ID {
+			return fmt.Errorf("%s: id %q does not match filename stem %q", src, s.ID, stem)
+		}
+	}
+	return nil
 }

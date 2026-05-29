@@ -1,38 +1,57 @@
 package cli
 
 import (
+	"context"
 	"fmt"
+	"log"
+	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/bryanbarton525/prism/internal/mcp"
 )
 
 func newMCPCmd() *cobra.Command {
-	var addr string
-
 	cmd := &cobra.Command{
 		Use:   "mcp",
-		Short: "MCP server adapter commands",
+		Short: "MCP server",
 	}
+	cmd.AddCommand(newMCPServeCmd())
+	return cmd
+}
 
-	serve := &cobra.Command{
+func newMCPServeCmd() *cobra.Command {
+	return &cobra.Command{
 		Use:   "serve",
-		Short: "Start the Prism MCP server",
-		Long: `Start an MCP server that exposes Prism agents as tools for editor and
-agent integrations (Cursor, Copilot, etc.).
+		Short: "Start the Prism MCP server (stdio)",
+		Long: `Expose list_agents, run_agent, get_constitution, and doctor over MCP stdio.
 
-Available tools (milestone-4):
-  list_agents      — return agent IDs, summaries, and model hints
-  run_agent        — invoke a specialist with a bounded task request
-  get_constitution — return the constitution text for an agent
-  doctor           — report Ollama connectivity and model availability`,
+Example Cursor mcp.json:
+
+  {
+    "mcpServers": {
+      "prism": {
+        "command": "prism",
+        "args": ["mcp", "serve"]
+      }
+    }
+  }`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// TODO(milestone-4): initialize Go MCP SDK server and register tools
-			fmt.Fprintf(cmd.OutOrStdout(), "MCP server not implemented yet (planned listen addr: %s)\n", addr)
+			runner, err := newRunner()
+			if err != nil {
+				return fmt.Errorf("initializing runtime: %w", err)
+			}
+
+			logger := log.New(os.Stderr, "[prism-mcp] ", log.LstdFlags)
+			logger.Println(mcp.StatusSummary(runner))
+			logger.Printf("ollama: %s", gf.ollamaHost)
+			logger.Printf("agents: %s", resolvedAgentDir())
+			logger.Println("tools: list_agents, run_agent, get_constitution, doctor")
+
+			if err := mcp.Serve(context.Background(), runner); err != nil {
+				return fmt.Errorf("mcp server: %w", err)
+			}
 			return nil
 		},
 	}
-	serve.Flags().StringVar(&addr, "addr", "stdio", "transport address: 'stdio' or 'host:port'")
-
-	cmd.AddCommand(serve)
-	return cmd
 }
