@@ -1,5 +1,7 @@
 # Prism
 
+![Prism logo](docs/img/prism-logo.png)
+
 **Keep Cursor (or any MCP host) as the orchestrator. Offload narrow work to local Ollama specialists.**
 
 Prism is an MCP server + CLI that runs tool-specific agents on [Ollama](https://ollama.com/) — GitHub CI, Kubernetes, Argo, docs lookup, Go codegen — and returns compact JSON summaries. Your paid model sees a short brief, not every skill, constitution, and evidence dump.
