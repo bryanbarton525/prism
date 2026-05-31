@@ -220,14 +220,17 @@ Run the all-skill mock incident and print a comparison report:
 
 ```bash
 prism benchmark run homelab-release-incident
+prism benchmark run homelab-release-incident-at-scale   # enterprise context padding
+prism benchmark project                               # monthly/annual savings
 ```
 
-See [benchmark-homelab-incident.md](benchmark-homelab-incident.md) for the full scenario, automated metrics, and manual Cursor steps.
+See [benchmark-homelab-incident.md](benchmark-homelab-incident.md) for the full scenario and [benchmark-scale.md](benchmark-scale.md) for monthly projections.
 
 ## Related docs
 
 - [Implementation plan](implementation-plan.md) — architecture and future milestones
 - [Success metrics](success-metrics.md) — benchmark goals
 - [Benchmark: homelab incident](benchmark-homelab-incident.md) — eight-delegation A/B scenario
+- [Benchmark at scale](benchmark-scale.md) — monthly savings projection
 - [Tooling references](tooling-references.md) — SDKs and specs
 

@@ -15,6 +15,9 @@ type Scenario struct {
 	Title       string `yaml:"title"`
 	Description string `yaml:"description"`
 	BriefFile   string `yaml:"brief_file"`
+	// OrchestratorContextFiles are appended to the orchestrator-only prompt only
+	// (simulates Cursor rules, chat history, runbooks — not sent to local agents).
+	OrchestratorContextFiles []string `yaml:"orchestrator_context_files"`
 	Delegations []Delegation `yaml:"delegations"`
 	Assertions  Assertions   `yaml:"assertions"`
 	Synthesis   Synthesis    `yaml:"synthesis"`
@@ -113,6 +116,26 @@ func (s *Scenario) LoadAllEvidence() (string, error) {
 			b.WriteString(body)
 			b.WriteString("\n\n")
 		}
+	}
+	return strings.TrimSpace(b.String()), nil
+}
+
+// LoadOrchestratorContext reads extra files loaded only in orchestrator-only mode.
+func (s *Scenario) LoadOrchestratorContext() (string, error) {
+	if len(s.OrchestratorContextFiles) == 0 {
+		return "", nil
+	}
+	var b strings.Builder
+	for _, f := range s.OrchestratorContextFiles {
+		body, err := readFile(filepath.Join(s.dir, f))
+		if err != nil {
+			return "", err
+		}
+		b.WriteString("## ")
+		b.WriteString(f)
+		b.WriteString("\n\n")
+		b.WriteString(body)
+		b.WriteString("\n\n")
 	}
 	return strings.TrimSpace(b.String()), nil
 }

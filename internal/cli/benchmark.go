@@ -16,6 +16,7 @@ func newBenchmarkCmd() *cobra.Command {
 		Short: "Run Prism benchmark scenarios",
 	}
 	cmd.AddCommand(newBenchmarkRunCmd())
+	cmd.AddCommand(newBenchmarkProjectCmd())
 	return cmd
 }
 

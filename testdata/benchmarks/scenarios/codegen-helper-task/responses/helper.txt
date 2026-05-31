@@ -1,0 +1,1 @@
+{"summary":"ParseLabels helper parses k=v pairs","findings":["returns map[string]string","errors on malformed input"],"confidence":"high","code":"func ParseLabels(s string) (map[string]string, error) { ... }"}

@@ -50,6 +50,19 @@ prism benchmark run homelab-release-incident --output /tmp/prism-benchmark.md
 
 Use `--mock` for offline CI simulation (canned responses, no Ollama).
 
+### Committed live results (2025-05-31)
+
+| Mode | Orchestrator input | Pass |
+|------|-------------------|------|
+| Orchestrator only | 3,547 tokens | ✓ |
+| Prism delegated | 816 tokens | ✓ |
+| **Input reduction** | **77.0%** | |
+| **Savings/run** | **$0.0052** | |
+
+At-scale variant (`homelab-release-incident-at-scale`): **82.8%** input reduction, **$0.0106**/run — see [benchmark-scale.md](benchmark-scale.md).
+
+Monthly projection: `prism benchmark project`
+
 ### What the numbers mean
 
 | Mode | Models tokens counted | What happens |

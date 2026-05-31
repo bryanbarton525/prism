@@ -1,0 +1,1 @@
+{"summary":"Table test scaffold for rollout stall cases","findings":["3 cases: deadline, crashloop, ready"],"confidence":"medium","code":"func TestRolloutStall(t *testing.T) { ... }"}

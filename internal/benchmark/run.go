@@ -80,6 +80,12 @@ func RunOrchestratorOnly(ctx context.Context, root string, scenario *Scenario, r
 	fullContext.WriteString(constitutions)
 	fullContext.WriteString("\n\n# All skill bodies (full library loaded)\n\n")
 	fullContext.WriteString(fullSkills)
+	if extra, err := scenario.LoadOrchestratorContext(); err != nil {
+		return ModeResult{}, err
+	} else if extra != "" {
+		fullContext.WriteString("\n\n# Orchestrator session context (rules, history, runbooks)\n\n")
+		fullContext.WriteString(extra)
+	}
 
 	synthTmpl, err := scenario.ReadTask(scenario.Synthesis.OrchestratorPromptFile)
 	if err != nil {
