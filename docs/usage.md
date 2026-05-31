@@ -228,6 +228,7 @@ See [benchmark-homelab-incident.md](benchmark-homelab-incident.md) for the full 
 
 ## Related docs
 
+- [Comparison / landscape](comparison.md) — vs Claude subagents, Cursor, frameworks
 - [Implementation plan](implementation-plan.md) — architecture and future milestones
 - [Success metrics](success-metrics.md) — benchmark goals
 - [Benchmark: homelab incident](benchmark-homelab-incident.md) — eight-delegation A/B scenario
