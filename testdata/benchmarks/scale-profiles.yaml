@@ -27,13 +27,13 @@ reference_scenarios:
   codegen: codegen-helper-task
   coding_task: todo-spa-build
 
-# Headline orchestrator showcase: 1 engineer, substantial coding workload from live todo-spa-build run.
-# Assumption: 4 substantial coding tasks/day, 20-workday month, 12-month year.
+# Headline orchestrator showcase: 1 engineer, prompt-heavy coding workload from live todo-spa-build run.
+# Assumption: 20 coding prompts/day, 20-workday month, 12-month year.
 showcase:
   scenario: todo-spa-build
-  tasks_per_day: 4
-  tasks_per_month: 80
-  tasks_per_year: 960
+  tasks_per_day: 20
+  tasks_per_month: 400
+  tasks_per_year: 4800
 
 # When projecting at scale, use incident_at_scale for incidents if multiplier >= 2.5
 at_scale_threshold_multiplier: 2.5

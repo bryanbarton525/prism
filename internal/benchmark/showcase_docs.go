@@ -23,7 +23,7 @@ func FormatShowcaseMarkdown(r MonthlyProjectionReport) string {
 	s := r.Showcase
 	var b strings.Builder
 	b.WriteString("### Executive benchmark view\n\n")
-	b.WriteString(fmt.Sprintf("**Workload assumption (per engineer):** %d substantial coding tasks/day, %d tasks/month, %d tasks/year.\n\n",
+	b.WriteString(fmt.Sprintf("**Workload assumption (per engineer):** %d coding prompts/day, %d prompts/month, %d prompts/year.\n\n",
 		s.TasksPerDay, s.TasksPerMonth, s.TasksPerYear))
 	b.WriteString(fmt.Sprintf("**Task definition:** one completed coding request equal to `%s` (live run on %s), including implementation output + README.\n\n",
 		s.ScenarioID, loadScenarioMeasuredAt(s.ScenarioID)))
