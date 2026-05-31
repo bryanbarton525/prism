@@ -64,22 +64,23 @@ func RunOrchestratorOnly(ctx context.Context, root string, scenario *Scenario, r
 	if err != nil {
 		return ModeResult{}, err
 	}
-	fullSkills, err := loadAllSkillBodies(root)
-	if err != nil {
-		return ModeResult{}, err
-	}
-	constitutions, err := loadAllConstitutions(root)
-	if err != nil {
-		return ModeResult{}, err
-	}
-
 	fullContext := strings.Builder{}
 	fullContext.WriteString("# Evidence bundle\n\n")
 	fullContext.WriteString(evidence)
-	fullContext.WriteString("\n\n# All agent constitutions\n\n")
-	fullContext.WriteString(constitutions)
-	fullContext.WriteString("\n\n# All skill bodies (full library loaded)\n\n")
-	fullContext.WriteString(fullSkills)
+	if scenario.LoadFullLibrary() {
+		fullSkills, err := loadAllSkillBodies(root)
+		if err != nil {
+			return ModeResult{}, err
+		}
+		constitutions, err := loadAllConstitutions(root)
+		if err != nil {
+			return ModeResult{}, err
+		}
+		fullContext.WriteString("\n\n# All agent constitutions\n\n")
+		fullContext.WriteString(constitutions)
+		fullContext.WriteString("\n\n# All skill bodies (full library loaded)\n\n")
+		fullContext.WriteString(fullSkills)
+	}
 	if extra, err := scenario.LoadOrchestratorContext(); err != nil {
 		return ModeResult{}, err
 	} else if extra != "" {
