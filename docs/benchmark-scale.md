@@ -60,9 +60,9 @@ prism benchmark project --json
 
 Use this format as the headline benchmark view: explicit before/after costs for one engineer, one task/day.
 
-**Feature benchmark (1 engineer):** `17,922 in / 812 out` without Pulse -> `485 in / 442 out` with Pulse (**97.3% input reduction**).
+**Feature benchmark (1 engineer):** `17,922 in / 812 out` without Prism -> `485 in / 442 out` with Prism (**97.3% input reduction**).
 
-| Model | Without Pulse ($/task) | With Pulse ($/task) | Saved/task | Saved/day | Saved/month (30 tasks) | Saved/year (365 tasks) |
+| Model | Without Prism ($/task) | With Prism ($/task) | Saved/task | Saved/day | Saved/month (30 tasks) | Saved/year (365 tasks) |
 |---|---:|---:|---:|---:|---:|---:|
 | `gpt-5.4` | $0.0570 | $0.0078 | $0.0491 | $0.0491 | $1.47 | $17.94 |
 | `gpt-5.5` | $0.1140 | $0.0157 | $0.0983 | $0.0983 | $2.95 | $35.87 |
@@ -72,7 +72,7 @@ Use this format as the headline benchmark view: explicit before/after costs for 
 
 Additional benchmark task token baselines:
 
-| Task | Without Pulse tokens (in / out) | With Pulse tokens (in / out) | Input reduction |
+| Task | Without Prism tokens (in / out) | With Prism tokens (in / out) | Input reduction |
 |---|---|---|---:|
 | Feature delivery (notification preferences) | `17,922 / 812` | `485 / 442` | 97.3% |
 | At-scale incident | `5,734 / 580` | `986 / 545` | 82.8% |

@@ -100,9 +100,9 @@ prism benchmark project    # monthly/annual projection
 ### Orchestrator showcase matrix
 
 **1 engineer, 1 task/day model (real feature benchmark: notification preferences UX + API)**  
-Token usage per task: **without Pulse** `17,922 in / 812 out` -> **with Pulse** `485 in / 442 out` (**97.3% input reduction**).
+Token usage per task: **without Prism** `17,922 in / 812 out` -> **with Prism** `485 in / 442 out` (**97.3% input reduction**).
 
-| Model | Without Pulse ($/task) | With Pulse ($/task) | Saved/task | Saved/day | Saved/month (30 tasks) | Saved/year (365 tasks) |
+| Model | Without Prism ($/task) | With Prism ($/task) | Saved/task | Saved/day | Saved/month (30 tasks) | Saved/year (365 tasks) |
 |---|---:|---:|---:|---:|---:|---:|
 | `gpt-5.4` | $0.0570 | $0.0078 | $0.0491 | $0.0491 | $1.47 | $17.94 |
 | `gpt-5.5` | $0.1140 | $0.0157 | $0.0983 | $0.0983 | $2.95 | $35.87 |
