@@ -57,30 +57,27 @@ prism benchmark project --json
 
 ### Orchestrator model matrix
 
-`prism benchmark project` also emits a cross-orchestrator showcase for:
+`prism benchmark project` emits a cross-orchestrator showcase using **May 2026 list pricing** from `testdata/benchmarks/orchestrator-models.yaml`:
 
-- `gpt-5.4`
-- `gpt-5.5`
-- `claude-opus-4.7`
-- `claude-opus-4.6`
-- `claude-sonnet-4.6`
+| Model | Input / output ($/M) | Incident $/run | At-scale $/run | Codegen $/run | Monthly (enterprise) | Annual |
+|-------|----------------------|----------------|----------------|---------------|----------------------|--------|
+| `gpt-5.4` | $2.50 / $15.00 | $0.0065 | $0.0124 | $0.0065 | $15.45 | $185.40 |
+| `gpt-5.5` | $5.00 / $30.00 | $0.0130 | $0.0248 | $0.0129 | $30.89 | $370.68 |
+| `claude-opus-4.7` | $5.00 / $25.00 | $0.0131 | $0.0246 | $0.0127 | $30.81 | $369.72 |
+| `claude-opus-4.6` | $5.00 / $25.00 | $0.0131 | $0.0246 | $0.0127 | $30.81 | $369.72 |
+| `claude-sonnet-4.6` | $3.00 / $15.00 | $0.0079 | $0.0148 | $0.0076 | $18.48 | $221.76 |
 
-Configured in `testdata/benchmarks/orchestrator-models.yaml`.
-These rates are placeholders by default; update to your actual pricing.
+Dollar savings scale with orchestrator price — token reduction percentages are identical across models. Opus 4.6 and 4.7 match because Anthropic lists the same Opus rates for both.
 
-Example output columns:
-- incident savings per run
-- at-scale incident savings per run
-- codegen savings per run
-- monthly/annual savings (enterprise profile)
+**Pricing sources (May 2026):** [OpenAI API pricing](https://openai.com/api/pricing/) (GPT-5.4, GPT-5.5, GPT-4.1 baseline); [Anthropic pricing](https://www.anthropic.com/pricing) (Opus 4.6/4.7, Sonnet 4.6).
 
-Profiles in `testdata/benchmarks/scale-profiles.yaml`:
+Profiles in `testdata/benchmarks/scale-profiles.yaml` (default orchestrator: GPT-4.1 at [$2/$8 per M](https://openai.com/api/pricing/)):
 
 | Profile | Incidents/mo | Codegen/mo | Context multiplier | Monthly savings | Annual savings |
 |---------|--------------|------------|--------------------|-----------------|--------------|
-| `solo_developer` | 4 | 25 | 1.0× | $0.29 | $3.48 |
-| `platform_team` | 12 | 120 | 2.5× | $1.56 | $18.72 |
-| `enterprise_sre` | 40 | 400 | 5.0× | $14.40 | $172.80 |
+| `solo_developer` | 4 | 25 | 1.0× | $0.15 | $1.80 |
+| `platform_team` | 12 | 120 | 2.5× | $1.83 | $21.96 |
+| `enterprise_sre` | 40 | 400 | 5.0× | $12.29 | $147.48 |
 
 ### How projection works
 

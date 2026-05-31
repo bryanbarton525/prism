@@ -151,11 +151,8 @@ func ScaledSavingsPerRun(ref ScenarioResults, rates Rates, multiplier float64) (
 	}
 	scaledIn := float64(ref.OrchestratorOnly.InputTokens) * multiplier
 	baselineUSD = CostUSD(int(scaledIn), ref.OrchestratorOnly.OutputTokens, rates.Orchestrator)
-	delegatedUSD = ref.PrismDelegated.CostUSD
-	if delegatedUSD == 0 {
-		delegatedUSD = CostUSD(ref.PrismDelegated.InputTokens, ref.PrismDelegated.OutputTokens, rates.Orchestrator)
-	}
-	savingsUSD = roundUSD(baselineUSD - delegatedUSD)
+	delegatedUSD = CostUSD(ref.PrismDelegated.InputTokens, ref.PrismDelegated.OutputTokens, rates.Orchestrator)
+	savingsUSD = baselineUSD - delegatedUSD
 	inputSaved = int(scaledIn) - ref.PrismDelegated.InputTokens
 	if inputSaved < 0 {
 		inputSaved = 0
@@ -218,8 +215,8 @@ func ProjectMonthly(root string) (MonthlyProjectionReport, error) {
 			CodegenTasksPerMonth:   codegen,
 			ContextSizeMultiplier:  prof.ContextSizeMultiplier,
 			IncidentScenario:       incidentKey,
-			SavingsPerIncidentUSD:  incSave,
-			SavingsPerCodegenUSD:   codeSave,
+			SavingsPerIncidentUSD:  round4USD(incSave),
+			SavingsPerCodegenUSD:   round4USD(codeSave),
 			MonthlyBaselineUSD:     roundUSD(monthlyBaseline),
 			MonthlyDelegatedUSD:    roundUSD(monthlyDelegated),
 			MonthlyNetSavingsUSD:   monthlyNet,
@@ -246,10 +243,11 @@ func ScaledBaselineOnly(ref ScenarioResults, rates Rates, multiplier float64) fl
 }
 
 func ScaledDelegatedOnly(ref ScenarioResults, rates Rates) float64 {
-	if ref.PrismDelegated.CostUSD > 0 {
-		return ref.PrismDelegated.CostUSD
-	}
 	return CostUSD(ref.PrismDelegated.InputTokens, ref.PrismDelegated.OutputTokens, rates.Orchestrator)
+}
+
+func round4USD(v float64) float64 {
+	return math.Round(v*10000) / 10000
 }
 
 func roundUSD(v float64) float64 {
@@ -309,9 +307,9 @@ func buildModelShowcase(results map[string]ScenarioResults, profiles ScaleProfil
 		rateConfigured := m.InputPerMillion > 0 || m.OutputPerMillion > 0
 		rows = append(rows, ModelShowcaseRow{
 			Model:                     m.ID,
-			IncidentSavingsUSD:        incSave,
-			IncidentAtScaleSavingsUSD: incScaleSave,
-			CodegenSavingsUSD:         codeSave,
+			IncidentSavingsUSD:        round4USD(incSave),
+			IncidentAtScaleSavingsUSD: round4USD(incScaleSave),
+			CodegenSavingsUSD:         round4USD(codeSave),
 			MonthlySavingsUSD:         monthly,
 			AnnualSavingsUSD:          roundUSD(monthly * 12),
 			RateConfigured:            rateConfigured,
@@ -369,7 +367,7 @@ func formatProjectionMarkdown(r MonthlyProjectionReport, rates Rates, root strin
 				m.Model, m.IncidentSavingsUSD, m.IncidentAtScaleSavingsUSD, m.CodegenSavingsUSD, m.MonthlySavingsUSD, m.AnnualSavingsUSD))
 		}
 		b.WriteString("\n")
-		b.WriteString("Rates source: `testdata/benchmarks/orchestrator-models.yaml` (replace placeholders with real provider pricing).\n\n")
+		b.WriteString("Rates source: `testdata/benchmarks/orchestrator-models.yaml` (OpenAI + Anthropic list pricing, May 2026).\n\n")
 	}
 
 	b.WriteString("## Monthly profiles\n\n")

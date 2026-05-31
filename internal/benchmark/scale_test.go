@@ -16,8 +16,9 @@ func TestScaledSavingsPerRun(t *testing.T) {
 	if base <= ref.OrchestratorOnly.CostUSD {
 		t.Errorf("scaled baseline should exceed base: %f", base)
 	}
-	if del != ref.PrismDelegated.CostUSD {
-		t.Errorf("delegated cost should stay flat: got %f", del)
+	wantDel := CostUSD(ref.PrismDelegated.InputTokens, ref.PrismDelegated.OutputTokens, rates.Orchestrator)
+	if del != wantDel {
+		t.Errorf("delegated cost should stay flat at %f: got %f", wantDel, del)
 	}
 	if save <= 0 {
 		t.Errorf("expected positive savings, got %f", save)
@@ -87,5 +88,29 @@ func TestLoadOrchestratorModelProfiles(t *testing.T) {
 		if !seen {
 			t.Errorf("missing model profile %q", id)
 		}
+	}
+}
+
+func TestModelShowcaseDifferentiatedRates(t *testing.T) {
+	root := repoRoot(t)
+	report, err := ProjectMonthly(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byModel := make(map[string]ModelShowcaseRow, len(report.ModelShowcase))
+	for _, row := range report.ModelShowcase {
+		byModel[row.Model] = row
+	}
+	gpt54 := byModel["gpt-5.4"]
+	gpt55 := byModel["gpt-5.5"]
+	sonnet := byModel["claude-sonnet-4.6"]
+	if gpt55.MonthlySavingsUSD <= gpt54.MonthlySavingsUSD {
+		t.Errorf("gpt-5.5 monthly %.2f should exceed gpt-5.4 %.2f", gpt55.MonthlySavingsUSD, gpt54.MonthlySavingsUSD)
+	}
+	if sonnet.MonthlySavingsUSD >= gpt55.MonthlySavingsUSD {
+		t.Errorf("sonnet monthly %.2f should be below gpt-5.5 %.2f", sonnet.MonthlySavingsUSD, gpt55.MonthlySavingsUSD)
+	}
+	if gpt54.IncidentSavingsUSD == gpt55.IncidentSavingsUSD {
+		t.Errorf("per-run incident savings should differ between gpt-5.4 and gpt-5.5")
 	}
 }
