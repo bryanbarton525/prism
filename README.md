@@ -82,7 +82,7 @@ Full breakdown: **[docs/comparison.md](docs/comparison.md)**
 
 ## Proof it saves tokens
 
-Live benchmarks (Ollama `llama3.1:8b`, orchestrator priced as GPT-4.1):
+Live benchmarks (Ollama `llama3.1:8b`, orchestrator priced as GPT-4.1 at [$2.00 / $8.00 per M](https://openai.com/api/pricing/) — see `testdata/benchmarks/rates.yaml`):
 
 | Scenario | Input reduction | Savings/run |
 |----------|-----------------|-------------|
@@ -97,24 +97,21 @@ prism benchmark project    # monthly/annual projection
 
 ### Orchestrator showcase matrix
 
-`prism benchmark project` now outputs a comparison matrix for:
-- `gpt-5.4`
-- `gpt-5.5`
-- `claude-opus-4.7`
-- `claude-opus-4.6`
-- `claude-sonnet-4.6`
+`prism benchmark project` outputs a comparison matrix for flagship orchestrator models using **May 2026 provider list pricing** (configured in `testdata/benchmarks/orchestrator-models.yaml`):
 
-Current showcase output (from committed benchmark fixtures + placeholder rates):
+| Orchestrator model | Input / output ($/M) | Incident $/run | At-scale $/run | Codegen $/run | Monthly (enterprise) | Annual (enterprise) |
+|--------------------|----------------------|----------------|----------------|---------------|----------------------|---------------------|
+| `gpt-5.4` | $2.50 / $15.00 | $0.0065 | $0.0124 | $0.0065 | $15.45 | $185.40 |
+| `gpt-5.5` | $5.00 / $30.00 | $0.0130 | $0.0248 | $0.0129 | $30.89 | $370.68 |
+| `claude-opus-4.7` | $5.00 / $25.00 | $0.0131 | $0.0246 | $0.0127 | $30.81 | $369.72 |
+| `claude-opus-4.6` | $5.00 / $25.00 | $0.0131 | $0.0246 | $0.0127 | $30.81 | $369.72 |
+| `claude-sonnet-4.6` | $3.00 / $15.00 | $0.0079 | $0.0148 | $0.0076 | $18.48 | $221.76 |
 
-| Orchestrator model | Incident $/run | At-scale incident $/run | Codegen $/run | Monthly (enterprise) | Annual (enterprise) |
-|--------------------|----------------|--------------------------|---------------|----------------------|---------------------|
-| `gpt-5.4` | $0.01 | $0.01 | $0.01 | $14.40 | $172.80 |
-| `gpt-5.5` | $0.01 | $0.01 | $0.01 | $14.40 | $172.80 |
-| `claude-opus-4.7` | $0.01 | $0.01 | $0.01 | $14.40 | $172.80 |
-| `claude-opus-4.6` | $0.01 | $0.01 | $0.01 | $14.40 | $172.80 |
-| `claude-sonnet-4.6` | $0.01 | $0.01 | $0.01 | $14.40 | $172.80 |
+**Pricing sources (May 2026):**
+- [OpenAI API pricing](https://openai.com/api/pricing/) — `gpt-5.4`, `gpt-5.5`
+- [Anthropic pricing](https://www.anthropic.com/pricing) — `claude-opus-4.6`, `claude-opus-4.7`, `claude-sonnet-4.6`
 
-Rates are configured in `testdata/benchmarks/orchestrator-models.yaml`. These values are currently placeholder baselines; replace with real provider pricing for production-accurate dollar comparisons.
+Higher-priced orchestrators save more dollars per run because the same **77–93% input reduction** applies to a larger baseline bill. Opus 4.6 and 4.7 share Anthropic's current Opus rate card, so their savings match. Adjust rates in `orchestrator-models.yaml` for your contract or caching discounts.
 
 Details, scenarios, and Cursor A/B steps: **[docs/benchmark-scale.md](docs/benchmark-scale.md)** · **[docs/benchmark-homelab-incident.md](docs/benchmark-homelab-incident.md)**
 

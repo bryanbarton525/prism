@@ -1,37 +1,33 @@
 # Orchestrator model showcase profiles for `prism benchmark project`.
-# Update rates to your actual billing before relying on dollar figures.
+# Rates sourced from provider list pricing (May 2026). Adjust for your contract,
+# caching, and batch discounts.
 #
-# Requested showcase set:
-# - gpt-5.4
-# - gpt-5.5
-# - claude-opus-4.7
-# - claude-opus-4.6
-# - claude-sonnet-4.6
-#
-# Defaults below are placeholders using the current gpt-4.1 rates baseline.
+# Sources:
+# - OpenAI API pricing: https://openai.com/api/pricing/
+# - Anthropic Claude pricing: https://www.anthropic.com/pricing
 
 models:
   - id: gpt-5.4
-    input_per_million: 2.00
-    output_per_million: 8.00
-    note: "placeholder rates; replace with current provider pricing"
+    input_per_million: 2.50
+    output_per_million: 15.00
+    note: "OpenAI list pricing (May 2026)"
 
   - id: gpt-5.5
-    input_per_million: 2.00
-    output_per_million: 8.00
-    note: "placeholder rates; replace with current provider pricing"
+    input_per_million: 5.00
+    output_per_million: 30.00
+    note: "OpenAI list pricing (May 2026)"
 
   - id: claude-opus-4.7
-    input_per_million: 2.00
-    output_per_million: 8.00
-    note: "placeholder rates; replace with current provider pricing"
+    input_per_million: 5.00
+    output_per_million: 25.00
+    note: "Anthropic Opus list pricing (May 2026)"
 
   - id: claude-opus-4.6
-    input_per_million: 2.00
-    output_per_million: 8.00
-    note: "placeholder rates; replace with current provider pricing"
+    input_per_million: 5.00
+    output_per_million: 25.00
+    note: "Anthropic Opus list pricing (May 2026)"
 
   - id: claude-sonnet-4.6
-    input_per_million: 2.00
-    output_per_million: 8.00
-    note: "placeholder rates; replace with current provider pricing"
+    input_per_million: 3.00
+    output_per_million: 15.00
+    note: "Anthropic Sonnet list pricing (May 2026)"
