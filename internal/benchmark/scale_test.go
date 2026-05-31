@@ -107,8 +107,8 @@ func TestModelShowcaseDifferentiatedRates(t *testing.T) {
 		t.Fatalf("showcase tokens without=%d with=%d, want 6191/363",
 			report.Showcase.WithoutInputTokens, report.Showcase.WithInputTokens)
 	}
-	if report.Showcase.TasksPerDay != 12 || report.Showcase.TasksPerMonth != 240 || report.Showcase.TasksPerYear != 2880 {
-		t.Fatalf("showcase workload = %d/%d/%d, want 12/240/2880",
+	if report.Showcase.TasksPerDay != 4 || report.Showcase.TasksPerMonth != 80 || report.Showcase.TasksPerYear != 960 {
+		t.Fatalf("showcase workload = %d/%d/%d, want 4/80/960",
 			report.Showcase.TasksPerDay, report.Showcase.TasksPerMonth, report.Showcase.TasksPerYear)
 	}
 	byModel := make(map[string]ModelShowcaseRow, len(report.ModelShowcase))
@@ -122,12 +122,12 @@ func TestModelShowcaseDifferentiatedRates(t *testing.T) {
 		t.Errorf("gpt-5.4 costs = %.4f/%.4f saved %.4f, want 0.0276/0.0170 saved 0.0107",
 			gpt54.WithoutPrismUSD, gpt54.WithPrismUSD, gpt54.SavedPerTaskUSD)
 	}
-	if gpt55.SavedPerTaskUSD != 0.0213 || gpt55.WithoutPerMonthUSD != 13.27 || gpt55.WithPerMonthUSD != 8.16 {
-		t.Errorf("gpt-5.5 task=%.4f mo without/with=%.2f/%.2f, want 0.0213 saved, 13.27/8.16 mo",
+	if gpt55.SavedPerTaskUSD != 0.0213 || gpt55.WithoutPerMonthUSD != 4.42 || gpt55.WithPerMonthUSD != 2.72 {
+		t.Errorf("gpt-5.5 task=%.4f mo without/with=%.2f/%.2f, want 0.0213 saved, 4.42/2.72 mo",
 			gpt55.SavedPerTaskUSD, gpt55.WithoutPerMonthUSD, gpt55.WithPerMonthUSD)
 	}
-	if gpt54.WithoutPerYearUSD != 79.49 || gpt54.WithPerYearUSD != 48.96 {
-		t.Errorf("gpt-5.4 yearly without/with = %.2f/%.2f, want 79.49/48.96",
+	if gpt54.WithoutPerYearUSD != 26.5 || gpt54.WithPerYearUSD != 16.32 {
+		t.Errorf("gpt-5.4 yearly without/with = %.2f/%.2f, want 26.50/16.32",
 			gpt54.WithoutPerYearUSD, gpt54.WithPerYearUSD)
 	}
 	if gpt55.SavedPerTaskUSD <= gpt54.SavedPerTaskUSD {

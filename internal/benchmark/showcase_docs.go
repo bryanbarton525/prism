@@ -22,27 +22,37 @@ func FormatShowcaseMarkdown(r MonthlyProjectionReport) string {
 
 	s := r.Showcase
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("**1 engineer · %d tasks/day · %d tasks/month · %d tasks/year** (`%s` live benchmark, %s)\n\n",
-		s.TasksPerDay, s.TasksPerMonth, s.TasksPerYear, s.ScenarioID, loadScenarioMeasuredAt(s.ScenarioID)))
-	b.WriteString(fmt.Sprintf("Orchestrator tokens per task: **without Prism** `%s in / %s out` → **with Prism** `%s in / %s out` (**%.1f%% input reduction**)\n\n",
+	b.WriteString("### Executive benchmark view\n\n")
+	b.WriteString(fmt.Sprintf("**Workload assumption (per engineer):** %d substantial coding tasks/day, %d tasks/month, %d tasks/year.\n\n",
+		s.TasksPerDay, s.TasksPerMonth, s.TasksPerYear))
+	b.WriteString(fmt.Sprintf("**Task definition:** one completed coding request equal to `%s` (live run on %s), including implementation output + README.\n\n",
+		s.ScenarioID, loadScenarioMeasuredAt(s.ScenarioID)))
+	b.WriteString(fmt.Sprintf("Orchestrator token footprint per task: **without Prism** `%s in / %s out` → **with Prism** `%s in / %s out` (**%.1f%% input reduction**).\n\n",
 		formatInt(s.WithoutInputTokens), formatInt(s.WithoutOutputTokens),
 		formatInt(s.WithInputTokens), formatInt(s.WithOutputTokens),
 		s.InputReductionPercent))
 
-	b.WriteString(fmt.Sprintf("| Model | Without ($/task) | With ($/task) | Daily (%d tasks, without / with) | Monthly (%d tasks, without / with) | Yearly (%d tasks, without / with) |\n",
-		s.TasksPerDay, s.TasksPerMonth, s.TasksPerYear))
-	b.WriteString("|---|---:|---:|---:|---:|---:|\n")
+	b.WriteString("| Model | Monthly cost without Prism | Monthly cost with Prism | Monthly savings | Annual savings |\n")
+	b.WriteString("|---|---:|---:|---:|---:|\n")
 	for _, m := range r.ModelShowcase {
-		b.WriteString(fmt.Sprintf("| `%s` | $%.4f | $%.4f | $%.4f / $%.4f | $%.2f / $%.2f | $%.2f / $%.2f |\n",
+		monthlySavings := roundUSD(m.WithoutPerMonthUSD - m.WithPerMonthUSD)
+		annualSavings := roundUSD(m.WithoutPerYearUSD - m.WithPerYearUSD)
+		b.WriteString(fmt.Sprintf("| `%s` | $%.2f | $%.2f | $%.2f | $%.2f |\n",
 			m.Model,
-			m.WithoutPrismUSD, m.WithPrismUSD,
-			m.WithoutPerDayUSD, m.WithPerDayUSD,
-			m.WithoutPerMonthUSD, m.WithPerMonthUSD,
-			m.WithoutPerYearUSD, m.WithPerYearUSD))
+			m.WithoutPerMonthUSD, m.WithPerMonthUSD, monthlySavings, annualSavings))
 	}
 	b.WriteString("\n")
-	b.WriteString("Pricing: [OpenAI](https://openai.com/api/pricing/) · [Anthropic](https://www.anthropic.com/pricing) · rates in `testdata/benchmarks/orchestrator-models.yaml`. ")
-	b.WriteString("Token counts: `testdata/benchmarks/results.yaml`. Regenerate: `prism benchmark project --write`.\n")
+
+	b.WriteString("| Model | Without ($/task) | With ($/task) | Savings/task | Daily savings |\n")
+	b.WriteString("|---|---:|---:|---:|---:|\n")
+	for _, m := range r.ModelShowcase {
+		dailySavings := round4USD(m.WithoutPerDayUSD - m.WithPerDayUSD)
+		b.WriteString(fmt.Sprintf("| `%s` | $%.4f | $%.4f | $%.4f | $%.4f |\n",
+			m.Model, m.WithoutPrismUSD, m.WithPrismUSD, m.SavedPerTaskUSD, dailySavings))
+	}
+	b.WriteString("\n")
+	b.WriteString("Pricing sources: [OpenAI](https://openai.com/api/pricing/) and [Anthropic](https://www.anthropic.com/pricing/) list rates configured in `testdata/benchmarks/orchestrator-models.yaml`. ")
+	b.WriteString("Token counts come from `testdata/benchmarks/results.yaml`. Regenerate with `prism benchmark project --write`.\n")
 
 	return b.String()
 }
