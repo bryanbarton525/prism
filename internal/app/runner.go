@@ -260,14 +260,16 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 
 	// ── 10. Build normalized result ───────────────────────────────────────
 	rawText := chatResp.Message.Content
+	parsed := result.ParseAgentOutput(rawText, result.DefaultCompactMaxChars)
 	return result.RunResult{
 		AgentID:   req.AgentID,
 		Model:     chatResp.Model,
 		Status:    result.StatusOK,
-		Summary:   rawText,
-		RawOutput: rawText,
-		Findings:  []result.Finding{},
-		Artifacts: []result.Artifact{},
+		Summary:   parsed.Summary,
+		RawOutput: parsed.RawOutput,
+		Findings:  parsed.Findings,
+		Artifacts: parsed.Artifacts,
+		Confidence: parsed.Confidence,
 		Usage: result.Usage{
 			PromptTokensEstimate:     chatResp.PromptEvalCount,
 			CompletionTokensEstimate: chatResp.EvalCount,

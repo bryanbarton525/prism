@@ -63,6 +63,7 @@ func init() {
 	rootCmd.AddCommand(newRunCmd())
 	rootCmd.AddCommand(newConfigCmd())
 	rootCmd.AddCommand(newMCPCmd())
+	rootCmd.AddCommand(newBenchmarkCmd())
 }
 
 func envOrDefault(key, def string) string {

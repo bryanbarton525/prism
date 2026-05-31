@@ -1,0 +1,12 @@
+{
+  "deployment": "payments-api",
+  "namespace": "payments",
+  "replicas": 3,
+  "ready": 1,
+  "updated": 3,
+  "conditions": [
+    {"type": "Progressing", "status": "False", "reason": "ProgressDeadlineExceeded"},
+    {"type": "Available", "status": "False"}
+  ],
+  "revision": 14
+}

@@ -22,13 +22,15 @@ Each benchmark scenario records:
 
 Benchmark runs emit a summary report (JSON + human-readable markdown) with:
 
-- **Token reduction** - percent decrease in orchestrator tokens vs baseline.
+- **Token reduction** - percent decrease in orchestrator **input** tokens vs baseline (primary savings driver).
 - **Cost delta** - orchestrator-only estimated cost minus Prism-delegated
   estimated cost (including local compute treated as $0 or configurable).
 - **Time delta** - wall-clock difference; Prism may be slower per step but
   cheaper overall when the orchestrator does less work.
 - **Pass-rate** - fraction of scenarios that pass assertions in each mode.
 - **Latency compliance** - fraction of delegated runs within per-agent budgets.
+- **Monthly projection** - `prism benchmark project` extrapolates committed
+  per-run results using volume profiles in `scale-profiles.yaml`.
 
 Example report shape:
 
@@ -49,7 +51,18 @@ Example report shape:
 ```
 
 Cost rates live in test configuration (for example `testdata/benchmarks/rates.yaml`)
-so CI does not depend on live billing APIs.
+so CI does not depend on live billing APIs. Committed live measurements live in
+`testdata/benchmarks/results.yaml`; monthly extrapolation in `scale-profiles.yaml`.
+
+### Example monthly projection (2025-05-31)
+
+| Profile | Monthly savings | Annual savings |
+| --- | --- | --- |
+| Solo developer | $0.29 | $3.48 |
+| Platform team | $1.56 | $18.72 |
+| Enterprise SRE | $14.40 | $172.80 |
+
+Run `prism benchmark project` after updating `results.yaml`.
 
 ## Targets (initial)
 

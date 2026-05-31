@@ -1,0 +1,1 @@
+Workflow deploy-homelab run 987654 failed at kubectl apply: payments-api progress deadline exceeded (1/3 ready). CI failure aligns with stalled Kubernetes rollout.

@@ -1,0 +1,1 @@
+v2.4.0 breaking: payments-api requires --metrics-port-v2 and payments.apiVersion v2; ETL extract must use API v2 endpoints.

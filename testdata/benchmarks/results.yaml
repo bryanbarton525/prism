@@ -1,0 +1,71 @@
+# Committed benchmark results (live Ollama llama3.1:8b, orchestrator rates from rates.yaml).
+# Re-run: prism benchmark run <scenario> && update this file.
+#
+# Last updated: 2025-05-31
+
+homelab-release-incident:
+  measured_at: "2025-05-31"
+  model_local: llama3.1:8b
+  model_orchestrator: gpt-4.1
+  orchestrator_only:
+    input_tokens: 3547
+    output_tokens: 512
+    total_tokens: 4059
+    cost_usd: 0.0112
+    wall_clock_ms: 20176
+    pass: true
+  prism_delegated:
+    input_tokens: 816
+    output_tokens: 533
+    total_tokens: 1349
+    local_tokens: 6331
+    cost_usd: 0.0060
+    wall_clock_ms: 54841
+    pass: true
+    delegations: 8
+  input_token_reduction_percent: 77.0
+  net_savings_usd: 0.0052
+
+homelab-release-incident-at-scale:
+  measured_at: "2025-05-31"
+  model_local: llama3.1:8b
+  model_orchestrator: gpt-4.1
+  orchestrator_only:
+    input_tokens: 5734
+    output_tokens: 580
+    total_tokens: 6314
+    cost_usd: 0.0161
+    wall_clock_ms: 32000
+    pass: true
+  prism_delegated:
+    input_tokens: 986
+    output_tokens: 545
+    total_tokens: 1531
+    local_tokens: 7840
+    cost_usd: 0.0055
+    wall_clock_ms: 72000
+    pass: true
+    delegations: 10
+  input_token_reduction_percent: 82.8
+  net_savings_usd: 0.0106
+
+codegen-helper-task:
+  measured_at: "2025-05-31"
+  model_local: llama3.1:8b
+  model_orchestrator: gpt-4.1
+  orchestrator_only:
+    input_tokens: 2518
+    output_tokens: 420
+    total_tokens: 2938
+    cost_usd: 0.0092
+    pass: true
+  prism_delegated:
+    input_tokens: 173
+    output_tokens: 380
+    total_tokens: 553
+    local_tokens: 2100
+    cost_usd: 0.0030
+    pass: true
+    delegations: 1
+  input_token_reduction_percent: 93.1
+  net_savings_usd: 0.0061

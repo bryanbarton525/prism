@@ -1,0 +1,24 @@
+id: codegen-helper-task
+title: Go helper codegen (single delegation)
+description: >
+  Typical codegen offload: orchestrator building a package delegates one helper
+  function to go-helper instead of loading the full skill library.
+
+brief_file: brief.md
+
+delegations:
+  - id: helper
+    agent_id: go-helper
+    skill_names: [go-helper-fn]
+    task_file: tasks/helper.md
+    evidence_files: [evidence/package-context.go]
+    mock_response_file: responses/helper.txt
+
+assertions:
+  required_phrases:
+    - "ParseLabels"
+    - "helper"
+
+synthesis:
+  orchestrator_prompt_file: tasks/orchestrator-synthesis.md
+  delegated_prompt_file: tasks/delegated-synthesis.md

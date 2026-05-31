@@ -1,0 +1,1 @@
+v2.4.0 migration: rename --metrics-port to --metrics-port-v2; set payments.apiVersion v2. Argo health checks require sync wave annotations on Deployments.

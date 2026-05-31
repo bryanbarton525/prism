@@ -1,0 +1,1 @@
+{"summary":"ParseLabels helper ready for integration","findings":["map[string]string return","malformed input error path"],"confidence":"high"}

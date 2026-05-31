@@ -1,0 +1,1 @@
+{"summary":"Added ParseMetricsPort helper for v2.4.0 flag","findings":["pure function, no I/O","matches payments-api env pattern"],"confidence":"high","code":"func ParseMetricsPort(env []string) (int, error) { ... }"}

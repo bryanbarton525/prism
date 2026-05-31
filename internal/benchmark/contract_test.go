@@ -2,7 +2,6 @@
 package benchmark
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,20 +13,11 @@ import (
 
 func repoRoot(t *testing.T) string {
 	t.Helper()
-	dir, err := os.Getwd()
+	root, err := FindRepoRoot()
 	if err != nil {
 		t.Fatal(err)
 	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "agents")); err == nil {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Fatal("could not find repo root")
-		}
-		dir = parent
-	}
+	return root
 }
 
 // TestAgentSpecsLoad validates every agents/*.md spec in the repository.
@@ -38,8 +28,8 @@ func TestAgentSpecsLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 	list := reg.List()
-	if len(list) < 4 {
-		t.Fatalf("expected at least 4 agents, got %d", len(list))
+	if len(list) < 6 {
+		t.Fatalf("expected at least 6 agents, got %d", len(list))
 	}
 }
 
@@ -50,8 +40,8 @@ func TestSkillsDiscover(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(skills) < 8 {
-		t.Fatalf("expected at least 8 skills, got %d", len(skills))
+	if len(skills) < 12 {
+		t.Fatalf("expected at least 12 skills, got %d", len(skills))
 	}
 }
 

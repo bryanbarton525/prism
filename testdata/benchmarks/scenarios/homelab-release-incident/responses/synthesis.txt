@@ -1,0 +1,24 @@
+# Homelab incident report
+
+## Executive summary
+
+Root cause: platform v2.4.0 breaking changes (metrics-port-v2 flag and payments.apiVersion v2) were merged in PR #42 without full config/workflow updates, causing CrashLoopBackOff, failed CI deploy-homelab, Argo payments-api OutOfSync, and nightly-etl workflow failure.
+
+## Findings
+
+- **GitHub / PR #42**: Open, not mergeable; deploy-homelab CI failed; review notes Argo degradation.
+- **CI**: kubectl apply exceeded progress deadline (1/3 replicas).
+- **Kubernetes**: CrashLoopBackOff on unknown flag --metrics-port-v2.
+- **Rollout**: payments-api stalled at 1/3 ready.
+- **Argo CD**: payments-api OutOfSync and Degraded.
+- **Argo Workflows**: nightly-etl failed at extract (API v2 config).
+- **Docs / release notes**: breaking metrics and payments API migration required.
+
+## Recommended actions
+
+1. Update payments-api deployment and config for v2.4.0 flags and apiVersion v2.
+2. Fix nightly-etl extract template for API v2.
+3. Re-sync Argo application payments-api after manifest fix.
+4. Re-run PR #42 CI after cluster healthy.
+
+**Confidence:** high

@@ -1,0 +1,16 @@
+{
+  "namespace": "payments",
+  "pods": [
+    {
+      "name": "payments-api-7d9f8c-abc12",
+      "phase": "Running",
+      "ready": false,
+      "reason": "CrashLoopBackOff",
+      "last_exit": 1,
+      "message": "container payments-api: Error: unknown flag --metrics-port-v2 (see platform v2.4.0 migration)"
+    }
+  ],
+  "events": [
+    {"type": "Warning", "reason": "BackOff", "message": "Back-off restarting failed container"}
+  ]
+}

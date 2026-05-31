@@ -1,0 +1,9 @@
+{
+  "workflow": "nightly-etl",
+  "namespace": "data",
+  "phase": "Failed",
+  "failed_node": "extract",
+  "message": "exit code 1: config key payments.apiVersion v2 required (v2.4.0)",
+  "started_at": "2026-05-28T06:00:00Z",
+  "finished_at": "2026-05-28T06:04:12Z"
+}

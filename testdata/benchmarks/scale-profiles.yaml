@@ -1,0 +1,30 @@
+# Monthly usage profiles for prism benchmark project.
+# Savings scale with context_size_multiplier on orchestrator-only baseline input.
+
+profiles:
+  solo_developer:
+    description: One engineer using Cursor + Prism for incidents and occasional codegen.
+    incidents_per_month: 4
+    codegen_tasks_per_month: 25
+    context_size_multiplier: 1.0
+
+  platform_team:
+    description: Five engineers, on-call rotation, active package work, larger repo context.
+    incidents_per_month: 12
+    codegen_tasks_per_month: 120
+    context_size_multiplier: 2.5
+
+  enterprise_sre:
+    description: Twenty engineers, strict compliance rules, long chat threads, full skill library always loaded without MCP.
+    incidents_per_month: 40
+    codegen_tasks_per_month: 400
+    context_size_multiplier: 5.0
+
+# Which committed results.yaml scenarios to use for each task type.
+reference_scenarios:
+  incident: homelab-release-incident
+  incident_at_scale: homelab-release-incident-at-scale
+  codegen: codegen-helper-task
+
+# When projecting at scale, use incident_at_scale for incidents if multiplier >= 2.5
+at_scale_threshold_multiplier: 2.5
