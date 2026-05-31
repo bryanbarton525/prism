@@ -15,6 +15,10 @@ type Scenario struct {
 	Title       string `yaml:"title"`
 	Description string `yaml:"description"`
 	BriefFile   string `yaml:"brief_file"`
+	// OrchestratorLoadFullLibrary controls whether orchestrator-only baseline
+	// loads all skill bodies + constitutions into one prompt.
+	// nil/default = true for backwards compatibility.
+	OrchestratorLoadFullLibrary *bool `yaml:"orchestrator_load_full_library"`
 	// OrchestratorContextFiles are appended to the orchestrator-only prompt only
 	// (simulates Cursor rules, chat history, runbooks — not sent to local agents).
 	OrchestratorContextFiles []string `yaml:"orchestrator_context_files"`
@@ -142,6 +146,13 @@ func (s *Scenario) LoadOrchestratorContext() (string, error) {
 
 func (s *Scenario) SynthesisResponse() (string, error) {
 	return readFile(filepath.Join(s.dir, "responses", "synthesis.txt"))
+}
+
+func (s *Scenario) LoadFullLibrary() bool {
+	if s.OrchestratorLoadFullLibrary == nil {
+		return true
+	}
+	return *s.OrchestratorLoadFullLibrary
 }
 
 func readFile(path string) (string, error) {
