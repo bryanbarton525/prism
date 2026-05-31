@@ -1,0 +1,1 @@
+PR #42 is open and not mergeable. deploy-homelab check failed; platform-bot requested changes citing payments-api OutOfSync. Findings: CI blocked on deploy-homelab; review ties failure to Argo sync.

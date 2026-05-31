@@ -1,0 +1,78 @@
+id: homelab-release-incident
+title: Homelab release incident (all 8 skills)
+description: >
+  Mock post-upgrade incident spanning GitHub CI, Kubernetes, Argo CD/Workflows,
+  and documentation. Exercises every Prism agent and skill in one coordinated run.
+
+brief_file: brief.md
+
+delegations:
+  - id: gh-pr
+    agent_id: github-cli
+    skill_names: [gh-pr-triage]
+    task_file: tasks/gh-pr.md
+    evidence_files: [evidence/gh-pr.json]
+    mock_response_file: responses/gh-pr.txt
+
+  - id: gh-actions
+    agent_id: github-cli
+    skill_names: [gh-actions-diagnostics]
+    task_file: tasks/gh-actions.md
+    evidence_files: [evidence/gh-actions.json]
+    mock_response_file: responses/gh-actions.txt
+
+  - id: k8s-triage
+    agent_id: kubectl
+    skill_names: [kubectl-triage]
+    task_file: tasks/k8s-triage.md
+    evidence_files: [evidence/k8s-pods.json]
+    mock_response_file: responses/k8s-triage.txt
+
+  - id: k8s-rollout
+    agent_id: kubectl
+    skill_names: [k8s-rollout-diagnostics]
+    task_file: tasks/k8s-rollout.md
+    evidence_files: [evidence/k8s-rollout.json]
+    mock_response_file: responses/k8s-rollout.txt
+
+  - id: argo-sync
+    agent_id: argo
+    skill_names: [argo-sync-health]
+    task_file: tasks/argo-sync.md
+    evidence_files: [evidence/argo-app.json]
+    mock_response_file: responses/argo-sync.txt
+
+  - id: argo-workflow
+    agent_id: argo
+    skill_names: [argo-workflow-debug]
+    task_file: tasks/argo-workflow.md
+    evidence_files: [evidence/argo-workflow.json]
+    mock_response_file: responses/argo-workflow.txt
+
+  - id: docs-harvest
+    agent_id: web-docs-search
+    skill_names: [docs-source-harvest]
+    task_file: tasks/docs-harvest.md
+    evidence_files: [evidence/docs-upgrade.md]
+    mock_response_file: responses/docs-harvest.txt
+
+  - id: release-notes
+    agent_id: web-docs-search
+    skill_names: [release-notes-scan]
+    task_file: tasks/release-notes.md
+    evidence_files: [evidence/release-notes.md]
+    mock_response_file: responses/release-notes.txt
+
+assertions:
+  required_phrases:
+    - "#42"
+    - "CI"
+    - "CrashLoopBackOff"
+    - "OutOfSync"
+    - "workflow"
+    - "breaking"
+    - "payments-api"
+
+synthesis:
+  orchestrator_prompt_file: tasks/orchestrator-synthesis.md
+  delegated_prompt_file: tasks/delegated-synthesis.md

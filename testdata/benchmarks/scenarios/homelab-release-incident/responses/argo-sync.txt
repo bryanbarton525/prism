@@ -1,0 +1,1 @@
+Application payments-api is OutOfSync and Degraded. Diff shows metrics-port-v2 in desired manifest not applied; last sync Failed.

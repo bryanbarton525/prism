@@ -1,0 +1,9 @@
+{
+  "application": "payments-api",
+  "project": "homelab",
+  "sync_status": "OutOfSync",
+  "health": "Degraded",
+  "revision": "abc123def",
+  "diff_summary": "Deployment spec flag metrics-port-v2 not in live cluster",
+  "last_sync": {"status": "Failed", "message": "one or more objects failed to apply"}
+}

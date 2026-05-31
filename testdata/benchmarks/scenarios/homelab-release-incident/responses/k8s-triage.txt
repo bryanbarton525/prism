@@ -1,0 +1,1 @@
+Pod payments-api-7d9f8c-abc12 is CrashLoopBackOff: container exit 1, unknown flag --metrics-port-v2 per v2.4.0 migration. Events show BackOff restarting failed container.

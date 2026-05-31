@@ -82,6 +82,7 @@ Global flags (all subcommands):
 | `prism run <id> --skills <name>...` | Run one agent (see flags below) |
 | `prism config doctor [--json]` | Connectivity and registry diagnostics |
 | `prism mcp serve` | Start MCP server on stdio |
+| `prism benchmark run [scenario]` | Compare no-MCP vs MCP token/cost/time |
 
 **`prism run` flags**
 
@@ -216,11 +217,26 @@ go test ./...
 
 Contract tests under `internal/benchmark/` validate all `agents/*.md` and `skills/*` layouts. Integration tests against a live Ollama server are not required for default CI.
 
+## Benchmark suite
+
+Golden scenario **`homelab-release-incident`** uses all **8 skills** across 4 agents in a mock post-upgrade incident (GitHub CI, Kubernetes, Argo CD/Workflows, docs).
+
+Compare **orchestrator-only** (no MCP — one huge prompt) vs **Prism-delegated** (eight local runs + short synthesis):
+
+```bash
+prism benchmark run homelab-release-incident              # real Ollama (default)
+prism benchmark run homelab-release-incident --mock       # offline simulation
+prism benchmark run homelab-release-incident --output /tmp/report.md
+```
+
+See [Benchmark: homelab release incident](docs/benchmark-homelab-incident.md) for the manual Cursor workflow (without MCP vs with MCP).
+
 ## Documentation
 
 | Document | Contents |
 |----------|----------|
 | [docs/usage.md](docs/usage.md) | Detailed CLI/MCP usage, examples, troubleshooting |
+| [docs/benchmark-homelab-incident.md](docs/benchmark-homelab-incident.md) | Full-skill benchmark scenario and Cursor A/B steps |
 | [docs/implementation-plan.md](docs/implementation-plan.md) | Architecture, milestones, design decisions |
 | [docs/success-metrics.md](docs/success-metrics.md) | Benchmark targets and report format |
 | [docs/tooling-references.md](docs/tooling-references.md) | Dependencies and external specs |

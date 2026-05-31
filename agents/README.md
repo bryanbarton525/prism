@@ -41,6 +41,8 @@ spec body or referenced via `constitution_path` until migration completes.
 - `agents/web-docs-search.md`
 - `agents/kubectl.md`
 - `agents/argo.md`
+- `agents/go-helper.md` — small Go helpers and pure utilities
+- `agents/go-scaffold.md` — package boilerplate and test scaffolds
 
 Each spec uses Markdown + YAML frontmatter and references a matching
 constitution plus an `allowed_skills` list.

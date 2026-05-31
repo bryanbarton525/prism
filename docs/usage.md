@@ -8,29 +8,27 @@ This guide covers day-to-day use of the Prism CLI and MCP server as implemented 
 2. **Install** the binary: `go install ./cmd/prism`
 3. **Start Ollama** and confirm it responds: `curl http://127.0.0.1:11434/api/version`
 4. **Pull models** used by your agents (see `model:` in `agents/*.md`), e.g.:
-
-   ```bash
+  ```bash
    ollama pull llama3.1:8b
-   ```
-
+  ```
 5. **Run doctor**:
-
-   ```bash
+  ```bash
    prism config doctor
-   ```
-
+  ```
    A `warn` on `agent_models` means Ollama is up but the tag in the agent spec is not installed yet.
 
 ## Configuration
 
-Prism resolves paths relative to **`--root`** (default: current working directory).
+Prism resolves paths relative to `**--root**` (default: current working directory).
 
-| Setting | Flag | Environment variable |
-|---------|------|-------------------|
-| Project root | `--root` | — |
-| Agent specs | `--agent-dir` | `PRISM_AGENT_DIR` |
-| Skills | `--skills-dir` | — |
-| Ollama URL | `--ollama-host` | `PRISM_OLLAMA_HOST` |
+
+| Setting      | Flag            | Environment variable |
+| ------------ | --------------- | -------------------- |
+| Project root | `--root`        | —                    |
+| Agent specs  | `--agent-dir`   | `PRISM_AGENT_DIR`    |
+| Skills       | `--skills-dir`  | —                    |
+| Ollama URL   | `--ollama-host` | `PRISM_OLLAMA_HOST`  |
+
 
 Example running from another directory:
 
@@ -110,7 +108,7 @@ Checks include:
 - Logging: **stderr** only (`[prism-mcp] ...`)
 - Same `AgentRunner` as the CLI — tool outputs match CLI JSON shapes
 
-Always pass **`--root`** to the absolute path of this repository when the MCP host’s working directory is not the repo root.
+Always pass `**--root`** to the absolute path of this repository when the MCP host’s working directory is not the repo root.
 
 ### Cursor configuration
 
@@ -197,25 +195,39 @@ Suggested order:
 ### New skill
 
 1. Create `skills/<name>/` with:
-   - `SKILL.md` (frontmatter `name` must match directory name)
-   - `references/REFERENCE.md`
-   - `scripts/collect.sh`
+  - `SKILL.md` (frontmatter `name` must match directory name)
+  - `references/REFERENCE.md`
+  - `scripts/collect.sh`
 2. Add `<name>` to an agent’s `allowed_skills`.
 3. Verify: `go test ./internal/benchmark/...`
 
 ## Troubleshooting
 
-| Problem | Likely cause | Fix |
-|---------|----------------|-----|
-| `no agents found` | Wrong `--root` or cwd | `cd` to repo or set `--root` |
-| MCP tools missing in Cursor | Bad `command` path or MCP not reloaded | Use absolute path to `prism`; reload MCP |
-| `validation_fail` for skills | Skill not in `allowed_skills` | Check `prism agent show <id>` |
-| `error` / timeout on run | Ollama down or slow | `prism config doctor`; increase `latency_budget_ms` |
-| Empty or poor model output | Wrong/missing model | `ollama list`; pull or edit `model:` in spec |
-| MCP hangs | Inspecting stdout | Use Inspector or Cursor; don’t run `mcp serve` interactively in a terminal |
+
+| Problem                      | Likely cause                           | Fix                                                                        |
+| ---------------------------- | -------------------------------------- | -------------------------------------------------------------------------- |
+| `no agents found`            | Wrong `--root` or cwd                  | `cd` to repo or set `--root`                                               |
+| MCP tools missing in Cursor  | Bad `command` path or MCP not reloaded | Use absolute path to `prism`; reload MCP                                   |
+| `validation_fail` for skills | Skill not in `allowed_skills`          | Check `prism agent show <id>`                                              |
+| `error` / timeout on run     | Ollama down or slow                    | `prism config doctor`; increase `latency_budget_ms`                        |
+| Empty or poor model output   | Wrong/missing model                    | `ollama list`; pull or edit `model:` in spec                               |
+| MCP hangs                    | Inspecting stdout                      | Use Inspector or Cursor; don’t run `mcp serve` interactively in a terminal |
+
+
+## Benchmark comparison (no MCP vs MCP)
+
+Run the all-skill mock incident and print a comparison report:
+
+```bash
+prism benchmark run homelab-release-incident
+```
+
+See [benchmark-homelab-incident.md](benchmark-homelab-incident.md) for the full scenario, automated metrics, and manual Cursor steps.
 
 ## Related docs
 
 - [Implementation plan](implementation-plan.md) — architecture and future milestones
 - [Success metrics](success-metrics.md) — benchmark goals
+- [Benchmark: homelab incident](benchmark-homelab-incident.md) — eight-delegation A/B scenario
 - [Tooling references](tooling-references.md) — SDKs and specs
+

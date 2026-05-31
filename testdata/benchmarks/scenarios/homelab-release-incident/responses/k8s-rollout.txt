@@ -1,0 +1,1 @@
+Deployment payments-api rollout stalled: 1/3 ready, ProgressDeadlineExceeded. Matches crash loop on new metrics-port-v2 flag.

@@ -1,0 +1,14 @@
+{
+  "pr": 42,
+  "title": "Bump platform to v2.4.0",
+  "state": "OPEN",
+  "mergeable": false,
+  "checks": [
+    {"name": "deploy-homelab", "status": "FAILURE"},
+    {"name": "unit-tests", "status": "SUCCESS"}
+  ],
+  "reviews": [
+    {"author": "platform-bot", "state": "CHANGES_REQUESTED", "body": "Argo app payments-api OutOfSync after merge preview"}
+  ],
+  "changed_files": ["deploy/payments-api.yaml", "charts/platform/values.yaml"]
+}

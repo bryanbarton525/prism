@@ -1,0 +1,1 @@
+Workflow nightly-etl Failed at template extract: exit 1, payments.apiVersion v2 required for platform v2.4.0.

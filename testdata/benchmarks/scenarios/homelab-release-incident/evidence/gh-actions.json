@@ -1,0 +1,12 @@
+{
+  "workflow": "deploy-homelab",
+  "run_id": 987654,
+  "conclusion": "failure",
+  "failed_jobs": [
+    {
+      "name": "deploy",
+      "step": "kubectl apply",
+      "log_excerpt": "error: deployment payments-api exceeded progress deadline; 1/3 replicas ready"
+    }
+  ]
+}
