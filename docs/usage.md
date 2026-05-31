@@ -110,9 +110,9 @@ Checks include:
 
 Always pass `**--root`** to the absolute path of this repository when the MCP host’s working directory is not the repo root.
 
-### Cursor configuration
+### MCP host configuration
 
-`~/.cursor/mcp.json`:
+Example for Cursor (`~/.cursor/mcp.json`). Other MCP-compatible editors use equivalent server config — check your host's MCP documentation for file location and format.
 
 ```json
 {
@@ -130,7 +130,7 @@ Always pass `**--root`** to the absolute path of this repository when the MCP ho
 }
 ```
 
-After saving, reload MCP servers in Cursor settings. The **prism** server should list:
+After saving, reload MCP servers in your editor settings. The **prism** server should list:
 - Core tools: `list_agents`, `run_agent`, `get_constitution`, `doctor`
 - Compatibility tools: `list_prompts`, `get_prompt`, `list_resources`, `get_resource`
 
@@ -188,7 +188,7 @@ Example URIs:
 - `prism://resource/agents/index`
 - `prism://resource/agent/github-cli/constitution`
 
-### Test without Cursor
+### Test without an MCP host
 
 **MCP Inspector** (browser UI):
 
@@ -229,11 +229,11 @@ Suggested order:
 | Problem                      | Likely cause                           | Fix                                                                        |
 | ---------------------------- | -------------------------------------- | -------------------------------------------------------------------------- |
 | `no agents found`            | Wrong `--root` or cwd                  | `cd` to repo or set `--root`                                               |
-| MCP tools missing in Cursor  | Bad `command` path or MCP not reloaded | Use absolute path to `prism`; reload MCP                                   |
+| MCP tools missing in editor | Bad `command` path or MCP not reloaded | Use absolute path to `prism`; reload MCP in host settings |
 | `validation_fail` for skills | Skill not in `allowed_skills`          | Check `prism agent show <id>`                                              |
 | `error` / timeout on run     | Ollama down or slow                    | `prism config doctor`; increase `latency_budget_ms`                        |
 | Empty or poor model output   | Wrong/missing model                    | `ollama list`; pull or edit `model:` in spec                               |
-| MCP hangs                    | Inspecting stdout                      | Use Inspector or Cursor; don’t run `mcp serve` interactively in a terminal |
+| MCP hangs                    | Inspecting stdout                      | Use Inspector or your MCP host; don’t run `mcp serve` interactively in a terminal |
 
 
 ## Benchmark comparison (no MCP vs MCP)

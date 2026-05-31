@@ -102,6 +102,6 @@ metadata:
 4. **Scope control** - Agents refuse tasks that require capabilities outside the
    attached skills and their constitution.
 
-The orchestrator (Cursor, Copilot, etc.) chooses which skills to attach based on
+The orchestrator (your AI editor) chooses which skills to attach based on
 the subtask. Prism enforces the allowlist; it does not auto-attach every skill
 an agent could use.

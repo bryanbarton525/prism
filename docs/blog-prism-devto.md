@@ -1,7 +1,7 @@
 ---
 title: "Prism: Make Your AI Editor Delegate"
 published: false
-description: "An MCP delegation layer that keeps Cursor or any MCP host as the orchestrator while local Ollama specialists handle narrow, context-heavy work."
+description: "An MCP delegation layer that keeps your AI editor or MCP host as the orchestrator while local Ollama specialists handle narrow, context-heavy work."
 tags: ai, mcp, cursor, ollama
 canonical_url: https://github.com/bryanbarton525/prism/blob/main/docs/blog-prism-launch.md
 ---
@@ -35,7 +35,7 @@ When your main AI session is packed with every skill, instruction, and evidence 
 
 Most agent frameworks try to solve this by becoming the new orchestrator. Prism does not.
 
-Prism assumes your editor is already the control plane. Cursor, Claude Desktop, or any MCP host can remain where decisions happen. Prism sits underneath as a delegation layer.
+Prism assumes your editor is already the control plane. Any MCP-compatible AI editor can remain where decisions happen. Prism sits underneath as a delegation layer.
 
 The orchestrator asks for help. Prism runs a constrained local specialist. The specialist returns a compact summary. The orchestrator synthesizes the result.
 
@@ -134,14 +134,14 @@ MCP gives AI editors a standard way to call external tools.
 
 That matters because Prism does not need to be the application you live in. It can be a tool your current application calls.
 
-In Cursor, the flow is:
+In any MCP-compatible editor, the flow is:
 
 1. Register Prism as an MCP server.
 2. Ask the editor to delegate a focused subtask.
 3. Prism runs the local specialist.
-4. Cursor receives a compact result.
+4. The editor receives a compact result.
 
-For exact Cursor setup, see the MCP config block in `docs/usage.md` ("Cursor configuration").
+For setup, see the MCP config example in `docs/usage.md` ("MCP host configuration").
 
 The premium model is still responsible for judgment. Prism just keeps it from doing clerical work that a local specialist can handle.
 
@@ -149,7 +149,7 @@ The premium model is still responsible for judgment. Prism just keeps it from do
 
 Prism is not trying to be:
 
-- a replacement for Cursor
+- a replacement for your AI editor
 - a general-purpose autonomous agent framework
 - a multi-agent research demo
 - a black-box workflow runner

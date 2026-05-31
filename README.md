@@ -2,7 +2,7 @@
 
 ![Prism logo](docs/img/prism-logo.png)
 
-**Keep Cursor (or any MCP host) as the orchestrator. Offload narrow work to local Ollama specialists.**
+**Keep your AI editor or MCP host as the orchestrator. Offload narrow work to local Ollama specialists.**
 
 Prism is an MCP server + CLI that runs tool-specific agents on [Ollama](https://ollama.com/) — GitHub CI, Kubernetes, Argo, docs lookup, Go codegen — and returns compact JSON summaries. Your paid model sees a short brief, not every skill, constitution, and evidence dump.
 
@@ -31,9 +31,11 @@ echo "Summarize PR #42 CI status" | \
   prism run github-cli --skills gh-pr-triage
 ```
 
-## Use with Cursor
+## Use with an MCP host
 
-Add to `~/.cursor/mcp.json` (use the full path to your `prism` binary):
+Register Prism as an MCP server in your AI editor. Example for Cursor (`~/.cursor/mcp.json`; other MCP hosts use equivalent config — see [docs/usage.md](docs/usage.md)):
+
+Use the full path to your `prism` binary:
 
 ```json
 {
@@ -47,7 +49,7 @@ Add to `~/.cursor/mcp.json` (use the full path to your `prism` binary):
 }
 ```
 
-Reload MCP, then call `**run_agent**` with `agent_id`, `task`, and `skill_names`.
+Reload MCP servers in your editor, then call `**run_agent**` with `agent_id`, `task`, and `skill_names`.
 
 Available tools include:
 

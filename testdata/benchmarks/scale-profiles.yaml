@@ -3,7 +3,7 @@
 
 profiles:
   solo_developer:
-    description: One engineer using Cursor + Prism for incidents and occasional codegen.
+    description: One engineer using an MCP-compatible AI editor + Prism for incidents and occasional codegen.
     incidents_per_month: 4
     codegen_tasks_per_month: 25
     context_size_multiplier: 1.0

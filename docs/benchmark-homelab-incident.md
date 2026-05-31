@@ -1,6 +1,6 @@
 # Benchmark: homelab release incident
 
-This scenario exercises **all four Prism agents** and **all eight skills** in one mock post-upgrade incident. Use it to compare **Cursor without MCP** vs **Cursor with Prism MCP**.
+This scenario exercises **all four Prism agents** and **all eight skills** in one mock post-upgrade incident. Use it to compare **orchestrator-only** (no MCP) vs **Prism-delegated** (MCP) workflows.
 
 ## Scenario
 
@@ -72,11 +72,11 @@ Monthly projection: `prism benchmark project`
 
 Expect **lower orchestrator tokens** with MCP and **higher wall-clock** in mock/live delegated mode (eight sequential local calls).
 
-## Manual Cursor comparison
+## Manual MCP host comparison
 
 ### A. Without MCP (baseline)
 
-1. Open a **new Cursor chat** (no Prism tools).
+1. Open a **new chat** in your AI editor (no Prism tools).
 2. Paste the contents of:
    - `testdata/benchmarks/scenarios/homelab-release-incident/brief.md`
    - Every file under `evidence/`
@@ -85,11 +85,11 @@ Expect **lower orchestrator tokens** with MCP and **higher wall-clock** in mock/
 
    > Write the homelab incident report per the brief. Include PR #42, CI, CrashLoopBackOff, OutOfSync, workflow failure, and breaking changes.
 
-4. Note **time to complete** and approximate **context size** (Cursor usage if visible).
+4. Note **time to complete** and approximate **context size** (token usage if visible).
 
 ### B. With MCP (Prism delegated)
 
-1. Enable the **prism** MCP server in Cursor.
+1. Enable the **prism** MCP server in your editor.
 2. Paste only `brief.md` (do not paste all evidence).
 3. Run **eight** `run_agent` calls — one per row:
 
@@ -104,9 +104,9 @@ Expect **lower orchestrator tokens** with MCP and **higher wall-clock** in mock/
 | `web-docs-search` | `docs-source-harvest` | v2.4.0 migration for payments-api |
 | `web-docs-search` | `release-notes-scan` | breaking changes in v2.4.0 |
 
-   For each call, paste the matching **evidence file** content into the `task` field (or ask Cursor to read it from the repo).
+   For each call, paste the matching **evidence file** content into the `task` field (or ask the editor to read it from the repo).
 
-4. Ask Cursor to **synthesize** the eight summaries into one incident report (same structure as the brief).
+4. Ask the editor to **synthesize** the eight summaries into one incident report (same structure as the brief).
 
 5. Compare to baseline: orchestrator context size, total time, and report quality.
 

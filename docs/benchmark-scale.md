@@ -13,7 +13,7 @@ This document explains the **at-scale** benchmark scenarios, how committed resul
 
 ### At-scale padding
 
-`homelab-release-incident-at-scale` loads three files **only in orchestrator-only mode** (simulating what Cursor ingests without MCP):
+`homelab-release-incident-at-scale` loads three files **only in orchestrator-only mode** (simulating what an editor ingests without MCP):
 
 - `context/cursor-rules.md` — workspace rules and compliance blocks
 - `context/runbook-index.md` — expanded runbook library

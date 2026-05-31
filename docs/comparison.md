@@ -6,7 +6,7 @@ There is no widely adopted product that matches **Prism’s exact combination** 
 
 Prism is a **delegation layer**, not a replacement orchestrator or autonomous swarm:
 
-- The **primary LLM stays in the editor** (Cursor, Copilot, etc.) — it picks the agent, attaches skills, and judges results.
+- The **primary LLM stays in the editor** — it picks the agent, attaches skills, and judges results.
 - **Narrow specialists** run on **local Ollama**, invoked via **MCP** (`run_agent`, not pasted prompt bloat).
 - **Progressive disclosure** — only attached skills and constitution per call; the orchestrator does not load the full skill library.
 - **Structured, compact results** — JSON envelope with summary, findings, artifacts, and confidence.

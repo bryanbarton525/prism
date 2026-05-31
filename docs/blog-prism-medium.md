@@ -82,10 +82,8 @@ With Prism, the orchestrator delegates focused pieces:
 
 The live run produced:
 
-| Mode | Orchestrator input | Orchestrator output |
-|---|---:|---:|
-| Without Prism | 6,191 tokens | 811 tokens |
-| With Prism | 363 tokens | 1,072 tokens |
+- **Without Prism:** 6,191 orchestrator input tokens, 811 output tokens
+- **With Prism:** 363 orchestrator input tokens, 1,072 output tokens
 
 That is a **94.1% reduction in orchestrator input tokens** for this task.
 
@@ -101,11 +99,9 @@ A single small coding prompt is cheap on modern API pricing. The interesting par
 
 Using the live todo benchmark as the unit workload, and assuming one prompt-heavy developer sends 20 coding prompts/day:
 
-| Model | Monthly cost without Prism | Monthly cost with Prism | Monthly savings | Annual savings |
-|---|---:|---:|---:|---:|
-| `gpt-5.5` | $22.12 | $13.60 | $8.52 | $102.24 |
-| `claude-opus-4.7` | $20.48 | $11.44 | $9.04 | $108.48 |
-| `claude-sonnet-4.6` | $12.28 | $6.88 | $5.40 | $64.80 |
+- **gpt-5.5:** $22.12/month without Prism vs $13.60/month with Prism (saves $8.52/month, $102.24/year)
+- **claude-opus-4.7:** $20.48/month without Prism vs $11.44/month with Prism (saves $9.04/month, $108.48/year)
+- **claude-sonnet-4.6:** $12.28/month without Prism vs $6.88/month with Prism (saves $5.40/month, $64.80/year)
 
 Model names above are benchmark pricing profiles from `testdata/benchmarks/orchestrator-models.yaml` (OpenAI/Anthropic list-rate assumptions), used to compare relative economics under one fixed workload.
 
@@ -133,7 +129,8 @@ In any MCP-compatible editor, the flow is:
 3. Prism runs the local specialist.
 4. The editor receives a compact result.
 
-For setup, see the MCP config example in `docs/usage.md` ("MCP host configuration").
+For setup, see the MCP config example in the Prism usage guide:  
+https://github.com/bryanbarton525/prism/blob/main/docs/usage.md
 
 The premium model is still responsible for judgment. Prism just keeps it from doing clerical work that a local specialist can handle.
 
@@ -162,12 +159,12 @@ That last point matters. Prism includes benchmark fixtures so changes can be mea
 
 Prism is useful when the work has a repeatable specialist shape:
 
-- “summarize this failing CI run”
-- “inspect this rollout”
-- “triage these Kubernetes pod events”
-- “pull relevant docs for this SDK change”
-- “implement this small helper function”
-- “split this frontend task into UI, logic, and README”
+- summarize this failing CI run
+- inspect this rollout
+- triage Kubernetes pod events
+- pull relevant docs for an SDK change
+- implement a small helper function
+- split a frontend task into UI/logic/docs
 
 It is less useful when the task is already tiny enough that delegation overhead is more expensive than just asking the model directly.
 

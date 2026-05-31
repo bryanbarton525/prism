@@ -216,7 +216,7 @@ Runtime assembly order:
 4. Build the Ollama prompt with constitution + skills + task input.
 5. Return normalized `RunResult` with usage and timing metadata for benchmarks.
 
-The orchestrator (Cursor, Copilot, etc.) is responsible for choosing skills; Prism
+The orchestrator (your AI editor) is responsible for choosing skills; Prism
 is responsible for enforcement and progressive disclosure.
 
 ## MCP versus CLI tradeoffs
@@ -253,8 +253,7 @@ prism mcp serve
 
 ### MCP server
 
-MCP is the better long-term interface for Cursor, Copilot-like tools, and other
-agent clients that support standardized tool discovery.
+MCP is the better long-term interface for AI editors and other MCP-compatible agent clients that support standardized tool discovery.
 
 Benefits:
 
