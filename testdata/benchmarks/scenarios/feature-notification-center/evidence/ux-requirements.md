@@ -17,7 +17,7 @@ One page with four stacked sections:
 
 ## Category matrix
 
-Rows: `security`, `billing`, `product`, `incident`  
+Rows: `security`, `billing`, `product`, `incident`
 Columns: `email`, `sms`, `in_app`
 
 Behavior:

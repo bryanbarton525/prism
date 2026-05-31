@@ -156,13 +156,21 @@ go build -o prism ./cmd/prism
 
 ### Prevent direct pushes to main
 
-Install `pre-commit` and enable the repo hook that blocks direct pushes to `main`:
+Install `pre-commit` and enable both commit checks and the push guard:
 
 ```bash
+pre-commit install
 pre-commit install --hook-type pre-push
 ```
 
-The hook is defined in `.pre-commit-config.yaml` and runs `scripts/hooks/pre-push-block-main.sh`.
+Run all commit-stage hooks manually:
+
+```bash
+pre-commit run --all-files
+```
+
+Commit hooks include `go test ./...`, `go build ./cmd/prism`, and basic file checks. The pre-push hook in `.pre-commit-config.yaml` runs `scripts/hooks/pre-push-block-main.sh` to block direct pushes to `main`.
+
 If you need an emergency one-off bypass:
 
 ```bash

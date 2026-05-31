@@ -1,6 +1,25 @@
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+
   - repo: local
     hooks:
+      - id: go-test
+        name: go test ./...
+        entry: go test ./...
+        language: system
+        pass_filenames: false
+
+      - id: go-build
+        name: go build ./cmd/prism
+        entry: go build ./cmd/prism
+        language: system
+        pass_filenames: false
+
       - id: block-main-push
         name: Block direct push to main
         entry: bash scripts/hooks/pre-push-block-main.sh

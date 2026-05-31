@@ -261,4 +261,3 @@ See [benchmark-homelab-incident.md](benchmark-homelab-incident.md) for the full 
 - [Benchmark: homelab incident](benchmark-homelab-incident.md) — eight-delegation A/B scenario
 - [Benchmark at scale](benchmark-scale.md) — monthly savings projection
 - [Tooling references](tooling-references.md) — SDKs and specs
-

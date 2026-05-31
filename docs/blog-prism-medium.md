@@ -129,7 +129,7 @@ In any MCP-compatible editor, the flow is:
 3. Prism runs the local specialist.
 4. The editor receives a compact result.
 
-For setup, see the MCP config example in the Prism usage guide:  
+For setup, see the MCP config example in the Prism usage guide:
 https://github.com/bryanbarton525/prism/blob/main/docs/usage.md
 
 The premium model is still responsible for judgment. Prism just keeps it from doing clerical work that a local specialist can handle.
