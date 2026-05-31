@@ -82,28 +82,12 @@ Full breakdown: **[docs/comparison.md](docs/comparison.md)**
 
 ## Proof it saves tokens
 
-Live benchmarks (Ollama `llama3.1:8b`, orchestrator priced as GPT-4.1 at [$2.00 / $8.00 per M](https://openai.com/api/pricing/) — see `testdata/benchmarks/rates.yaml`):
-
-| Scenario | Input reduction | Savings/run |
-|----------|-----------------|-------------|
-| Incident (8 skills) | 77% | $0.005 |
-| Incident at scale | 83% | $0.011 |
-| Codegen helper | 93% | $0.006 |
-| Feature delivery (notification preferences) | 97% | $0.038 |
-| Todo SPA build (HTML/CSS/JS + localStorage + README) | 94% | $0.010 |
-
-```bash
-prism benchmark run homelab-release-incident
-prism benchmark run feature-notification-center
-prism benchmark run todo-spa-build
-prism benchmark project    # monthly/annual projection
-```
-
+<!-- benchmark-showcase:start -->
 ### Orchestrator showcase matrix
 
 **1 engineer, 1 task/day model (todo app request benchmark)**  
 Token usage per task: **without Prism** `6,191 in / 811 out` -> **with Prism** `363 in / 1,072 out` (**94.1% input reduction**).  
-Live token counts from `testdata/benchmarks/results.yaml` (`todo-spa-build`, measured 2026-05-31). Regenerate with `prism benchmark project`.
+Live run: `todo-spa-build` measured 2026-05-31 — `testdata/benchmarks/results.yaml`. Regenerate: `prism benchmark project --write`.
 
 | Model | Without Prism ($/task) | With Prism ($/task) | Saved/task | Saved/day | Saved/month (30 tasks) | Saved/year (365 tasks) |
 |---|---:|---:|---:|---:|---:|---:|
@@ -120,14 +104,34 @@ Quality parity (live rubric): baseline and Prism outputs both scored 10/10 on re
 - [Anthropic pricing](https://www.anthropic.com/pricing) — `claude-opus-4.6`, `claude-opus-4.7`, `claude-sonnet-4.6`
 - [Cursor pricing](https://cursor.com/pricing) — subscription seat plans (`Individual $20/mo`, `Teams $40/user/mo`)
 
-**Cursor seat economics (todo benchmark, GPT-5.5-equivalent savings/task):**
+**Cursor seat economics (todo benchmark, GPT-5.5-equivalent savings/task = $0.0213):**
 
 | Cursor plan | Seat price | Saved/task | Workflows/month to offset seat |
 |---|---:|---:|---:|
-| Individual | $20/mo | $0.0213 | 939 |
-| Teams | $40/user/mo | $0.0213 | 1,878 |
+| Individual | $20/mo | $0.0213 | 938 |
+| Teams | $40/user/mo | $0.0213 | 1877 |
 
 Cursor plans are subscription-based (included usage + overage), not pure per-token billing, so these are break-even workflow examples rather than direct token-rate rows.
+
+<!-- benchmark-showcase:end -->
+
+Live benchmarks (Ollama `llama3.1:8b`, orchestrator priced as GPT-4.1 at [$2.00 / $8.00 per M](https://openai.com/api/pricing/) — see `testdata/benchmarks/rates.yaml`):
+
+| Scenario | Input reduction | Savings/run |
+|----------|-----------------|-------------|
+| **Todo SPA build (headline)** | **94%** | **$0.010** |
+| Incident (8 skills) | 77% | $0.005 |
+| Incident at scale | 83% | $0.011 |
+| Codegen helper | 93% | $0.006 |
+| Feature delivery (notification preferences) | 97% | $0.038 |
+
+```bash
+prism benchmark run todo-spa-build
+prism benchmark project --write   # sync README/docs from results.yaml
+prism benchmark run homelab-release-incident
+```
+
+Scenario live results: `testdata/benchmarks/scenarios/todo-spa-build/live-results.yaml`
 
 Need the `at-scale incident` and `codegen` task variants? See **[docs/benchmark-scale.md](docs/benchmark-scale.md)**.
 

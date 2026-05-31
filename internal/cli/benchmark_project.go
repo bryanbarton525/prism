@@ -12,6 +12,7 @@ import (
 
 func newBenchmarkProjectCmd() *cobra.Command {
 	var jsonOut bool
+	var writeDocs bool
 
 	cmd := &cobra.Command{
 		Use:   "project",
@@ -24,6 +25,7 @@ The headline orchestrator showcase uses the live todo-spa-build benchmark
 
 Re-run live benchmarks and update results.yaml to refresh projections:
   prism benchmark run todo-spa-build
+  prism benchmark project --write
   prism benchmark run homelab-release-incident
   prism benchmark run homelab-release-incident-at-scale`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -34,6 +36,22 @@ Re-run live benchmarks and update results.yaml to refresh projections:
 				if err != nil {
 					return err
 				}
+			}
+
+			if writeDocs {
+				report, err := benchmark.WriteShowcaseDocs(root)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Updated README.md, docs/benchmark-scale.md, docs/benchmark-showcase.md, and testdata/benchmarks/scenarios/todo-spa-build/live-results.yaml from live %s data.\n",
+					report.Showcase.ScenarioID)
+				if jsonOut || gf.jsonOut {
+					enc := json.NewEncoder(os.Stdout)
+					enc.SetIndent("", "  ")
+					return enc.Encode(report)
+				}
+				fmt.Println(report.Markdown)
+				return nil
 			}
 
 			report, err := benchmark.ProjectMonthly(root)
@@ -52,5 +70,6 @@ Re-run live benchmarks and update results.yaml to refresh projections:
 	}
 
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Emit JSON projection report")
+	cmd.Flags().BoolVar(&writeDocs, "write", false, "Regenerate README/docs showcase tables from results.yaml")
 	return cmd
 }

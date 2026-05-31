@@ -379,20 +379,7 @@ func formatProjectionMarkdown(r MonthlyProjectionReport, rates Rates, root strin
 	b.WriteString("\n")
 
 	if len(r.ModelShowcase) > 0 && r.Showcase.ScenarioID != "" {
-		s := r.Showcase
-		b.WriteString("## Orchestrator model showcase\n\n")
-		b.WriteString(fmt.Sprintf("**1 engineer, %d task/day model (%s live benchmark)**  \n", s.TasksPerDay, s.ScenarioID))
-		b.WriteString(fmt.Sprintf("Token usage per task: **without Prism** `%s in / %s out` -> **with Prism** `%s in / %s out` (**%.1f%% input reduction**).\n\n",
-			formatInt(s.WithoutInputTokens), formatInt(s.WithoutOutputTokens),
-			formatInt(s.WithInputTokens), formatInt(s.WithOutputTokens),
-			s.InputReductionPercent))
-		b.WriteString("| Model | Without Prism ($/task) | With Prism ($/task) | Saved/task | Saved/day | Saved/month (30 tasks) | Saved/year (365 tasks) |\n")
-		b.WriteString("|---|---:|---:|---:|---:|---:|---:|\n")
-		for _, m := range r.ModelShowcase {
-			b.WriteString(fmt.Sprintf("| %s | $%.4f | $%.4f | $%.4f | $%.4f | $%.2f | $%.2f |\n",
-				m.Model, m.WithoutPrismUSD, m.WithPrismUSD, m.SavedPerTaskUSD,
-				m.SavedPerDayUSD, m.SavedPerMonth30USD, m.SavedPerYear365USD))
-		}
+		b.WriteString(FormatShowcaseMarkdown(r))
 		b.WriteString("\n")
 		b.WriteString("Rates source: `testdata/benchmarks/orchestrator-models.yaml` (OpenAI + Anthropic list pricing, May 2026).\n")
 		b.WriteString(" Token counts from committed live run in `testdata/benchmarks/results.yaml`.\n\n")
