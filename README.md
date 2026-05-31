@@ -45,9 +45,10 @@ Add to `~/.cursor/mcp.json` (use the full path to your `prism` binary):
 }
 ```
 
-Reload MCP, then call **`run_agent`** with `agent_id`, `task`, and `skill_names`.
+Reload MCP, then call `**run_agent**` with `agent_id`, `task`, and `skill_names`.
 
 Available tools include:
+
 - core: `list_agents`, `run_agent`, `get_constitution`, `doctor`
 - prompt/resource compatibility: `list_prompts`, `get_prompt`, `list_resources`, `get_resource`
 
@@ -57,33 +58,38 @@ Full setup, flags, troubleshooting: **[docs/usage.md](docs/usage.md)**
 
 ## Built-in agents
 
-| Agent | Use for |
-|-------|---------|
-| `github-cli` | PR triage, GitHub Actions failures |
-| `kubectl` | Pod/rollout diagnostics |
-| `argo` | Argo CD sync, workflow debug |
-| `web-docs-search` | Docs harvest, release notes |
-| `go-helper` | Small Go helpers and utilities |
-| `go-scaffold` | Package boilerplate, test scaffolds |
+
+| Agent             | Use for                             |
+| ----------------- | ----------------------------------- |
+| `github-cli`      | PR triage, GitHub Actions failures  |
+| `kubectl`         | Pod/rollout diagnostics             |
+| `argo`            | Argo CD sync, workflow debug        |
+| `web-docs-search` | Docs harvest, release notes         |
+| `go-helper`       | Small Go helpers and utilities      |
+| `go-scaffold`     | Package boilerplate, test scaffolds |
+
 
 Add your own under `agents/` and `skills/`. See [agents/README.md](agents/README.md) and [skills/README.md](skills/README.md).
 
 ## How it compares
 
-| Capability | Prism | Claude subagents | Cursor Skills+MCP | CrewAI/LangGraph |
-|------------|-------|------------------|-------------------|------------------|
-| Orchestrator stays in editor | ✓ | ✓ | ✓ | ✗ |
-| Specialist isolation | ✓ | ✓ | partial | ✓ |
-| Local Ollama specialists | ✓ | ✗ | ✗ | optional |
-| Token/cost benchmarks | ✓ | ✗ | ✗ | ✗ |
-| Ops specialists (gh/k8s/argo) | ✓ | DIY | DIY | DIY |
+
+| Capability                    | Prism | Claude subagents | Cursor Skills+MCP | CrewAI/LangGraph |
+| ----------------------------- | ----- | ---------------- | ----------------- | ---------------- |
+| Orchestrator stays in editor  | ✓     | ✓                | ✓                 | ✗                |
+| Specialist isolation          | ✓     | ✓                | partial           | ✓                |
+| Local Ollama specialists      | ✓     | ✗                | ✗                 | optional         |
+| Token/cost benchmarks         | ✓     | ✗                | ✗                 | ✗                |
+| Ops specialists (gh/k8s/argo) | ✓     | DIY              | DIY               | DIY              |
+
 
 Full breakdown: **[docs/comparison.md](docs/comparison.md)**
 
 ## Proof it saves tokens
 
-<!-- benchmark-showcase:start -->
-### Executive benchmark view
+
+
+### Benchmark view
 
 **Workload assumption (per engineer):** 4 substantial coding tasks/day, 80 tasks/month, 960 tasks/year.
 
@@ -91,25 +97,29 @@ Full breakdown: **[docs/comparison.md](docs/comparison.md)**
 
 Orchestrator token footprint per task: **without Prism** `6,191 in / 811 out` → **with Prism** `363 in / 1,072 out` (**94.1% input reduction**).
 
-| Model | Monthly cost without Prism | Monthly cost with Prism | Monthly savings | Annual savings |
-|---|---:|---:|---:|---:|
-| `gpt-5.4` | $2.21 | $1.36 | $0.85 | $10.18 |
-| `gpt-5.5` | $4.42 | $2.72 | $1.70 | $20.45 |
-| `claude-opus-4.7` | $4.10 | $2.29 | $1.81 | $21.69 |
-| `claude-opus-4.6` | $4.10 | $2.29 | $1.81 | $21.69 |
-| `claude-sonnet-4.6` | $2.46 | $1.38 | $1.08 | $12.96 |
 
-| Model | Without ($/task) | With ($/task) | Savings/task | Daily savings |
-|---|---:|---:|---:|---:|
-| `gpt-5.4` | $0.0276 | $0.0170 | $0.0107 | $0.0424 |
-| `gpt-5.5` | $0.0553 | $0.0340 | $0.0213 | $0.0852 |
-| `claude-opus-4.7` | $0.0512 | $0.0286 | $0.0226 | $0.0904 |
-| `claude-opus-4.6` | $0.0512 | $0.0286 | $0.0226 | $0.0904 |
-| `claude-sonnet-4.6` | $0.0307 | $0.0172 | $0.0136 | $0.0540 |
+| Model               | Monthly cost without Prism | Monthly cost with Prism | Monthly savings | Annual savings |
+| ------------------- | -------------------------- | ----------------------- | --------------- | -------------- |
+| `gpt-5.4`           | $2.21                      | $1.36                   | $0.85           | $10.18         |
+| `gpt-5.5`           | $4.42                      | $2.72                   | $1.70           | $20.45         |
+| `claude-opus-4.7`   | $4.10                      | $2.29                   | $1.81           | $21.69         |
+| `claude-opus-4.6`   | $4.10                      | $2.29                   | $1.81           | $21.69         |
+| `claude-sonnet-4.6` | $2.46                      | $1.38                   | $1.08           | $12.96         |
+
+
+
+| Model               | Without ($/task) | With ($/task) | Savings/task | Daily savings |
+| ------------------- | ---------------- | ------------- | ------------ | ------------- |
+| `gpt-5.4`           | $0.0276          | $0.0170       | $0.0107      | $0.0424       |
+| `gpt-5.5`           | $0.0553          | $0.0340       | $0.0213      | $0.0852       |
+| `claude-opus-4.7`   | $0.0512          | $0.0286       | $0.0226      | $0.0904       |
+| `claude-opus-4.6`   | $0.0512          | $0.0286       | $0.0226      | $0.0904       |
+| `claude-sonnet-4.6` | $0.0307          | $0.0172       | $0.0136      | $0.0540       |
+
 
 Pricing sources: [OpenAI](https://openai.com/api/pricing/) and [Anthropic](https://www.anthropic.com/pricing/) list rates configured in `testdata/benchmarks/orchestrator-models.yaml`. Token counts come from `testdata/benchmarks/results.yaml`. Regenerate with `prism benchmark project --write`.
 
-<!-- benchmark-showcase:end -->
+
 
 ```bash
 prism benchmark run todo-spa-build
@@ -120,13 +130,15 @@ More scenarios: **[docs/benchmark-scale.md](docs/benchmark-scale.md)**
 
 ## Documentation
 
-| Doc | What's inside |
-|-----|---------------|
-| [docs/usage.md](docs/usage.md) | CLI/MCP reference, examples, troubleshooting |
-| [docs/comparison.md](docs/comparison.md) | Landscape vs Claude, Cursor, frameworks |
-| [docs/benchmark-scale.md](docs/benchmark-scale.md) | At-scale scenarios, monthly projections |
-| [docs/implementation-plan.md](docs/implementation-plan.md) | Architecture and design |
-| [docs/success-metrics.md](docs/success-metrics.md) | Benchmark targets and report format |
+
+| Doc                                                        | What's inside                                |
+| ---------------------------------------------------------- | -------------------------------------------- |
+| [docs/usage.md](docs/usage.md)                             | CLI/MCP reference, examples, troubleshooting |
+| [docs/comparison.md](docs/comparison.md)                   | Landscape vs Claude, Cursor, frameworks      |
+| [docs/benchmark-scale.md](docs/benchmark-scale.md)         | At-scale scenarios, monthly projections      |
+| [docs/implementation-plan.md](docs/implementation-plan.md) | Architecture and design                      |
+| [docs/success-metrics.md](docs/success-metrics.md)         | Benchmark targets and report format          |
+
 
 ## Develop
 
