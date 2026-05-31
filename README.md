@@ -137,6 +137,7 @@ More scenarios: **[docs/benchmark-scale.md](docs/benchmark-scale.md)**
 | [docs/usage.md](docs/usage.md)                             | CLI/MCP reference, examples, troubleshooting |
 | [docs/comparison.md](docs/comparison.md)                   | Landscape vs Claude, Cursor, frameworks      |
 | [docs/benchmark-scale.md](docs/benchmark-scale.md)         | At-scale scenarios, monthly projections      |
+| [docs/blog-prism-launch.md](docs/blog-prism-launch.md)     | Launch post / product narrative              |
 | [docs/implementation-plan.md](docs/implementation-plan.md) | Architecture and design                      |
 | [docs/success-metrics.md](docs/success-metrics.md)         | Benchmark targets and report format          |
 
