@@ -33,6 +33,10 @@ actionable, evidence-based diagnostics.
 The orchestrator provides cluster context, namespace, workload identifiers, and
 incident scope.
 
+For accurate diagnostics across Kubernetes API variations, the orchestrator must
+also include the target cluster version (for example `v1.28.x`) and, when
+relevant, the kubectl client binary/version being used.
+
 ## Output contract
 
 Return summary, evidence-backed findings, likely causes, next checks, and

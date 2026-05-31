@@ -1,6 +1,6 @@
 ---
 name: go-helper-fn
-description: Draft a single Go helper function or small utility from provided signatures and call-site context. Use when the orchestrator needs one focused function while building a package.
+description: Implement one focused Go helper function from call-site context. Trigger on prompts like "add helper", "extract parser/validator", or "small utility for this package".
 compatibility: Requires Go source excerpts and package context from the orchestrator.
 metadata:
   prism-agents: go-helper
@@ -8,7 +8,11 @@ metadata:
 
 # Go helper function
 
-1. Read the target signature, callers, and error-handling patterns in the evidence.
-2. Implement one exported or unexported helper — no unrelated helpers in the same response.
-3. Return JSON with compact `summary`/`findings` and full code in `code` or `artifacts`.
-4. Note tests the orchestrator should add (do not generate large test files unless asked).
+1. Read target signature, callers, and error-handling style from evidence.
+2. Implement one exported/unexported helper; avoid unrelated refactors.
+3. Match local conventions (`fmt.Errorf("%w")`, naming, zero-value behavior).
+4. Include edge-case handling and explicit failure modes.
+5. If suitable, suggest quick validation commands:
+   - `go test ./...`
+   - `gofmt -w <file.go>`
+6. Return compact JSON (`summary`, `findings`) and full helper code in `code`/`artifacts`.

@@ -130,7 +130,9 @@ Always pass `**--root`** to the absolute path of this repository when the MCP ho
 }
 ```
 
-After saving, reload MCP servers in Cursor settings. The **prism** server should list four tools.
+After saving, reload MCP servers in Cursor settings. The **prism** server should list:
+- Core tools: `list_agents`, `run_agent`, `get_constitution`, `doctor`
+- Compatibility tools: `list_prompts`, `get_prompt`, `list_resources`, `get_resource`
 
 ### Tool reference
 
@@ -165,6 +167,26 @@ No parameters. Same information as `prism config doctor` (JSON).
 - `format` is optional (`json` or `markdown`).
 
 Response is a `RunResult` object (see README).
+
+#### `list_prompts` / `get_prompt`
+
+Compatibility tools that expose reusable prompt templates for accurate `run_agent` calls
+in MCP hosts that do not support native MCP prompts yet.
+
+```json
+{ "prompt_id": "k8s_incident_triage", "variables": { "namespace": "payments" } }
+```
+
+#### `list_resources` / `get_resource`
+
+Compatibility tools that expose Prism resources (tool contracts, orchestration guide,
+agents index, constitutions) in hosts that do not support native MCP resources.
+
+Example URIs:
+- `prism://resource/tooling/run_agent`
+- `prism://resource/tooling/orchestration-guide`
+- `prism://resource/agents/index`
+- `prism://resource/agent/github-cli/constitution`
 
 ### Test without Cursor
 
@@ -223,6 +245,10 @@ prism benchmark run homelab-release-incident
 prism benchmark run homelab-release-incident-at-scale   # enterprise context padding
 prism benchmark project                               # monthly/annual savings
 ```
+
+`prism benchmark project` also includes a model showcase matrix for GPT 5.4/5.5
+and Claude Opus/Sonnet variants configured in
+`testdata/benchmarks/orchestrator-models.yaml`.
 
 See [benchmark-homelab-incident.md](benchmark-homelab-incident.md) for the full scenario and [benchmark-scale.md](benchmark-scale.md) for monthly projections.
 

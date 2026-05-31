@@ -49,6 +49,27 @@ func registerTools(srv *mcpsdk.Server, runner app.AgentRunner) {
 		Name:        "doctor",
 		Description: "Report Ollama connectivity, models, and agent/skill registry health.",
 	}, doctorHandler(runner))
+
+	// Compatibility tools for MCP hosts that do not yet support native prompts/resources.
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "list_prompts",
+		Description: "List reusable Prism prompt templates for accurate tool calling.",
+	}, listPromptsHandler(runner))
+
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "get_prompt",
+		Description: "Return a concrete prompt template with optional variable substitution.",
+	}, getPromptHandler(runner))
+
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "list_resources",
+		Description: "List Prism resources (tooling docs, agents index, constitutions).",
+	}, listResourcesHandler(runner))
+
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "get_resource",
+		Description: "Fetch a Prism resource by URI.",
+	}, getResourceHandler(runner))
 }
 
 type ListAgentsInput struct{}
