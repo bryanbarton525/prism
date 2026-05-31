@@ -10,12 +10,14 @@ See [docs/usage.md](../docs/usage.md) for examples.
 Use the skills ecosystem CLI to discover/install skills from this repo:
 
 ```bash
-npx skills add github.com/bryanbarton525/prism -l
-npx skills add github.com/bryanbarton525/prism --skill prism-mcp-orchestrator
+npx skills add github.com/bryanbarton525/prism -l --full-depth
+npx skills add github.com/bryanbarton525/prism --skill prism-mcp-orchestrator --full-depth
 ```
 
 The `prism-mcp-orchestrator` skill teaches a parent model when delegation is
 worth it and how to call Prism MCP tools/resources/prompts in the correct order.
+It is stored under `orchestrator-skills/` (outside this `skills/` runtime
+directory) so Prism agents do not load it as an attachable specialist skill.
 
 Prism agents are invoked with **explicit Agent Skills** attached to each run.
 Skills narrow what the local model is allowed to assume and which procedures it

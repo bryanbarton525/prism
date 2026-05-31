@@ -81,15 +81,17 @@ You can install Prism skills with the [skills.sh](https://www.skills.sh) CLI:
 
 ```bash
 # List discoverable skills from this repo
-npx skills add github.com/bryanbarton525/prism -l
+npx skills add github.com/bryanbarton525/prism -l --full-depth
 
 # Install a specific skill (example: MCP orchestration playbook)
-npx skills add github.com/bryanbarton525/prism --skill prism-mcp-orchestrator
+npx skills add github.com/bryanbarton525/prism --skill prism-mcp-orchestrator --full-depth
 ```
 
 Useful skill for parent-model delegation behavior:
 
 - `prism-mcp-orchestrator` — tells the orchestrator **when** to delegate and **how** to call Prism MCP tools/resources/prompts in the correct sequence.
+
+Note: this orchestrator skill is intentionally stored under `orchestrator-skills/` (not `skills/`) so Prism MCP runtime agents do not load it as an attachable specialist skill.
 
 ## How it compares
 

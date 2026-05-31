@@ -235,9 +235,13 @@ Prism skills can be distributed with the skills CLI:
 
 ```bash
 # from a public GitHub source
-npx skills add github.com/bryanbarton525/prism -l
-npx skills add github.com/bryanbarton525/prism --skill prism-mcp-orchestrator
+npx skills add github.com/bryanbarton525/prism -l --full-depth
+npx skills add github.com/bryanbarton525/prism --skill prism-mcp-orchestrator --full-depth
 ```
+
+`prism-mcp-orchestrator` is intentionally stored under `orchestrator-skills/`
+rather than `skills/` so it teaches host-orchestrator behavior without being
+treated as a Prism specialist runtime skill.
 
 ## Troubleshooting
 
