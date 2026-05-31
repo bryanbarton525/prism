@@ -22,13 +22,15 @@ func FormatShowcaseMarkdown(r MonthlyProjectionReport) string {
 
 	s := r.Showcase
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("**1 engineer · 1 task/day · 30-day month · 365-day year** (`%s` live benchmark, %s)\n\n", s.ScenarioID, loadScenarioMeasuredAt(s.ScenarioID)))
+	b.WriteString(fmt.Sprintf("**1 engineer · %d tasks/day · %d tasks/month · %d tasks/year** (`%s` live benchmark, %s)\n\n",
+		s.TasksPerDay, s.TasksPerMonth, s.TasksPerYear, s.ScenarioID, loadScenarioMeasuredAt(s.ScenarioID)))
 	b.WriteString(fmt.Sprintf("Orchestrator tokens per task: **without Prism** `%s in / %s out` → **with Prism** `%s in / %s out` (**%.1f%% input reduction**)\n\n",
 		formatInt(s.WithoutInputTokens), formatInt(s.WithoutOutputTokens),
 		formatInt(s.WithInputTokens), formatInt(s.WithOutputTokens),
 		s.InputReductionPercent))
 
-	b.WriteString("| Model | Without ($/task) | With ($/task) | Daily (without / with) | Monthly (without / with) | Yearly (without / with) |\n")
+	b.WriteString(fmt.Sprintf("| Model | Without ($/task) | With ($/task) | Daily (%d tasks, without / with) | Monthly (%d tasks, without / with) | Yearly (%d tasks, without / with) |\n",
+		s.TasksPerDay, s.TasksPerMonth, s.TasksPerYear))
 	b.WriteString("|---|---:|---:|---:|---:|---:|\n")
 	for _, m := range r.ModelShowcase {
 		b.WriteString(fmt.Sprintf("| `%s` | $%.4f | $%.4f | $%.4f / $%.4f | $%.2f / $%.2f | $%.2f / $%.2f |\n",
