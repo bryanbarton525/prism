@@ -89,24 +89,26 @@ Live benchmarks (Ollama `llama3.1:8b`, orchestrator priced as GPT-4.1 at [$2.00 
 | Incident (8 skills) | 77% | $0.005 |
 | Incident at scale | 83% | $0.011 |
 | Codegen helper | 93% | $0.006 |
+| Feature delivery (notification preferences) | 97% | $0.038 |
 
 ```bash
 prism benchmark run homelab-release-incident
+prism benchmark run feature-notification-center
 prism benchmark project    # monthly/annual projection
 ```
 
 ### Orchestrator showcase matrix
 
-**1 engineer, 1 task/day model (Incident benchmark)**  
-Token usage per task: **without Pulse** `3,547 in / 512 out` -> **with Pulse** `816 in / 533 out` (**77.0% input reduction**).
+**1 engineer, 1 task/day model (real feature benchmark: notification preferences UX + API)**  
+Token usage per task: **without Pulse** `17,922 in / 812 out` -> **with Pulse** `485 in / 442 out` (**97.3% input reduction**).
 
 | Model | Without Pulse ($/task) | With Pulse ($/task) | Saved/task | Saved/day | Saved/month (30 tasks) | Saved/year (365 tasks) |
 |---|---:|---:|---:|---:|---:|---:|
-| `gpt-5.4` | $0.0165 | $0.0100 | $0.0065 | $0.0065 | $0.20 | $2.38 |
-| `gpt-5.5` | $0.0331 | $0.0201 | $0.0130 | $0.0130 | $0.39 | $4.75 |
-| `claude-opus-4.7` | $0.0305 | $0.0174 | $0.0131 | $0.0131 | $0.39 | $4.79 |
-| `claude-opus-4.6` | $0.0305 | $0.0174 | $0.0131 | $0.0131 | $0.39 | $4.79 |
-| `claude-sonnet-4.6` | $0.0183 | $0.0104 | $0.0079 | $0.0079 | $0.24 | $2.88 |
+| `gpt-5.4` | $0.0570 | $0.0078 | $0.0491 | $0.0491 | $1.47 | $17.94 |
+| `gpt-5.5` | $0.1140 | $0.0157 | $0.0983 | $0.0983 | $2.95 | $35.87 |
+| `claude-opus-4.7` | $0.1099 | $0.0135 | $0.0964 | $0.0964 | $2.89 | $35.20 |
+| `claude-opus-4.6` | $0.1099 | $0.0135 | $0.0964 | $0.0964 | $2.89 | $35.20 |
+| `claude-sonnet-4.6` | $0.0660 | $0.0081 | $0.0579 | $0.0579 | $1.74 | $21.12 |
 
 **Pricing sources (May 2026):**
 - [OpenAI API pricing](https://openai.com/api/pricing/) — `gpt-5.4`, `gpt-5.5`

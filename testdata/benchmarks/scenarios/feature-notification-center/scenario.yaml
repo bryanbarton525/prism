@@ -1,0 +1,60 @@
+id: feature-notification-center
+title: Notification preferences feature delivery (realistic dev context)
+description: >
+  Simulates a real feature build task where one engineer designs a notification
+  preferences UX and backend contract. Orchestrator-only mode loads broad
+  repository/product context (docs, plans, constraints), while Prism mode
+  delegates focused subproblems (docs synthesis, package scaffold, validation
+  helper, table-driven tests) and synthesizes compact summaries.
+
+brief_file: brief.md
+
+orchestrator_context_files:
+  - ../../../../README.md
+  - ../../../../docs/usage.md
+  - ../../../../docs/comparison.md
+  - ../../../../docs/implementation-plan.md
+  - ../../../../docs/success-metrics.md
+  - ../../../../docs/benchmark-scale.md
+
+delegations:
+  - id: docs-ux
+    agent_id: web-docs-search
+    skill_names: [docs-source-harvest]
+    task_file: tasks/docs-ux.md
+    evidence_files: [evidence/ux-requirements.md]
+    mock_response_file: responses/docs-ux.txt
+
+  - id: api-scaffold
+    agent_id: go-scaffold
+    skill_names: [go-package-scaffold]
+    task_file: tasks/api-scaffold.md
+    evidence_files: [evidence/api-contract.md]
+    mock_response_file: responses/api-scaffold.txt
+
+  - id: validation-helper
+    agent_id: go-helper
+    skill_names: [go-pure-util]
+    task_file: tasks/validation-helper.md
+    evidence_files: [evidence/validation-rules.md]
+    mock_response_file: responses/validation-helper.txt
+
+  - id: tests
+    agent_id: go-scaffold
+    skill_names: [go-test-table]
+    task_file: tasks/tests.md
+    evidence_files: [evidence/test-cases.md]
+    mock_response_file: responses/tests.txt
+
+assertions:
+  required_phrases:
+    - "notification preferences"
+    - "/v1/users/{id}/notification-preferences"
+    - "digest"
+    - "quiet hours"
+    - "table-driven"
+    - "migration"
+
+synthesis:
+  orchestrator_prompt_file: tasks/orchestrator-synthesis.md
+  delegated_prompt_file: tasks/delegated-synthesis.md

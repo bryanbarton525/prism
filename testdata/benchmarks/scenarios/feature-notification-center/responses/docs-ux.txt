@@ -1,0 +1,9 @@
+{
+  "summary": "UX requires a clear category/channel matrix plus digest and quiet-hours controls with stable error-key mapping.",
+  "findings": [
+    "Security must keep at least one channel.",
+    "Incident notifications must preserve in-app delivery.",
+    "Quiet hours require timezone validation and critical bypass behavior."
+  ],
+  "confidence": "high"
+}

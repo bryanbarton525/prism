@@ -1,0 +1,9 @@
+{
+  "summary": "Validation helper should return deterministic keyed errors for digest, quiet hours, and channel/category invariants.",
+  "findings": [
+    "Return []ValidationError sorted by key for stable table-driven tests.",
+    "Enforce incident in_app and security-at-least-one-channel constraints.",
+    "Reject invalid quiet-hours timezone and zero-length windows."
+  ],
+  "confidence": "high"
+}

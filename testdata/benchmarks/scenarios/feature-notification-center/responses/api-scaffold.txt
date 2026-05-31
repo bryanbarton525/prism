@@ -1,0 +1,9 @@
+{
+  "summary": "Scaffold internal/notifications/preferences with typed domain models, service, store interface, and handler mapping.",
+  "findings": [
+    "Use GET/PUT /v1/users/{id}/notification-preferences with version-based optimistic locking.",
+    "Keep validate.go pure and isolated from transport/store.",
+    "Include migration fallback defaults before async backfill."
+  ],
+  "confidence": "high"
+}
