@@ -57,7 +57,17 @@ prism benchmark project --json
 
 ### Orchestrator model matrix
 
-`prism benchmark project` emits a cross-orchestrator showcase using **May 2026 list pricing** from `testdata/benchmarks/orchestrator-models.yaml`:
+Dollar savings from committed live benchmarks (`results.yaml`, Ollama `llama3.1:8b` specialists). Each **$/run** value is **one completed task** — a single orchestrator synthesis call after delegations:
+
+| Scenario | Task shape | Orchestrator input without MCP → with Prism | Delegations |
+|----------|------------|-----------------------------------------------|-------------|
+| Incident | 8-skill homelab release triage (gh, kubectl, argo, docs) | 3,547 → 816 tokens | 8 |
+| At-scale incident | Above + Cursor rules, runbooks, chat history (baseline only) | 5,734 → 986 tokens | 10 |
+| Codegen | One `go-helper` offload (`ParseLabels`) | 2,518 → 173 tokens | 1 |
+
+**Monthly / annual** use the `enterprise_sre` profile: **20 engineers**, **40 incidents + 400 codegen tasks/month**, **5× context multiplier** on orchestrator-only baseline input (~28.7k tokens/incident, ~12.6k tokens/codegen at full scale). Local Ollama runs are **$0**.
+
+Showcase rates (**May 2026** list pricing, `orchestrator-models.yaml`):
 
 | Model | Input / output ($/M) | Incident $/run | At-scale $/run | Codegen $/run | Monthly (enterprise) | Annual |
 |-------|----------------------|----------------|----------------|---------------|----------------------|--------|
