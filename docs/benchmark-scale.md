@@ -57,27 +57,26 @@ prism benchmark project --json
 
 ### Orchestrator model matrix
 
-Dollar savings from committed live benchmarks (`results.yaml`, Ollama `llama3.1:8b` specialists). Each **$/run** value is **one completed task** — a single orchestrator synthesis call after delegations:
+**1 engineer model:** 1 task/day, 30-day month, 365-day year.  
+**Token basis (without -> with Pulse):** Incident `3,547 -> 816`, At-scale incident `5,734 -> 986`, Codegen `2,518 -> 173`.
 
-| Scenario | Task shape | Orchestrator input without MCP → with Prism | Delegations |
-|----------|------------|-----------------------------------------------|-------------|
-| Incident | 8-skill homelab release triage (gh, kubectl, argo, docs) | 3,547 → 816 tokens | 8 |
-| At-scale incident | Above + Cursor rules, runbooks, chat history (baseline only) | 5,734 → 986 tokens | 10 |
-| Codegen | One `go-helper` offload (`ParseLabels`) | 2,518 → 173 tokens | 1 |
-
-**Monthly / annual** use the `enterprise_sre` profile: **20 engineers**, **40 incidents + 400 codegen tasks/month**, **5× context multiplier** on orchestrator-only baseline input (~28.7k tokens/incident, ~12.6k tokens/codegen at full scale). Local Ollama runs are **$0**.
-
-Showcase rates (**May 2026** list pricing, `orchestrator-models.yaml`):
-
-| Model | Input / output ($/M) | Incident $/run | At-scale $/run | Codegen $/run | Monthly (enterprise) | Annual |
-|-------|----------------------|----------------|----------------|---------------|----------------------|--------|
-| `gpt-5.4` | $2.50 / $15.00 | $0.0065 | $0.0124 | $0.0065 | $15.45 | $185.40 |
-| `gpt-5.5` | $5.00 / $30.00 | $0.0130 | $0.0248 | $0.0129 | $30.89 | $370.68 |
-| `claude-opus-4.7` | $5.00 / $25.00 | $0.0131 | $0.0246 | $0.0127 | $30.81 | $369.72 |
-| `claude-opus-4.6` | $5.00 / $25.00 | $0.0131 | $0.0246 | $0.0127 | $30.81 | $369.72 |
-| `claude-sonnet-4.6` | $3.00 / $15.00 | $0.0079 | $0.0148 | $0.0076 | $18.48 | $221.76 |
-
-Dollar savings scale with orchestrator price — token reduction percentages are identical across models. Opus 4.6 and 4.7 match because Anthropic lists the same Opus rates for both.
+| Model | Task | Without Pulse ($/task) | With Pulse ($/task) | Daily (without / with) | Monthly 30 tasks (without / with) | Yearly 365 tasks (without / with) |
+|---|---|---:|---:|---:|---:|---:|
+| `gpt-5.4` | Incident | $0.0165 | $0.0100 | $0.0165 / $0.0100 | $0.50 / $0.30 | $6.04 / $3.66 |
+| `gpt-5.4` | At-scale incident | $0.0230 | $0.0106 | $0.0230 / $0.0106 | $0.69 / $0.32 | $8.41 / $3.88 |
+| `gpt-5.4` | Codegen | $0.0126 | $0.0061 | $0.0126 / $0.0061 | $0.38 / $0.18 | $4.60 / $2.24 |
+| `gpt-5.5` | Incident | $0.0331 | $0.0201 | $0.0331 / $0.0201 | $0.99 / $0.60 | $12.08 / $7.33 |
+| `gpt-5.5` | At-scale incident | $0.0461 | $0.0213 | $0.0461 / $0.0213 | $1.38 / $0.64 | $16.82 / $7.77 |
+| `gpt-5.5` | Codegen | $0.0252 | $0.0123 | $0.0252 / $0.0123 | $0.76 / $0.37 | $9.19 / $4.48 |
+| `claude-opus-4.7` | Incident | $0.0305 | $0.0174 | $0.0305 / $0.0174 | $0.92 / $0.52 | $11.15 / $6.35 |
+| `claude-opus-4.7` | At-scale incident | $0.0432 | $0.0186 | $0.0432 / $0.0186 | $1.30 / $0.56 | $15.76 / $6.77 |
+| `claude-opus-4.7` | Codegen | $0.0231 | $0.0104 | $0.0231 / $0.0104 | $0.69 / $0.31 | $8.43 / $3.78 |
+| `claude-opus-4.6` | Incident | $0.0305 | $0.0174 | $0.0305 / $0.0174 | $0.92 / $0.52 | $11.15 / $6.35 |
+| `claude-opus-4.6` | At-scale incident | $0.0432 | $0.0186 | $0.0432 / $0.0186 | $1.30 / $0.56 | $15.76 / $6.77 |
+| `claude-opus-4.6` | Codegen | $0.0231 | $0.0104 | $0.0231 / $0.0104 | $0.69 / $0.31 | $8.43 / $3.78 |
+| `claude-sonnet-4.6` | Incident | $0.0183 | $0.0104 | $0.0183 / $0.0104 | $0.55 / $0.31 | $6.69 / $3.81 |
+| `claude-sonnet-4.6` | At-scale incident | $0.0259 | $0.0111 | $0.0259 / $0.0111 | $0.78 / $0.33 | $9.45 / $4.06 |
+| `claude-sonnet-4.6` | Codegen | $0.0139 | $0.0062 | $0.0139 / $0.0062 | $0.42 / $0.19 | $5.06 / $2.27 |
 
 **Pricing sources (May 2026):** [OpenAI API pricing](https://openai.com/api/pricing/) (GPT-5.4, GPT-5.5, GPT-4.1 baseline); [Anthropic pricing](https://www.anthropic.com/pricing) (Opus 4.6/4.7, Sonnet 4.6).
 
