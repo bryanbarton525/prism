@@ -53,6 +53,13 @@ Pricing assumptions: `testdata/benchmarks/rates.yaml` (default orchestrator GPT-
 
 Todo scenario quality parity check (live run): both baseline and Prism outputs matched 10/10 rubric checks (`index.html`, `styles.css`, `app.js`, `README`, `localStorage`, add/complete/delete flows, event listeners, todo list UI), with both responses including full code fences.
 
+### Why the orchestrator sees fewer tokens
+
+See the visual workflow diagrams in [workflow-token-diagrams.md](workflow-token-diagrams.md):
+
+- Technical architecture flow (without Prism vs delegated with Prism)
+- Executive before/after flow (cost and focus impact)
+
 ## Monthly projection
 
 ```bash

@@ -141,6 +141,7 @@ More scenarios: **[docs/benchmark-scale.md](docs/benchmark-scale.md)**
 | [docs/usage.md](docs/usage.md)                             | CLI/MCP reference, examples, troubleshooting |
 | [docs/comparison.md](docs/comparison.md)                   | Landscape vs Claude, Cursor, frameworks      |
 | [docs/benchmark-scale.md](docs/benchmark-scale.md)         | At-scale scenarios, monthly projections      |
+| [docs/workflow-token-diagrams.md](docs/workflow-token-diagrams.md) | Why token savings happen (visual diagrams) |
 | [docs/blog-prism-launch.md](docs/blog-prism-launch.md)     | Launch post / product narrative              |
 | [docs/implementation-plan.md](docs/implementation-plan.md) | Architecture and design                      |
 | [docs/success-metrics.md](docs/success-metrics.md)         | Benchmark targets and report format          |
@@ -151,6 +152,21 @@ More scenarios: **[docs/benchmark-scale.md](docs/benchmark-scale.md)**
 ```bash
 go test ./...
 go build -o prism ./cmd/prism
+```
+
+### Prevent direct pushes to main
+
+Install `pre-commit` and enable the repo hook that blocks direct pushes to `main`:
+
+```bash
+pre-commit install --hook-type pre-push
+```
+
+The hook is defined in `.pre-commit-config.yaml` and runs `scripts/hooks/pre-push-block-main.sh`.
+If you need an emergency one-off bypass:
+
+```bash
+PRISM_ALLOW_MAIN_PUSH=1 git push origin <ref>
 ```
 
 ## License

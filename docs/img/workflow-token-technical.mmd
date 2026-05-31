@@ -1,0 +1,30 @@
+flowchart LR
+  IN[Step 1 Initial request\n~120 tokens to orchestrator] --> ORCH[Step 2 Orchestrator plans\nbrief only - no raw context]
+  ORCH --> MCP[Step 3 Prism fans out via MCP]
+
+  MCP --> A1[Specialist A\nUI structure]
+  MCP --> A2[Specialist B\nlocalStorage + logic]
+  MCP --> A3[Specialist C\nREADME instructions]
+
+  SK1[Skill + evidence\n~2,080 tokens] --> A1
+  SK2[Skill + evidence\n~2,080 tokens] --> A2
+  SK3[Skill + evidence\n~2,080 tokens] --> A3
+
+  A1 --> C1[Compress to ~80 tokens]:::compress
+  A2 --> C2[Compress to ~80 tokens]:::compress
+  A3 --> C3[Compress to ~80 tokens]:::compress
+
+  C1 --> SYN[Step 4 Orchestrator synthesizes\nbrief + 3 summaries = 363 tokens]
+  C2 --> SYN
+  C3 --> SYN
+  SYN --> OUT[Step 5 Final response\nsame quality rubric]
+
+  B0[Without Prism\n6,191 orchestrator input tokens]:::baseline
+  B1[With Prism\n363 orchestrator input tokens]:::delegated
+  B0 --> R[94.1% orchestrator input reduction]:::highlight
+  B1 --> R
+
+  classDef compress fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:1.5px;
+  classDef baseline fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d,stroke-width:1.5px;
+  classDef delegated fill:#dcfce7,stroke:#15803d,color:#14532d,stroke-width:1.5px;
+  classDef highlight fill:#d1fae5,stroke:#059669,color:#064e3b,stroke-width:2px;

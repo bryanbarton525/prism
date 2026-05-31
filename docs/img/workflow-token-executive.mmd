@@ -1,0 +1,14 @@
+flowchart TD
+  A[Before Prism:\nOne premium prompt carries task + all context] --> B[High orchestrator input]
+  B --> C[Higher cost + lower focus]
+
+  D[After Prism:\nEditor orchestrates and delegates via MCP] --> E[Specialists process heavy evidence locally]
+  E --> F[Compact summaries return to orchestrator]
+  F --> G[Lower orchestrator input]
+  G --> H[Same quality rubric, sharper orchestration]
+
+  I[Live coding benchmark:\n6,191 -> 363 orchestrator input tokens\n94.1% reduction]:::highlight
+  C --> I
+  H --> I
+
+  classDef highlight fill:#dbeafe,stroke:#1d4ed8,color:#1e3a8a,stroke-width:2px;

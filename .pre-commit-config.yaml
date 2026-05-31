@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: block-main-push
+        name: Block direct push to main
+        entry: bash scripts/hooks/pre-push-block-main.sh
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

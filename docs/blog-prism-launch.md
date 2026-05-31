@@ -91,6 +91,8 @@ That is a **94.1% reduction in orchestrator input tokens** for this task.
 
 Both outputs passed the same quality rubric: required files, localStorage behavior, add/complete/delete flows, and README instructions.
 
+For a visual explanation of this reduction pattern, see [docs/workflow-token-diagrams.md](workflow-token-diagrams.md).
+
 ## The Honest Economics
 
 This is not a claim that one todo app saves a company thousands of dollars.
