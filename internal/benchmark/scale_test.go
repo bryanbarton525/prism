@@ -118,9 +118,13 @@ func TestModelShowcaseDifferentiatedRates(t *testing.T) {
 		t.Errorf("gpt-5.4 costs = %.4f/%.4f saved %.4f, want 0.0276/0.0170 saved 0.0107",
 			gpt54.WithoutPrismUSD, gpt54.WithPrismUSD, gpt54.SavedPerTaskUSD)
 	}
-	if gpt55.SavedPerTaskUSD != 0.0213 || gpt55.SavedPerMonth30USD != 0.64 || gpt55.SavedPerYear365USD != 7.78 {
-		t.Errorf("gpt-5.5 savings = %.4f/mo %.2f/yr %.2f, want 0.0213/mo 0.64/yr 7.78",
-			gpt55.SavedPerTaskUSD, gpt55.SavedPerMonth30USD, gpt55.SavedPerYear365USD)
+	if gpt55.SavedPerTaskUSD != 0.0213 || gpt55.WithoutPerMonthUSD != 1.66 || gpt55.WithPerMonthUSD != 1.02 {
+		t.Errorf("gpt-5.5 task=%.4f mo without/with=%.2f/%.2f, want 0.0213 saved, 1.66/1.02 mo",
+			gpt55.SavedPerTaskUSD, gpt55.WithoutPerMonthUSD, gpt55.WithPerMonthUSD)
+	}
+	if gpt54.WithoutPerYearUSD != 10.07 || gpt54.WithPerYearUSD != 6.21 {
+		t.Errorf("gpt-5.4 yearly without/with = %.2f/%.2f, want 10.07/6.21",
+			gpt54.WithoutPerYearUSD, gpt54.WithPerYearUSD)
 	}
 	if gpt55.SavedPerTaskUSD <= gpt54.SavedPerTaskUSD {
 		t.Errorf("gpt-5.5 saved/task %.4f should exceed gpt-5.4 %.4f", gpt55.SavedPerTaskUSD, gpt54.SavedPerTaskUSD)

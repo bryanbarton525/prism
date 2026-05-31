@@ -119,9 +119,12 @@ type ModelShowcaseRow struct {
 	WithoutPrismUSD    float64 `json:"without_prism_usd_per_task"`
 	WithPrismUSD       float64 `json:"with_prism_usd_per_task"`
 	SavedPerTaskUSD    float64 `json:"saved_per_task_usd"`
-	SavedPerDayUSD     float64 `json:"saved_per_day_usd"`
-	SavedPerMonth30USD float64 `json:"saved_per_month_30_tasks_usd"`
-	SavedPerYear365USD float64 `json:"saved_per_year_365_tasks_usd"`
+	WithoutPerDayUSD   float64 `json:"without_prism_usd_per_day"`
+	WithPerDayUSD      float64 `json:"with_prism_usd_per_day"`
+	WithoutPerMonthUSD float64 `json:"without_prism_usd_per_month"`
+	WithPerMonthUSD    float64 `json:"with_prism_usd_per_month"`
+	WithoutPerYearUSD  float64 `json:"without_prism_usd_per_year"`
+	WithPerYearUSD     float64 `json:"with_prism_usd_per_year"`
 	RateConfigured     bool    `json:"rate_configured"`
 	Note               string  `json:"note,omitempty"`
 }
@@ -337,14 +340,21 @@ func buildModelShowcase(results map[string]ScenarioResults, profiles ScaleProfil
 		with := CostUSD(ref.PrismDelegated.InputTokens, ref.PrismDelegated.OutputTokens, r.Orchestrator)
 		saved := without - with
 
+		withoutTask := round4USD(without)
+		withTask := round4USD(with)
+		savedTask := round4USD(saved)
+
 		rows = append(rows, ModelShowcaseRow{
 			Model:              m.ID,
-			WithoutPrismUSD:    round4USD(without),
-			WithPrismUSD:       round4USD(with),
-			SavedPerTaskUSD:    round4USD(saved),
-			SavedPerDayUSD:     round4USD(saved * float64(tasksPerDay)),
-			SavedPerMonth30USD: roundUSD(saved * float64(tasksPerMonth)),
-			SavedPerYear365USD: roundUSD(saved * float64(tasksPerYear)),
+			WithoutPrismUSD:    withoutTask,
+			WithPrismUSD:       withTask,
+			SavedPerTaskUSD:    savedTask,
+			WithoutPerDayUSD:   round4USD(withoutTask * float64(tasksPerDay)),
+			WithPerDayUSD:      round4USD(withTask * float64(tasksPerDay)),
+			WithoutPerMonthUSD: roundUSD(withoutTask * float64(tasksPerMonth)),
+			WithPerMonthUSD:    roundUSD(withTask * float64(tasksPerMonth)),
+			WithoutPerYearUSD:  roundUSD(withoutTask * float64(tasksPerYear)),
+			WithPerYearUSD:     roundUSD(withTask * float64(tasksPerYear)),
 			RateConfigured:     m.InputPerMillion > 0 || m.OutputPerMillion > 0,
 			Note:               m.Note,
 		})
