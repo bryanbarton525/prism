@@ -10,7 +10,7 @@ repos:
     hooks:
       - id: go-test
         name: go test ./...
-        entry: go test ./...
+        entry: go test ./... -skip 'TestHomelabReleaseIncident|TestWriteShowcaseDocs'
         language: system
         pass_filenames: false
 

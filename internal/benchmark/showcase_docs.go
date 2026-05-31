@@ -141,8 +141,8 @@ func syncTodoScenarioLiveResults(root string) error {
 	}
 
 	header := "# Live benchmark results for this scenario\n\n" +
-		"Generated from `testdata/benchmarks/results.yaml` by `prism benchmark project --write`.\n\n" +
-		"Re-run live: `prism benchmark run todo-spa-build --json`\n\n"
+		"# Generated from `testdata/benchmarks/results.yaml` by `prism benchmark project --write`.\n\n" +
+		"# Re-run live: `prism benchmark run todo-spa-build --json`\n\n"
 	path := filepath.Join(root, "testdata", "benchmarks", "scenarios", "todo-spa-build", "live-results.yaml")
 	return os.WriteFile(path, append([]byte(header), data...), 0o644)
 }

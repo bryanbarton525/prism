@@ -95,6 +95,12 @@ func promptCatalog() []PromptTemplate {
 			Description: "Template to offload small helper implementation or test scaffold tasks.",
 			Variables:   []string{"package_path", "request"},
 		},
+		{
+			ID:          "prism_delegation_playbook",
+			Title:       "Prism delegation playbook",
+			Description: "Decision + call sequence for when and how to delegate with Prism MCP tools.",
+			Variables:   []string{"task", "success_criteria", "evidence_hint"},
+		},
 	}
 }
 
@@ -177,6 +183,16 @@ func renderPrompt(id string, vars map[string]string) (title, prompt string, err 
 		prompt = fmt.Sprintf(
 			"Use Prism `run_agent` for bounded codegen.\n\nagent_id: \"go-helper\"\nskill_names: [\"go-helper-fn\"]\ntask: \"Package %s. %s Return compact summary/findings and full code in artifacts.\"",
 			pkg, req,
+		)
+		return title, prompt, nil
+	case "prism_delegation_playbook":
+		task := get("task", "Investigate a failing PR and summarize next actions.")
+		success := get("success_criteria", "Evidence-backed findings, clear next steps, concise final synthesis.")
+		evidence := get("evidence_hint", "PR URL, failing checks, error snippets, and relevant logs.")
+		title = "Prism delegation playbook"
+		prompt = fmt.Sprintf(
+			"Use Prism delegation playbook for task: %q\n\nSuccess criteria: %s\nEvidence hint: %s\n\nCall sequence:\n1) `list_agents` to discover candidate specialists.\n2) `list_resources` and fetch:\n   - `prism://resource/tooling/run_agent`\n   - `prism://resource/tooling/orchestration-guide`\n3) If needed, `list_prompts` then `get_prompt` for a starter template.\n4) For chosen agent(s), fetch constitution via `get_resource` URI:\n   - `prism://resource/agent/<agent_id>/constitution`\n5) Execute one or more bounded `run_agent` calls with allowed `skill_names`.\n6) Synthesize specialist summaries in the parent model; keep final judgment in parent.\n\nDelegation decision rule:\n- Delegate when evidence is heavy (logs/runbooks/docs), domain-specific, or parallelizable.\n- Avoid delegation for tiny single-step tasks where overhead exceeds benefit.\n\nOutput contract:\n- Return tool-backed summary, key findings, command/artifact evidence, confidence, and recommended next action.",
+			task, success, evidence,
 		)
 		return title, prompt, nil
 	default:
@@ -292,15 +308,41 @@ Rules:
 			MimeType: "text/markdown",
 			Content: `# Prism orchestration guide
 
-1. Start with a brief and explicit success criteria.
-2. Choose specialist agent(s) by domain:
-   - github-cli, kubectl, argo, web-docs-search, go-helper, go-scaffold
-3. Attach only relevant skills.
-4. Pass evidence in task text (logs, JSON, snippets).
-5. Aggregate specialist summaries and synthesize final output in parent model.
+## Goal
+Keep parent-model context small by delegating evidence-heavy subtasks to Prism specialists and synthesizing compact summaries in the parent.
 
-Best practice:
-- Use multiple narrow run_agent calls rather than one giant prompt.`,
+## When to delegate
+- Task includes large evidence blobs (CI logs, cluster state, runbooks, docs, chat exports).
+- Task is domain-specific (GitHub, Kubernetes, Argo, docs lookup, Go codegen/scaffold).
+- Work can be split into parallel, bounded subtasks.
+
+## When not to delegate
+- Tiny single-step requests where delegation overhead is larger than direct completion.
+- Tasks requiring direct parent-model creative synthesis with minimal evidence.
+
+## Required call sequence
+1. list_agents to discover available specialists and allowed skills.
+2. list_resources and get_resource for:
+   - prism://resource/tooling/run_agent
+   - prism://resource/tooling/orchestration-guide
+   - prism://resource/agent/<agent_id>/constitution (for chosen agent)
+3. Optional: list_prompts and get_prompt to generate valid run_agent payloads.
+4. run_agent with bounded tasks and explicit skill_names.
+5. Synthesize specialist outputs in the parent model.
+
+## Task-shaping rules for run_agent
+- Use narrow, evidence-oriented tasks.
+- Provide only relevant snippets/artifacts per specialist.
+- Prefer multiple focused calls over one large mixed-domain call.
+- Keep final judgment, tradeoffs, and user-facing recommendation in parent.
+
+## Parent-model output expectations
+- Concise synthesis (not raw dumps).
+- Evidence-backed findings.
+- Confidence and next action.
+
+## Reminder
+Prism enforces allowed_skills per agent; parent model must choose valid skill IDs.`,
 		}, nil
 	case "prism://resource/agents/index":
 		agents, err := runner.ListAgents(ctx)

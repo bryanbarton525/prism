@@ -1,8 +1,8 @@
 # Live benchmark results for this scenario
 
-Generated from `testdata/benchmarks/results.yaml` by `prism benchmark project --write`.
+# Generated from `testdata/benchmarks/results.yaml` by `prism benchmark project --write`.
 
-Re-run live: `prism benchmark run todo-spa-build --json`
+# Re-run live: `prism benchmark run todo-spa-build --json`
 
 todo-spa-build:
     measured_at: "2026-05-31"

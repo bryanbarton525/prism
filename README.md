@@ -75,6 +75,22 @@ Full setup, flags, troubleshooting: **[docs/usage.md](docs/usage.md)**
 
 Add your own under `agents/` and `skills/`. See [agents/README.md](agents/README.md) and [skills/README.md](skills/README.md).
 
+## Install skills via skills CLI
+
+You can install Prism skills with the [skills.sh](https://www.skills.sh) CLI:
+
+```bash
+# List discoverable skills from this repo
+npx skills add github.com/bryanbarton525/prism -l
+
+# Install a specific skill (example: MCP orchestration playbook)
+npx skills add github.com/bryanbarton525/prism --skill prism-mcp-orchestrator
+```
+
+Useful skill for parent-model delegation behavior:
+
+- `prism-mcp-orchestrator` — tells the orchestrator **when** to delegate and **how** to call Prism MCP tools/resources/prompts in the correct sequence.
+
 ## How it compares
 
 

@@ -5,6 +5,18 @@ Prism loads skills from `skills/<name>/` when you pass `--skills` on the CLI or
 
 See [docs/usage.md](../docs/usage.md) for examples.
 
+## Install from repository via skills CLI
+
+Use the skills ecosystem CLI to discover/install skills from this repo:
+
+```bash
+npx skills add github.com/bryanbarton525/prism -l
+npx skills add github.com/bryanbarton525/prism --skill prism-mcp-orchestrator
+```
+
+The `prism-mcp-orchestrator` skill teaches a parent model when delegation is
+worth it and how to call Prism MCP tools/resources/prompts in the correct order.
+
 Prism agents are invoked with **explicit Agent Skills** attached to each run.
 Skills narrow what the local model is allowed to assume and which procedures it
 may follow, which reduces scope creep and improves accuracy on specialized work.

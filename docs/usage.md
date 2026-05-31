@@ -177,6 +177,12 @@ in MCP hosts that do not support native MCP prompts yet.
 { "prompt_id": "k8s_incident_triage", "variables": { "namespace": "payments" } }
 ```
 
+Notable built-in prompt IDs:
+
+- `run_agent_json_call` — generate a valid `run_agent` JSON payload
+- `prism_delegation_playbook` — full delegation decision + call sequence (`list_agents` -> resources/prompts -> `run_agent` -> parent synthesis)
+- `github_pr_triage`, `k8s_incident_triage`, `argo_failure_debug`, `go_codegen_helper` — domain templates
+
 #### `list_resources` / `get_resource`
 
 Compatibility tools that expose Prism resources (tool contracts, orchestration guide,
@@ -222,6 +228,16 @@ Suggested order:
   - `scripts/collect.sh`
 2. Add `<name>` to an agent’s `allowed_skills`.
 3. Verify: `go test ./internal/benchmark/...`
+
+### Publish/install via skills.sh CLI
+
+Prism skills can be distributed with the skills CLI:
+
+```bash
+# from a public GitHub source
+npx skills add github.com/bryanbarton525/prism -l
+npx skills add github.com/bryanbarton525/prism --skill prism-mcp-orchestrator
+```
 
 ## Troubleshooting
 
