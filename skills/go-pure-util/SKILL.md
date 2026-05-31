@@ -1,6 +1,6 @@
 ---
 name: go-pure-util
-description: Implement pure Go utilities (parsers, formatters, small transforms) with no I/O side effects. Use for string/number/time helpers while scaffolding a package.
+description: Build pure Go parsers/formatters/transforms with deterministic behavior and no I/O. Trigger on prompts for stateless utility logic and edge-case-safe helpers.
 compatibility: Requires input/output examples or types from the orchestrator.
 metadata:
   prism-agents: go-helper
@@ -8,7 +8,11 @@ metadata:
 
 # Go pure utility
 
-1. Confirm inputs, outputs, and invariants from the task and evidence.
-2. Write a stateless function or small type with methods — no globals, no network/file I/O.
-3. Handle edge cases explicitly (empty input, zero values, overflow where relevant).
-4. Return compact JSON summary; place implementation in `code`.
+1. Confirm input/output contract and invariants from provided evidence.
+2. Write stateless code only (no globals, network, filesystem, env dependencies).
+3. Handle edge cases explicitly (empty input, malformed values, bounds/overflow).
+4. Note complexity/allocation tradeoffs when non-trivial.
+5. Suggest local validation commands:
+   - `go test ./...`
+   - `go test ./... -run <UtilityName>`
+6. Return compact JSON summary and full implementation in `code`.

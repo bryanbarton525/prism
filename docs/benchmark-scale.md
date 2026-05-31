@@ -55,6 +55,25 @@ prism benchmark project
 prism benchmark project --json
 ```
 
+### Orchestrator model matrix
+
+`prism benchmark project` also emits a cross-orchestrator showcase for:
+
+- `gpt-5.4`
+- `gpt-5.5`
+- `claude-opus-4.7`
+- `claude-opus-4.6`
+- `claude-sonnet-4.6`
+
+Configured in `testdata/benchmarks/orchestrator-models.yaml`.
+These rates are placeholders by default; update to your actual pricing.
+
+Example output columns:
+- incident savings per run
+- at-scale incident savings per run
+- codegen savings per run
+- monthly/annual savings (enterprise profile)
+
 Profiles in `testdata/benchmarks/scale-profiles.yaml`:
 
 | Profile | Incidents/mo | Codegen/mo | Context multiplier | Monthly savings | Annual savings |

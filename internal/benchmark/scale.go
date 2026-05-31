@@ -12,13 +12,13 @@ import (
 
 // ScenarioResults holds committed per-run metrics from results.yaml.
 type ScenarioResults struct {
-	MeasuredAt                  string  `yaml:"measured_at"`
-	ModelLocal                  string  `yaml:"model_local"`
-	ModelOrchestrator           string  `yaml:"model_orchestrator"`
-	OrchestratorOnly            RunSnapshot `yaml:"orchestrator_only"`
-	PrismDelegated              RunSnapshot `yaml:"prism_delegated"`
-	InputTokenReductionPercent  float64 `yaml:"input_token_reduction_percent"`
-	NetSavingsUSD               float64 `yaml:"net_savings_usd"`
+	MeasuredAt                 string      `yaml:"measured_at"`
+	ModelLocal                 string      `yaml:"model_local"`
+	ModelOrchestrator          string      `yaml:"model_orchestrator"`
+	OrchestratorOnly           RunSnapshot `yaml:"orchestrator_only"`
+	PrismDelegated             RunSnapshot `yaml:"prism_delegated"`
+	InputTokenReductionPercent float64     `yaml:"input_token_reduction_percent"`
+	NetSavingsUSD              float64     `yaml:"net_savings_usd"`
 }
 
 // RunSnapshot is one mode's committed metrics.
@@ -35,7 +35,7 @@ type RunSnapshot struct {
 
 // ScaleProfiles configures monthly projection inputs.
 type ScaleProfiles struct {
-	Profiles map[string]UsageProfile `yaml:"profiles"`
+	Profiles           map[string]UsageProfile `yaml:"profiles"`
 	ReferenceScenarios struct {
 		Incident        string `yaml:"incident"`
 		IncidentAtScale string `yaml:"incident_at_scale"`
@@ -46,10 +46,10 @@ type ScaleProfiles struct {
 
 // UsageProfile describes monthly task volume for one team shape.
 type UsageProfile struct {
-	Description             string  `yaml:"description"`
-	IncidentsPerMonth       int     `yaml:"incidents_per_month"`
-	CodegenTasksPerMonth    int     `yaml:"codegen_tasks_per_month"`
-	ContextSizeMultiplier   float64 `yaml:"context_size_multiplier"`
+	Description           string  `yaml:"description"`
+	IncidentsPerMonth     int     `yaml:"incidents_per_month"`
+	CodegenTasksPerMonth  int     `yaml:"codegen_tasks_per_month"`
+	ContextSizeMultiplier float64 `yaml:"context_size_multiplier"`
 }
 
 // ProfileProjection is monthly cost/savings for one usage profile.
@@ -71,9 +71,34 @@ type ProfileProjection struct {
 
 // MonthlyProjectionReport aggregates all profiles.
 type MonthlyProjectionReport struct {
-	RatesModel       string              `json:"rates_model"`
-	Profiles         []ProfileProjection `json:"profiles"`
-	Markdown         string              `json:"-"`
+	RatesModel    string              `json:"rates_model"`
+	Profiles      []ProfileProjection `json:"profiles"`
+	ModelShowcase []ModelShowcaseRow  `json:"model_showcase,omitempty"`
+	Markdown      string              `json:"-"`
+}
+
+// ModelRateProfile is one orchestrator pricing profile for showcase comparisons.
+type ModelRateProfile struct {
+	ID               string  `yaml:"id"`
+	InputPerMillion  float64 `yaml:"input_per_million"`
+	OutputPerMillion float64 `yaml:"output_per_million"`
+	Note             string  `yaml:"note,omitempty"`
+}
+
+type modelRateProfilesFile struct {
+	Models []ModelRateProfile `yaml:"models"`
+}
+
+// ModelShowcaseRow summarizes savings for one orchestrator model profile.
+type ModelShowcaseRow struct {
+	Model                     string  `json:"model"`
+	IncidentSavingsUSD        float64 `json:"incident_savings_usd"`
+	IncidentAtScaleSavingsUSD float64 `json:"incident_at_scale_savings_usd"`
+	CodegenSavingsUSD         float64 `json:"codegen_savings_usd"`
+	MonthlySavingsUSD         float64 `json:"monthly_savings_usd"`
+	AnnualSavingsUSD          float64 `json:"annual_savings_usd"`
+	RateConfigured            bool    `json:"rate_configured"`
+	Note                      string  `json:"note,omitempty"`
 }
 
 // LoadResults reads testdata/benchmarks/results.yaml.
@@ -102,6 +127,20 @@ func LoadScaleProfiles(root string) (ScaleProfiles, error) {
 		return ScaleProfiles{}, err
 	}
 	return sp, nil
+}
+
+// LoadOrchestratorModelProfiles reads benchmark showcase model rates.
+func LoadOrchestratorModelProfiles(root string) ([]ModelRateProfile, error) {
+	path := filepath.Join(root, "testdata", "benchmarks", "orchestrator-models.yaml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var f modelRateProfilesFile
+	if err := yaml.Unmarshal(data, &f); err != nil {
+		return nil, err
+	}
+	return f.Models, nil
 }
 
 // ScaledSavingsPerRun adjusts committed savings for a context multiplier.
@@ -189,6 +228,11 @@ func ProjectMonthly(root string) (MonthlyProjectionReport, error) {
 		})
 	}
 
+	showcase, err := buildModelShowcase(results, profiles, rates, root)
+	if err == nil {
+		report.ModelShowcase = showcase
+	}
+
 	report.Markdown = formatProjectionMarkdown(report, rates, root)
 	return report, nil
 }
@@ -210,6 +254,84 @@ func ScaledDelegatedOnly(ref ScenarioResults, rates Rates) float64 {
 
 func roundUSD(v float64) float64 {
 	return math.Round(v*100) / 100
+}
+
+func buildModelShowcase(results map[string]ScenarioResults, profiles ScaleProfiles, baseRates Rates, root string) ([]ModelShowcaseRow, error) {
+	models, err := LoadOrchestratorModelProfiles(root)
+	if err != nil {
+		return nil, err
+	}
+	if len(models) == 0 {
+		return nil, nil
+	}
+
+	incident, ok := results[profiles.ReferenceScenarios.Incident]
+	if !ok {
+		return nil, fmt.Errorf("missing scenario %q", profiles.ReferenceScenarios.Incident)
+	}
+	incidentScale, ok := results[profiles.ReferenceScenarios.IncidentAtScale]
+	if !ok {
+		return nil, fmt.Errorf("missing scenario %q", profiles.ReferenceScenarios.IncidentAtScale)
+	}
+	codegen, ok := results[profiles.ReferenceScenarios.Codegen]
+	if !ok {
+		return nil, fmt.Errorf("missing scenario %q", profiles.ReferenceScenarios.Codegen)
+	}
+
+	enterprise := pickShowcaseProfile(profiles)
+	if enterprise.ContextSizeMultiplier <= 0 {
+		enterprise.ContextSizeMultiplier = 1
+	}
+	threshold := profiles.AtScaleThresholdMultiplier
+	if threshold <= 0 {
+		threshold = 2.5
+	}
+
+	rows := make([]ModelShowcaseRow, 0, len(models))
+	for _, m := range models {
+		r := baseRates
+		r.Orchestrator.Model = m.ID
+		r.Orchestrator.InputPerMillion = m.InputPerMillion
+		r.Orchestrator.OutputPerMillion = m.OutputPerMillion
+
+		_, _, incSave, _ := ScaledSavingsPerRun(incident, r, 1.0)
+		_, _, incScaleSave, _ := ScaledSavingsPerRun(incidentScale, r, 1.0)
+		_, _, codeSave, _ := ScaledSavingsPerRun(codegen, r, 1.0)
+
+		incidentRef := incident
+		if enterprise.ContextSizeMultiplier >= threshold {
+			incidentRef = incidentScale
+		}
+		_, _, entIncidentSave, _ := ScaledSavingsPerRun(incidentRef, r, enterprise.ContextSizeMultiplier)
+		_, _, entCodeSave, _ := ScaledSavingsPerRun(codegen, r, enterprise.ContextSizeMultiplier)
+
+		monthly := roundUSD(entIncidentSave*float64(enterprise.IncidentsPerMonth) + entCodeSave*float64(enterprise.CodegenTasksPerMonth))
+		rateConfigured := m.InputPerMillion > 0 || m.OutputPerMillion > 0
+		rows = append(rows, ModelShowcaseRow{
+			Model:                     m.ID,
+			IncidentSavingsUSD:        incSave,
+			IncidentAtScaleSavingsUSD: incScaleSave,
+			CodegenSavingsUSD:         codeSave,
+			MonthlySavingsUSD:         monthly,
+			AnnualSavingsUSD:          roundUSD(monthly * 12),
+			RateConfigured:            rateConfigured,
+			Note:                      m.Note,
+		})
+	}
+	return rows, nil
+}
+
+func pickShowcaseProfile(sp ScaleProfiles) UsageProfile {
+	if p, ok := sp.Profiles["enterprise_sre"]; ok {
+		return p
+	}
+	var best UsageProfile
+	for _, p := range sp.Profiles {
+		if p.ContextSizeMultiplier > best.ContextSizeMultiplier {
+			best = p
+		}
+	}
+	return best
 }
 
 func formatProjectionMarkdown(r MonthlyProjectionReport, rates Rates, root string) string {
@@ -236,6 +358,19 @@ func formatProjectionMarkdown(r MonthlyProjectionReport, rates Rates, root strin
 		}
 	}
 	b.WriteString("\n")
+
+	if len(r.ModelShowcase) > 0 {
+		b.WriteString("## Orchestrator model showcase\n\n")
+		b.WriteString("Requested comparison set: gpt-5.4, gpt-5.5, claude-opus-4.7, claude-opus-4.6, claude-sonnet-4.6.\n\n")
+		b.WriteString("| Model | Incident $/run | At-scale $/run | Codegen $/run | Monthly (enterprise) | Annual |\n")
+		b.WriteString("|-------|-----------------|----------------|---------------|----------------------|--------|\n")
+		for _, m := range r.ModelShowcase {
+			b.WriteString(fmt.Sprintf("| %s | $%.4f | $%.4f | $%.4f | $%.2f | $%.2f |\n",
+				m.Model, m.IncidentSavingsUSD, m.IncidentAtScaleSavingsUSD, m.CodegenSavingsUSD, m.MonthlySavingsUSD, m.AnnualSavingsUSD))
+		}
+		b.WriteString("\n")
+		b.WriteString("Rates source: `testdata/benchmarks/orchestrator-models.yaml` (replace placeholders with real provider pricing).\n\n")
+	}
 
 	b.WriteString("## Monthly profiles\n\n")
 	b.WriteString("| Profile | Incidents/mo | Codegen/mo | Context scale | Monthly savings | Annual savings |\n")

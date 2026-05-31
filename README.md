@@ -45,7 +45,11 @@ Add to `~/.cursor/mcp.json` (use the full path to your `prism` binary):
 }
 ```
 
-Reload MCP, then call **`run_agent`** with `agent_id`, `task`, and `skill_names`. Tools: `list_agents`, `get_constitution`, `doctor`.
+Reload MCP, then call **`run_agent`** with `agent_id`, `task`, and `skill_names`.
+
+Available tools include:
+- core: `list_agents`, `run_agent`, `get_constitution`, `doctor`
+- prompt/resource compatibility: `list_prompts`, `get_prompt`, `list_resources`, `get_resource`
 
 Typical flow: paste a **short brief** → delegate evidence-heavy subtasks to specialists → synthesize their compact summaries. Do not paste all skills and evidence into chat.
 
@@ -90,6 +94,27 @@ Live benchmarks (Ollama `llama3.1:8b`, orchestrator priced as GPT-4.1):
 prism benchmark run homelab-release-incident
 prism benchmark project    # monthly/annual projection
 ```
+
+### Orchestrator showcase matrix
+
+`prism benchmark project` now outputs a comparison matrix for:
+- `gpt-5.4`
+- `gpt-5.5`
+- `claude-opus-4.7`
+- `claude-opus-4.6`
+- `claude-sonnet-4.6`
+
+Current showcase output (from committed benchmark fixtures + placeholder rates):
+
+| Orchestrator model | Incident $/run | At-scale incident $/run | Codegen $/run | Monthly (enterprise) | Annual (enterprise) |
+|--------------------|----------------|--------------------------|---------------|----------------------|---------------------|
+| `gpt-5.4` | $0.01 | $0.01 | $0.01 | $14.40 | $172.80 |
+| `gpt-5.5` | $0.01 | $0.01 | $0.01 | $14.40 | $172.80 |
+| `claude-opus-4.7` | $0.01 | $0.01 | $0.01 | $14.40 | $172.80 |
+| `claude-opus-4.6` | $0.01 | $0.01 | $0.01 | $14.40 | $172.80 |
+| `claude-sonnet-4.6` | $0.01 | $0.01 | $0.01 | $14.40 | $172.80 |
+
+Rates are configured in `testdata/benchmarks/orchestrator-models.yaml`. These values are currently placeholder baselines; replace with real provider pricing for production-accurate dollar comparisons.
 
 Details, scenarios, and Cursor A/B steps: **[docs/benchmark-scale.md](docs/benchmark-scale.md)** · **[docs/benchmark-homelab-incident.md](docs/benchmark-homelab-incident.md)**
 

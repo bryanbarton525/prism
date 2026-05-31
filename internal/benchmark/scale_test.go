@@ -36,6 +36,9 @@ func TestProjectMonthly(t *testing.T) {
 	if len(report.Profiles) < 3 {
 		t.Fatalf("expected 3 profiles, got %d", len(report.Profiles))
 	}
+	if len(report.ModelShowcase) < 5 {
+		t.Fatalf("expected >=5 model showcase rows, got %d", len(report.ModelShowcase))
+	}
 	for _, p := range report.Profiles {
 		if p.MonthlyNetSavingsUSD <= 0 {
 			t.Errorf("profile %q: expected positive monthly savings", p.ProfileID)
@@ -56,5 +59,33 @@ func TestProjectMonthly(t *testing.T) {
 	}
 	if enterprise.MonthlyNetSavingsUSD <= solo.MonthlyNetSavingsUSD {
 		t.Errorf("enterprise savings %f should exceed solo %f", enterprise.MonthlyNetSavingsUSD, solo.MonthlyNetSavingsUSD)
+	}
+}
+
+func TestLoadOrchestratorModelProfiles(t *testing.T) {
+	root := repoRoot(t)
+	models, err := LoadOrchestratorModelProfiles(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(models) < 5 {
+		t.Fatalf("expected >=5 model profiles, got %d", len(models))
+	}
+	want := map[string]bool{
+		"gpt-5.4":           false,
+		"gpt-5.5":           false,
+		"claude-opus-4.7":   false,
+		"claude-opus-4.6":   false,
+		"claude-sonnet-4.6": false,
+	}
+	for _, m := range models {
+		if _, ok := want[m.ID]; ok {
+			want[m.ID] = true
+		}
+	}
+	for id, seen := range want {
+		if !seen {
+			t.Errorf("missing model profile %q", id)
+		}
 	}
 }

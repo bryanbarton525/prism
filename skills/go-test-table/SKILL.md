@@ -1,6 +1,6 @@
 ---
 name: go-test-table
-description: Scaffold table-driven Go tests for one function or method. Use when the orchestrator is adding tests alongside new package code.
+description: Scaffold idiomatic table-driven tests for one Go function/method. Trigger on "add tests", "cover edge cases", or "write _test.go for this helper".
 compatibility: Requires the function under test and example cases from the orchestrator.
 metadata:
   prism-agents: go-scaffold
@@ -8,8 +8,11 @@ metadata:
 
 # Go table-driven test scaffold
 
-1. Identify the function under test and its package from the task.
-2. Emit `_test.go` skeleton with `tests := []struct{ name string; ... }`.
-3. Include 3–6 cases covering happy path, edge, and error paths when applicable.
-4. Use `t.Run(tt.name, ...)` and leave TODO only where caller context is missing.
-5. Return full test file in `code`; keep `summary` to one sentence.
+1. Identify function under test and package path.
+2. Emit `_test.go` scaffold with `tests := []struct{...}` and `t.Run`.
+3. Include 3-6 cases: happy path, edge cases, and explicit error behavior.
+4. Keep tests deterministic (no clock/network/fs unless provided mock seams).
+5. Include minimal command hints:
+   - `go test ./... -run <TestName>`
+   - `go test ./...`
+6. Return full test file in `code`; keep `summary` to one sentence.
