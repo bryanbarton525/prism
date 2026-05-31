@@ -69,3 +69,26 @@ codegen-helper-task:
     delegations: 1
   input_token_reduction_percent: 93.1
   net_savings_usd: 0.0061
+
+feature-notification-center:
+  measured_at: "2026-05-31"
+  model_local: llama3.1:8b
+  model_orchestrator: gpt-4.1
+  orchestrator_only:
+    input_tokens: 17922
+    output_tokens: 812
+    total_tokens: 18734
+    cost_usd: 0.0423
+    wall_clock_ms: 76923
+    pass: true
+  prism_delegated:
+    input_tokens: 485
+    output_tokens: 442
+    total_tokens: 927
+    local_tokens: 7036
+    cost_usd: 0.0045
+    wall_clock_ms: 79975
+    pass: true
+    delegations: 4
+  input_token_reduction_percent: 97.3
+  net_savings_usd: 0.0378

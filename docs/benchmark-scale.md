@@ -38,13 +38,14 @@ prism benchmark run codegen-helper-task
 
 Pricing assumptions: `testdata/benchmarks/rates.yaml` (default orchestrator GPT-4.1, local $0).
 
-### Latest live run (2025-05-31, llama3.1:8b)
+### Latest live runs (2025-05-31 and 2026-05-31, llama3.1:8b)
 
 | Scenario | Baseline input | Delegated input | Input reduction | Savings/run |
 |----------|----------------|-----------------|-----------------|-------------|
 | homelab-release-incident | 3,547 | 816 | 77.0% | $0.0052 |
 | homelab-release-incident-at-scale | 5,734 | 986 | 82.8% | $0.0106 |
 | codegen-helper-task | 2,518 | 173 | 93.1% | $0.0061 |
+| feature-notification-center | 17,922 | 485 | 97.3% | $0.0378 |
 
 **Why input reduction grows at scale:** baseline orchestrator input grows with rules/history/skills; delegated synthesis stays ~flat because agents return compact JSON summaries.
 
@@ -59,20 +60,21 @@ prism benchmark project --json
 
 Use this format as the headline benchmark view: explicit before/after costs for one engineer, one task/day.
 
-**Incident benchmark (1 engineer):** `3,547 in / 512 out` without Pulse -> `816 in / 533 out` with Pulse (**77.0% input reduction**).
+**Feature benchmark (1 engineer):** `17,922 in / 812 out` without Pulse -> `485 in / 442 out` with Pulse (**97.3% input reduction**).
 
 | Model | Without Pulse ($/task) | With Pulse ($/task) | Saved/task | Saved/day | Saved/month (30 tasks) | Saved/year (365 tasks) |
 |---|---:|---:|---:|---:|---:|---:|
-| `gpt-5.4` | $0.0165 | $0.0100 | $0.0065 | $0.0065 | $0.20 | $2.38 |
-| `gpt-5.5` | $0.0331 | $0.0201 | $0.0130 | $0.0130 | $0.39 | $4.75 |
-| `claude-opus-4.7` | $0.0305 | $0.0174 | $0.0131 | $0.0131 | $0.39 | $4.79 |
-| `claude-opus-4.6` | $0.0305 | $0.0174 | $0.0131 | $0.0131 | $0.39 | $4.79 |
-| `claude-sonnet-4.6` | $0.0183 | $0.0104 | $0.0079 | $0.0079 | $0.24 | $2.88 |
+| `gpt-5.4` | $0.0570 | $0.0078 | $0.0491 | $0.0491 | $1.47 | $17.94 |
+| `gpt-5.5` | $0.1140 | $0.0157 | $0.0983 | $0.0983 | $2.95 | $35.87 |
+| `claude-opus-4.7` | $0.1099 | $0.0135 | $0.0964 | $0.0964 | $2.89 | $35.20 |
+| `claude-opus-4.6` | $0.1099 | $0.0135 | $0.0964 | $0.0964 | $2.89 | $35.20 |
+| `claude-sonnet-4.6` | $0.0660 | $0.0081 | $0.0579 | $0.0579 | $1.74 | $21.12 |
 
 Additional benchmark task token baselines:
 
 | Task | Without Pulse tokens (in / out) | With Pulse tokens (in / out) | Input reduction |
 |---|---|---|---:|
+| Feature delivery (notification preferences) | `17,922 / 812` | `485 / 442` | 97.3% |
 | At-scale incident | `5,734 / 580` | `986 / 545` | 82.8% |
 | Codegen helper | `2,518 / 420` | `173 / 380` | 93.1% |
 

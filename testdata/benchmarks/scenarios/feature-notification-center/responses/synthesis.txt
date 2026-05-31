@@ -1,0 +1,13 @@
+# Notification preferences implementation plan
+
+Implement **notification preferences** with scoped package boundaries and a
+stable API contract at `/v1/users/{id}/notification-preferences`.
+
+1. Package scaffold in `internal/notifications/preferences` with `types`,
+   `service`, `store`, and HTTP mapping.
+2. Add pure validation helper for category/channel rules, `digest` modes, and
+   `quiet hours` constraints.
+3. Build `table-driven` tests for validation/service paths.
+4. Roll out read-time defaults first, then async `migration` backfill.
+
+This plan minimizes risk while keeping UX behavior and backend contracts aligned.
