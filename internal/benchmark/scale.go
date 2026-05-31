@@ -40,8 +40,18 @@ type ScaleProfiles struct {
 		Incident        string `yaml:"incident"`
 		IncidentAtScale string `yaml:"incident_at_scale"`
 		Codegen         string `yaml:"codegen"`
+		CodingTask      string `yaml:"coding_task"`
 	} `yaml:"reference_scenarios"`
-	AtScaleThresholdMultiplier float64 `yaml:"at_scale_threshold_multiplier"`
+	Showcase                   ShowcaseConfig `yaml:"showcase"`
+	AtScaleThresholdMultiplier float64        `yaml:"at_scale_threshold_multiplier"`
+}
+
+// ShowcaseConfig drives the headline with-vs-without orchestrator cost matrix.
+type ShowcaseConfig struct {
+	Scenario        string `yaml:"scenario"`
+	TasksPerDay     int    `yaml:"tasks_per_day"`
+	TasksPerMonth   int    `yaml:"tasks_per_month"`
+	TasksPerYear    int    `yaml:"tasks_per_year"`
 }
 
 // UsageProfile describes monthly task volume for one team shape.
@@ -73,8 +83,22 @@ type ProfileProjection struct {
 type MonthlyProjectionReport struct {
 	RatesModel    string              `json:"rates_model"`
 	Profiles      []ProfileProjection `json:"profiles"`
+	Showcase      ShowcaseSummary     `json:"showcase,omitempty"`
 	ModelShowcase []ModelShowcaseRow  `json:"model_showcase,omitempty"`
 	Markdown      string              `json:"-"`
+}
+
+// ShowcaseSummary describes the live benchmark scenario behind the headline matrix.
+type ShowcaseSummary struct {
+	ScenarioID            string  `json:"scenario_id"`
+	WithoutInputTokens    int     `json:"without_input_tokens"`
+	WithoutOutputTokens   int     `json:"without_output_tokens"`
+	WithInputTokens       int     `json:"with_input_tokens"`
+	WithOutputTokens      int     `json:"with_output_tokens"`
+	InputReductionPercent float64 `json:"input_reduction_percent"`
+	TasksPerDay           int     `json:"tasks_per_day"`
+	TasksPerMonth         int     `json:"tasks_per_month"`
+	TasksPerYear          int     `json:"tasks_per_year"`
 }
 
 // ModelRateProfile is one orchestrator pricing profile for showcase comparisons.
@@ -89,16 +113,17 @@ type modelRateProfilesFile struct {
 	Models []ModelRateProfile `yaml:"models"`
 }
 
-// ModelShowcaseRow summarizes savings for one orchestrator model profile.
+// ModelShowcaseRow summarizes with-vs-without orchestrator cost for one model profile.
 type ModelShowcaseRow struct {
-	Model                     string  `json:"model"`
-	IncidentSavingsUSD        float64 `json:"incident_savings_usd"`
-	IncidentAtScaleSavingsUSD float64 `json:"incident_at_scale_savings_usd"`
-	CodegenSavingsUSD         float64 `json:"codegen_savings_usd"`
-	MonthlySavingsUSD         float64 `json:"monthly_savings_usd"`
-	AnnualSavingsUSD          float64 `json:"annual_savings_usd"`
-	RateConfigured            bool    `json:"rate_configured"`
-	Note                      string  `json:"note,omitempty"`
+	Model              string  `json:"model"`
+	WithoutPrismUSD    float64 `json:"without_prism_usd_per_task"`
+	WithPrismUSD       float64 `json:"with_prism_usd_per_task"`
+	SavedPerTaskUSD    float64 `json:"saved_per_task_usd"`
+	SavedPerDayUSD     float64 `json:"saved_per_day_usd"`
+	SavedPerMonth30USD float64 `json:"saved_per_month_30_tasks_usd"`
+	SavedPerYear365USD float64 `json:"saved_per_year_365_tasks_usd"`
+	RateConfigured     bool    `json:"rate_configured"`
+	Note               string  `json:"note,omitempty"`
 }
 
 // LoadResults reads testdata/benchmarks/results.yaml.
@@ -225,9 +250,10 @@ func ProjectMonthly(root string) (MonthlyProjectionReport, error) {
 		})
 	}
 
-	showcase, err := buildModelShowcase(results, profiles, rates, root)
+	showcase, summary, err := buildModelShowcase(results, profiles, rates, root)
 	if err == nil {
 		report.ModelShowcase = showcase
+		report.Showcase = summary
 	}
 
 	report.Markdown = formatProjectionMarkdown(report, rates, root)
@@ -254,35 +280,50 @@ func roundUSD(v float64) float64 {
 	return math.Round(v*100) / 100
 }
 
-func buildModelShowcase(results map[string]ScenarioResults, profiles ScaleProfiles, baseRates Rates, root string) ([]ModelShowcaseRow, error) {
+func buildModelShowcase(results map[string]ScenarioResults, profiles ScaleProfiles, baseRates Rates, root string) ([]ModelShowcaseRow, ShowcaseSummary, error) {
 	models, err := LoadOrchestratorModelProfiles(root)
 	if err != nil {
-		return nil, err
+		return nil, ShowcaseSummary{}, err
 	}
 	if len(models) == 0 {
-		return nil, nil
+		return nil, ShowcaseSummary{}, nil
 	}
 
-	incident, ok := results[profiles.ReferenceScenarios.Incident]
-	if !ok {
-		return nil, fmt.Errorf("missing scenario %q", profiles.ReferenceScenarios.Incident)
+	scenarioID := profiles.Showcase.Scenario
+	if scenarioID == "" {
+		scenarioID = profiles.ReferenceScenarios.CodingTask
 	}
-	incidentScale, ok := results[profiles.ReferenceScenarios.IncidentAtScale]
-	if !ok {
-		return nil, fmt.Errorf("missing scenario %q", profiles.ReferenceScenarios.IncidentAtScale)
+	if scenarioID == "" {
+		scenarioID = "todo-spa-build"
 	}
-	codegen, ok := results[profiles.ReferenceScenarios.Codegen]
+	ref, ok := results[scenarioID]
 	if !ok {
-		return nil, fmt.Errorf("missing scenario %q", profiles.ReferenceScenarios.Codegen)
+		return nil, ShowcaseSummary{}, fmt.Errorf("missing scenario %q for showcase", scenarioID)
 	}
 
-	enterprise := pickShowcaseProfile(profiles)
-	if enterprise.ContextSizeMultiplier <= 0 {
-		enterprise.ContextSizeMultiplier = 1
+	tasksPerDay := profiles.Showcase.TasksPerDay
+	if tasksPerDay <= 0 {
+		tasksPerDay = 1
 	}
-	threshold := profiles.AtScaleThresholdMultiplier
-	if threshold <= 0 {
-		threshold = 2.5
+	tasksPerMonth := profiles.Showcase.TasksPerMonth
+	if tasksPerMonth <= 0 {
+		tasksPerMonth = 30
+	}
+	tasksPerYear := profiles.Showcase.TasksPerYear
+	if tasksPerYear <= 0 {
+		tasksPerYear = 365
+	}
+
+	summary := ShowcaseSummary{
+		ScenarioID:            scenarioID,
+		WithoutInputTokens:    ref.OrchestratorOnly.InputTokens,
+		WithoutOutputTokens:   ref.OrchestratorOnly.OutputTokens,
+		WithInputTokens:       ref.PrismDelegated.InputTokens,
+		WithOutputTokens:      ref.PrismDelegated.OutputTokens,
+		InputReductionPercent: ref.InputTokenReductionPercent,
+		TasksPerDay:           tasksPerDay,
+		TasksPerMonth:         tasksPerMonth,
+		TasksPerYear:          tasksPerYear,
 	}
 
 	rows := make([]ModelShowcaseRow, 0, len(models))
@@ -292,44 +333,23 @@ func buildModelShowcase(results map[string]ScenarioResults, profiles ScaleProfil
 		r.Orchestrator.InputPerMillion = m.InputPerMillion
 		r.Orchestrator.OutputPerMillion = m.OutputPerMillion
 
-		_, _, incSave, _ := ScaledSavingsPerRun(incident, r, 1.0)
-		_, _, incScaleSave, _ := ScaledSavingsPerRun(incidentScale, r, 1.0)
-		_, _, codeSave, _ := ScaledSavingsPerRun(codegen, r, 1.0)
+		without := CostUSD(ref.OrchestratorOnly.InputTokens, ref.OrchestratorOnly.OutputTokens, r.Orchestrator)
+		with := CostUSD(ref.PrismDelegated.InputTokens, ref.PrismDelegated.OutputTokens, r.Orchestrator)
+		saved := without - with
 
-		incidentRef := incident
-		if enterprise.ContextSizeMultiplier >= threshold {
-			incidentRef = incidentScale
-		}
-		_, _, entIncidentSave, _ := ScaledSavingsPerRun(incidentRef, r, enterprise.ContextSizeMultiplier)
-		_, _, entCodeSave, _ := ScaledSavingsPerRun(codegen, r, enterprise.ContextSizeMultiplier)
-
-		monthly := roundUSD(entIncidentSave*float64(enterprise.IncidentsPerMonth) + entCodeSave*float64(enterprise.CodegenTasksPerMonth))
-		rateConfigured := m.InputPerMillion > 0 || m.OutputPerMillion > 0
 		rows = append(rows, ModelShowcaseRow{
-			Model:                     m.ID,
-			IncidentSavingsUSD:        round4USD(incSave),
-			IncidentAtScaleSavingsUSD: round4USD(incScaleSave),
-			CodegenSavingsUSD:         round4USD(codeSave),
-			MonthlySavingsUSD:         monthly,
-			AnnualSavingsUSD:          roundUSD(monthly * 12),
-			RateConfigured:            rateConfigured,
-			Note:                      m.Note,
+			Model:              m.ID,
+			WithoutPrismUSD:    round4USD(without),
+			WithPrismUSD:       round4USD(with),
+			SavedPerTaskUSD:    round4USD(saved),
+			SavedPerDayUSD:     round4USD(saved * float64(tasksPerDay)),
+			SavedPerMonth30USD: roundUSD(saved * float64(tasksPerMonth)),
+			SavedPerYear365USD: roundUSD(saved * float64(tasksPerYear)),
+			RateConfigured:     m.InputPerMillion > 0 || m.OutputPerMillion > 0,
+			Note:               m.Note,
 		})
 	}
-	return rows, nil
-}
-
-func pickShowcaseProfile(sp ScaleProfiles) UsageProfile {
-	if p, ok := sp.Profiles["enterprise_sre"]; ok {
-		return p
-	}
-	var best UsageProfile
-	for _, p := range sp.Profiles {
-		if p.ContextSizeMultiplier > best.ContextSizeMultiplier {
-			best = p
-		}
-	}
-	return best
+	return rows, summary, nil
 }
 
 func formatProjectionMarkdown(r MonthlyProjectionReport, rates Rates, root string) string {
@@ -347,6 +367,7 @@ func formatProjectionMarkdown(r MonthlyProjectionReport, rates Rates, root strin
 			"homelab-release-incident",
 			"homelab-release-incident-at-scale",
 			"codegen-helper-task",
+			"todo-spa-build",
 		} {
 			if s, ok := committed[id]; ok {
 				b.WriteString(fmt.Sprintf("| %s | %s | %s | %.1f%% | $%.4f |\n",
@@ -357,17 +378,24 @@ func formatProjectionMarkdown(r MonthlyProjectionReport, rates Rates, root strin
 	}
 	b.WriteString("\n")
 
-	if len(r.ModelShowcase) > 0 {
+	if len(r.ModelShowcase) > 0 && r.Showcase.ScenarioID != "" {
+		s := r.Showcase
 		b.WriteString("## Orchestrator model showcase\n\n")
-		b.WriteString("Requested comparison set: gpt-5.4, gpt-5.5, claude-opus-4.7, claude-opus-4.6, claude-sonnet-4.6.\n\n")
-		b.WriteString("| Model | Incident $/run | At-scale $/run | Codegen $/run | Monthly (enterprise) | Annual |\n")
-		b.WriteString("|-------|-----------------|----------------|---------------|----------------------|--------|\n")
+		b.WriteString(fmt.Sprintf("**1 engineer, %d task/day model (%s live benchmark)**  \n", s.TasksPerDay, s.ScenarioID))
+		b.WriteString(fmt.Sprintf("Token usage per task: **without Prism** `%s in / %s out` -> **with Prism** `%s in / %s out` (**%.1f%% input reduction**).\n\n",
+			formatInt(s.WithoutInputTokens), formatInt(s.WithoutOutputTokens),
+			formatInt(s.WithInputTokens), formatInt(s.WithOutputTokens),
+			s.InputReductionPercent))
+		b.WriteString("| Model | Without Prism ($/task) | With Prism ($/task) | Saved/task | Saved/day | Saved/month (30 tasks) | Saved/year (365 tasks) |\n")
+		b.WriteString("|---|---:|---:|---:|---:|---:|---:|\n")
 		for _, m := range r.ModelShowcase {
-			b.WriteString(fmt.Sprintf("| %s | $%.4f | $%.4f | $%.4f | $%.2f | $%.2f |\n",
-				m.Model, m.IncidentSavingsUSD, m.IncidentAtScaleSavingsUSD, m.CodegenSavingsUSD, m.MonthlySavingsUSD, m.AnnualSavingsUSD))
+			b.WriteString(fmt.Sprintf("| %s | $%.4f | $%.4f | $%.4f | $%.4f | $%.2f | $%.2f |\n",
+				m.Model, m.WithoutPrismUSD, m.WithPrismUSD, m.SavedPerTaskUSD,
+				m.SavedPerDayUSD, m.SavedPerMonth30USD, m.SavedPerYear365USD))
 		}
 		b.WriteString("\n")
-		b.WriteString("Rates source: `testdata/benchmarks/orchestrator-models.yaml` (OpenAI + Anthropic list pricing, May 2026).\n\n")
+		b.WriteString("Rates source: `testdata/benchmarks/orchestrator-models.yaml` (OpenAI + Anthropic list pricing, May 2026).\n")
+		b.WriteString(" Token counts from committed live run in `testdata/benchmarks/results.yaml`.\n\n")
 	}
 
 	b.WriteString("## Monthly profiles\n\n")

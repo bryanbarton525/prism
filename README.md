@@ -102,7 +102,8 @@ prism benchmark project    # monthly/annual projection
 ### Orchestrator showcase matrix
 
 **1 engineer, 1 task/day model (todo app request benchmark)**  
-Token usage per task: **without Prism** `6,191 in / 811 out` -> **with Prism** `363 in / 1,072 out` (**94.1% input reduction**).
+Token usage per task: **without Prism** `6,191 in / 811 out` -> **with Prism** `363 in / 1,072 out` (**94.1% input reduction**).  
+Live token counts from `testdata/benchmarks/results.yaml` (`todo-spa-build`, measured 2026-05-31). Regenerate with `prism benchmark project`.
 
 | Model | Without Prism ($/task) | With Prism ($/task) | Saved/task | Saved/day | Saved/month (30 tasks) | Saved/year (365 tasks) |
 |---|---:|---:|---:|---:|---:|---:|

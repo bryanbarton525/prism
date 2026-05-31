@@ -19,7 +19,11 @@ func newBenchmarkProjectCmd() *cobra.Command {
 		Long: `Uses testdata/benchmarks/results.yaml and scale-profiles.yaml to estimate
 monthly and annual net savings for solo, team, and enterprise usage profiles.
 
+The headline orchestrator showcase uses the live todo-spa-build benchmark
+(6,191 -> 363 orchestrator input tokens) at 1 task/day across GPT/Claude rates.
+
 Re-run live benchmarks and update results.yaml to refresh projections:
+  prism benchmark run todo-spa-build
   prism benchmark run homelab-release-incident
   prism benchmark run homelab-release-incident-at-scale`,
 		RunE: func(cmd *cobra.Command, _ []string) error {

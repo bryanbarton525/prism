@@ -97,6 +97,13 @@ func TestModelShowcaseDifferentiatedRates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if report.Showcase.ScenarioID != "todo-spa-build" {
+		t.Fatalf("showcase scenario = %q, want todo-spa-build", report.Showcase.ScenarioID)
+	}
+	if report.Showcase.WithoutInputTokens != 6191 || report.Showcase.WithInputTokens != 363 {
+		t.Fatalf("showcase tokens without=%d with=%d, want 6191/363",
+			report.Showcase.WithoutInputTokens, report.Showcase.WithInputTokens)
+	}
 	byModel := make(map[string]ModelShowcaseRow, len(report.ModelShowcase))
 	for _, row := range report.ModelShowcase {
 		byModel[row.Model] = row
@@ -104,13 +111,21 @@ func TestModelShowcaseDifferentiatedRates(t *testing.T) {
 	gpt54 := byModel["gpt-5.4"]
 	gpt55 := byModel["gpt-5.5"]
 	sonnet := byModel["claude-sonnet-4.6"]
-	if gpt55.MonthlySavingsUSD <= gpt54.MonthlySavingsUSD {
-		t.Errorf("gpt-5.5 monthly %.2f should exceed gpt-5.4 %.2f", gpt55.MonthlySavingsUSD, gpt54.MonthlySavingsUSD)
+	if gpt54.WithoutPrismUSD != 0.0276 || gpt54.WithPrismUSD != 0.0170 || gpt54.SavedPerTaskUSD != 0.0107 {
+		t.Errorf("gpt-5.4 costs = %.4f/%.4f saved %.4f, want 0.0276/0.0170 saved 0.0107",
+			gpt54.WithoutPrismUSD, gpt54.WithPrismUSD, gpt54.SavedPerTaskUSD)
 	}
-	if sonnet.MonthlySavingsUSD >= gpt55.MonthlySavingsUSD {
-		t.Errorf("sonnet monthly %.2f should be below gpt-5.5 %.2f", sonnet.MonthlySavingsUSD, gpt55.MonthlySavingsUSD)
+	if gpt55.SavedPerTaskUSD != 0.0213 || gpt55.SavedPerMonth30USD != 0.64 || gpt55.SavedPerYear365USD != 7.78 {
+		t.Errorf("gpt-5.5 savings = %.4f/mo %.2f/yr %.2f, want 0.0213/mo 0.64/yr 7.78",
+			gpt55.SavedPerTaskUSD, gpt55.SavedPerMonth30USD, gpt55.SavedPerYear365USD)
 	}
-	if gpt54.IncidentSavingsUSD == gpt55.IncidentSavingsUSD {
-		t.Errorf("per-run incident savings should differ between gpt-5.4 and gpt-5.5")
+	if gpt55.SavedPerTaskUSD <= gpt54.SavedPerTaskUSD {
+		t.Errorf("gpt-5.5 saved/task %.4f should exceed gpt-5.4 %.4f", gpt55.SavedPerTaskUSD, gpt54.SavedPerTaskUSD)
+	}
+	if sonnet.SavedPerTaskUSD >= gpt55.SavedPerTaskUSD {
+		t.Errorf("sonnet saved/task %.4f should be below gpt-5.5 %.4f", sonnet.SavedPerTaskUSD, gpt55.SavedPerTaskUSD)
+	}
+	if gpt54.SavedPerTaskUSD == gpt55.SavedPerTaskUSD {
+		t.Errorf("per-task savings should differ between gpt-5.4 and gpt-5.5")
 	}
 }

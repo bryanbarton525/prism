@@ -25,6 +25,14 @@ reference_scenarios:
   incident: homelab-release-incident
   incident_at_scale: homelab-release-incident-at-scale
   codegen: codegen-helper-task
+  coding_task: todo-spa-build
+
+# Headline orchestrator showcase: 1 engineer, 1 coding task/day from live todo-spa-build run.
+showcase:
+  scenario: todo-spa-build
+  tasks_per_day: 1
+  tasks_per_month: 30
+  tasks_per_year: 365
 
 # When projecting at scale, use incident_at_scale for incidents if multiplier >= 2.5
 at_scale_threshold_multiplier: 2.5

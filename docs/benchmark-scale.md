@@ -64,7 +64,8 @@ prism benchmark project --json
 
 Use this format as the headline benchmark view: explicit before/after costs for one engineer, one task/day.
 
-**Todo benchmark (1 engineer):** `6,191 in / 811 out` without Prism -> `363 in / 1,072 out` with Prism (**94.1% input reduction**).
+**Todo benchmark (1 engineer):** `6,191 in / 811 out` without Prism -> `363 in / 1,072 out` with Prism (**94.1% input reduction**).  
+Source: live `todo-spa-build` run in `testdata/benchmarks/results.yaml`. Regenerate this table with `prism benchmark project`.
 
 | Model | Without Prism ($/task) | With Prism ($/task) | Saved/task | Saved/day | Saved/month (30 tasks) | Saved/year (365 tasks) |
 |---|---:|---:|---:|---:|---:|---:|

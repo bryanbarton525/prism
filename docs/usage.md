@@ -246,8 +246,9 @@ prism benchmark run homelab-release-incident-at-scale   # enterprise context pad
 prism benchmark project                               # monthly/annual savings
 ```
 
-`prism benchmark project` also includes a model showcase matrix for GPT 5.4/5.5
-and Claude Opus/Sonnet variants configured in
+`prism benchmark project` emits the headline with-vs-without orchestrator cost matrix
+from the live `todo-spa-build` benchmark in `testdata/benchmarks/results.yaml`,
+priced across GPT 5.4/5.5 and Claude Opus/Sonnet variants in
 `testdata/benchmarks/orchestrator-models.yaml`.
 
 See [benchmark-homelab-incident.md](benchmark-homelab-incident.md) for the full scenario and [benchmark-scale.md](benchmark-scale.md) for monthly projections.
