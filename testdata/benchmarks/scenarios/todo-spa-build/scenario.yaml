@@ -1,0 +1,52 @@
+id: todo-spa-build
+title: Vanilla JS todo app feature build
+description: >
+  Realistic coding request benchmark for a single engineer: build a minimal
+  single-page todo app with HTML/CSS/vanilla JS + localStorage + README.
+  Baseline is a direct orchestrator request with product context and review
+  notes. Prism mode delegates UI structure, JS persistence logic, and README.
+
+brief_file: brief.md
+orchestrator_load_full_library: false
+
+orchestrator_context_files:
+  - context/engineering-standards.md
+  - context/ui-review-notes.md
+  - context/chat-thread.md
+
+delegations:
+  - id: ui-structure
+    agent_id: frontend-builder
+    skill_names: [frontend-vanilla-spa]
+    task_file: tasks/ui-structure.md
+    evidence_files: [evidence/request.md, evidence/acceptance-checklist.md]
+    mock_response_file: responses/ui-structure.txt
+
+  - id: todo-logic
+    agent_id: frontend-builder
+    skill_names: [frontend-localstorage]
+    task_file: tasks/todo-logic.md
+    evidence_files: [evidence/request.md, evidence/acceptance-checklist.md]
+    mock_response_file: responses/todo-logic.txt
+
+  - id: readme
+    agent_id: frontend-builder
+    skill_names: [frontend-readme]
+    task_file: tasks/readme.md
+    evidence_files: [evidence/request.md, evidence/acceptance-checklist.md]
+    mock_response_file: responses/readme.txt
+
+assertions:
+  required_phrases:
+    - "index.html"
+    - "styles.css"
+    - "app.js"
+    - "README"
+    - "localStorage"
+    - "add"
+    - "complete"
+    - "delete"
+
+synthesis:
+  orchestrator_prompt_file: tasks/orchestrator-synthesis.md
+  delegated_prompt_file: tasks/delegated-synthesis.md

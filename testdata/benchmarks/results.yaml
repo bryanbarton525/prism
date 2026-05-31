@@ -92,3 +92,26 @@ feature-notification-center:
     delegations: 4
   input_token_reduction_percent: 97.3
   net_savings_usd: 0.0378
+
+todo-spa-build:
+  measured_at: "2026-05-31"
+  model_local: llama3.1:8b
+  model_orchestrator: gpt-4.1
+  orchestrator_only:
+    input_tokens: 6191
+    output_tokens: 811
+    total_tokens: 7002
+    cost_usd: 0.0189
+    wall_clock_ms: 31901
+    pass: true
+  prism_delegated:
+    input_tokens: 363
+    output_tokens: 1072
+    total_tokens: 1435
+    local_tokens: 4677
+    cost_usd: 0.0093
+    wall_clock_ms: 73010
+    pass: true
+    delegations: 3
+  input_token_reduction_percent: 94.1
+  net_savings_usd: 0.0096

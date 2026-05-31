@@ -5,6 +5,11 @@
 # Sources:
 # - OpenAI API pricing: https://openai.com/api/pricing/
 # - Anthropic Claude pricing: https://www.anthropic.com/pricing
+# - Cursor plan pricing (subscription, not token-metered): https://cursor.com/pricing
+#
+# Note: Cursor plans are seat subscriptions with included usage + overage and
+# are not directly comparable to per-token API pricing. Cursor economics are
+# shown in README/docs as break-even workflow examples instead of token rates.
 
 models:
   - id: gpt-5.4

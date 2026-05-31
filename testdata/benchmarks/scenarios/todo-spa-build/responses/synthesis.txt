@@ -1,0 +1,15 @@
+## index.html
+
+Minimal semantic todo markup with labeled input and buttons.
+
+## styles.css
+
+Simple layout, completed-item styles, and empty-state visibility.
+
+## app.js
+
+Vanilla JavaScript handlers for add, complete, delete, and localStorage persistence.
+
+## README.md
+
+Instructions to open locally plus manual feature checks.
