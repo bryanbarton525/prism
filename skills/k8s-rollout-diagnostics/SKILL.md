@@ -48,3 +48,5 @@ metadata:
 - No rollback/restart/apply actions unless explicitly requested.
 - Separate observed rollout status from speculative causes.
 - If cluster version is not provided, request it before final diagnosis.
+- If namespace/deployment or revision scope is missing, return `insufficient_evidence` and request callback to parent with required identifiers.
+- Never report placeholder resource names as real evidence.

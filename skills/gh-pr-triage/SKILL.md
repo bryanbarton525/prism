@@ -39,3 +39,5 @@ metadata:
 
 - Read-only diagnostics only; do not merge, approve, or edit PR state.
 - If permissions are missing, report exactly which command failed.
+- If `repo` or PR identifier is missing, return `insufficient_evidence` and request callback to parent with required IDs.
+- Never emit placeholder paths/IDs (for example `<pr>`, `<path>`) as factual findings.

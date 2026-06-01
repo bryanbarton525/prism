@@ -45,3 +45,5 @@ metadata:
 
 - Do not trigger reruns or workflow dispatch without explicit approval.
 - Clearly separate observed evidence from hypotheses.
+- If repo/run identifiers are missing, return `insufficient_evidence` with a callback request to parent for exact run URL/ID.
+- Do not output fabricated file paths, run IDs, or generic placeholders as observed evidence.

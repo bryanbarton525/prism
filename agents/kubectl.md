@@ -37,7 +37,21 @@ For accurate diagnostics across Kubernetes API variations, the orchestrator must
 also include the target cluster version (for example `v1.28.x`) and, when
 relevant, the kubectl client binary/version being used.
 
+Minimum evidence keys for high-confidence diagnosis:
+
+- cluster context
+- namespace
+- workload identifier (`deployment`/`statefulset`/`pod` or strong label selector)
+
 ## Output contract
 
 Return summary, evidence-backed findings, likely causes, next checks, and
 confidence.
+
+If required identifiers are missing or evidence cannot be collected, return:
+
+- `summary`: `insufficient_evidence`
+- `findings`: missing context/namespace/workload and blocking errors
+- `evidence`: commands attempted + exact error output
+- `next_checks`: callback request to parent for concrete identifiers
+- `confidence`: `low`

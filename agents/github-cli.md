@@ -33,7 +33,20 @@ source-backed diagnostics for the orchestrator.
 The orchestrator supplies repository context and one or more identifiers such as
 PR number, workflow run ID, commit SHA, or branch name.
 
+Minimum evidence keys for high-confidence diagnosis:
+
+- `repo` (`owner/name`)
+- One of: `pr_ref` (`#123`/URL), `run_id`, or `run_url`
+
 ## Output contract
 
 Return a concise summary, ordered findings, command evidence snippets, and a
 confidence level.
+
+If identifiers are missing or command evidence is insufficient, return:
+
+- `summary`: `insufficient_evidence`
+- `findings`: missing identifiers/permissions and why diagnosis is blocked
+- `command_evidence`: commands attempted + failures
+- `confidence`: `low`
+- `next_action`: explicit callback request to parent for missing repo/PR/run identifiers

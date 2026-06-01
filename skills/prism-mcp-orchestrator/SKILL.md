@@ -20,6 +20,31 @@ Activate when prompts mention things like: CI failures, PR blockers, Kubernetes 
 
 Do **not** activate for tiny single-step tasks where delegation overhead is not worth it.
 
+## Fail-closed evidence gate
+
+Before delegation, check for minimum identifiers:
+
+- GitHub: `repo` + (`PR`, `run URL`, or `run ID`)
+- Kubernetes: `context` + `namespace` + workload (`deployment`/`statefulset`/`pod`)
+- Release notes/docs: product/library + version range or target release
+
+If required identifiers are missing, **do not run specialists yet**. Ask the parent LLM to request only missing fields.
+
+## First-party skill precedence
+
+When a subtask targets a specific platform/tool/vendor, prefer that vendor's
+first-party skills/docs before community or generic sources.
+
+Examples:
+
+- LaunchDarkly tasks -> prefer LaunchDarkly first-party skills (for example from
+  the LaunchDarkly `ai-tooling/skills` source) and official docs.
+- Cloud/provider SDK tasks -> prefer official provider skills/docs first.
+
+If a first-party source exists but is not available in the current environment,
+callback to parent with `insufficient_evidence` and request permission/inputs to
+access the first-party source.
+
 ## Required sequence (must follow)
 
 1. Call `list_agents` first.
@@ -31,12 +56,28 @@ Do **not** activate for tiny single-step tasks where delegation overhead is not 
 4. Call `run_agent` with bounded task + valid `skill_names`.
 5. Synthesize specialist outputs in parent model.
 
+If evidence is insufficient at any step, callback to parent with:
+
+```json
+{
+  "status": "insufficient_evidence",
+  "needs_from_parent": [
+    "repo owner/name",
+    "PR URL or workflow run URL",
+    "namespace/deployment"
+  ],
+  "reason": "Identifiers required for evidence-backed delegation are missing."
+}
+```
+
 ## run_agent shaping
 
 - Keep tasks narrow and evidence-oriented.
 - Attach only relevant evidence per specialist.
 - Prefer multiple focused calls over one mixed-domain call.
 - Keep final judgment/tradeoffs/recommendation in parent synthesis.
+- For tool-specific tasks, include first-party source preference in the task
+  text so specialists ground findings in vendor-authored guidance.
 
 ## Minimal call template
 
@@ -54,3 +95,4 @@ Do **not** activate for tiny single-step tasks where delegation overhead is not 
 - Concise synthesis (no raw dumps)
 - Ordered findings with evidence
 - Confidence + concrete next action
+- If evidence is missing: return `insufficient_evidence` with required follow-up fields, not speculative findings

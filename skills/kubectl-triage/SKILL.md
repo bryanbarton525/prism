@@ -46,3 +46,5 @@ metadata:
 - Read-only triage: no delete, patch, rollout restart, or exec by default.
 - If namespace/context is unclear, stop and request clarification.
 - If cluster version is missing, return `validation_fail` guidance asking for exact cluster version.
+- If context + namespace + workload identifiers are not available, return `insufficient_evidence` and callback to parent for missing fields.
+- Do not use placeholder pod/deployment names in findings.

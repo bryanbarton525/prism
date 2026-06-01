@@ -16,9 +16,10 @@ metadata:
 ## Retrieval strategy
 
 1. Prioritize official docs and reference pages.
-2. Prefer version-matched docs for the caller's stack.
-3. Use secondary sources only when official docs are silent.
-4. Capture exact URLs for every material claim.
+2. Prefer first-party vendor-provided skills/guides when available for that tool/platform.
+3. Prefer version-matched docs for the caller's stack.
+4. Use secondary sources only when official docs are silent.
+5. Capture exact URLs for every material claim.
 
 ## Extraction checklist
 
@@ -38,3 +39,4 @@ metadata:
 
 - No uncited recommendations for critical configuration.
 - Explicitly call out gaps when authoritative docs are missing.
+- If product/version/scope is incomplete, return `insufficient_evidence` and callback to parent for missing identifiers before final recommendations.

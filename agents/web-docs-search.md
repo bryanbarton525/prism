@@ -34,6 +34,19 @@ for the orchestrator with explicit citations.
 The orchestrator provides query scope, target products or libraries, and desired
 output depth.
 
+Minimum evidence keys for high-confidence diagnosis:
+
+- target product/library
+- version or version range
+- concrete question scope
+
 ## Output contract
 
 Return summary, cited findings, unresolved gaps, and confidence.
+
+If sources or version identifiers are missing, return:
+
+- `summary`: `insufficient_evidence`
+- `findings`: what cannot be verified and why
+- `gaps`: exact missing product/version/release range fields needed from parent
+- `confidence`: `low`

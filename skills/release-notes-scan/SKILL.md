@@ -40,3 +40,4 @@ metadata:
 
 - Do not infer breaking changes without source text.
 - If release-note coverage is incomplete, state missing versions explicitly.
+- If from/to version range is missing, return `insufficient_evidence` and callback to parent for exact version bounds.

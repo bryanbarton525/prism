@@ -191,7 +191,7 @@ func renderPrompt(id string, vars map[string]string) (title, prompt string, err 
 		evidence := get("evidence_hint", "PR URL, failing checks, error snippets, and relevant logs.")
 		title = "Prism delegation playbook"
 		prompt = fmt.Sprintf(
-			"Use Prism delegation playbook for task: %q\n\nSuccess criteria: %s\nEvidence hint: %s\n\nCall sequence:\n1) `list_agents` to discover candidate specialists.\n2) `list_resources` and fetch:\n   - `prism://resource/tooling/run_agent`\n   - `prism://resource/tooling/orchestration-guide`\n3) If needed, `list_prompts` then `get_prompt` for a starter template.\n4) For chosen agent(s), fetch constitution via `get_resource` URI:\n   - `prism://resource/agent/<agent_id>/constitution`\n5) Execute one or more bounded `run_agent` calls with allowed `skill_names`.\n6) Synthesize specialist summaries in the parent model; keep final judgment in parent.\n\nDelegation decision rule:\n- Delegate when evidence is heavy (logs/runbooks/docs), domain-specific, or parallelizable.\n- Avoid delegation for tiny single-step tasks where overhead exceeds benefit.\n\nOutput contract:\n- Return tool-backed summary, key findings, command/artifact evidence, confidence, and recommended next action.",
+			"Use Prism delegation playbook for task: %q\n\nSuccess criteria: %s\nEvidence hint: %s\n\nCall sequence:\n1) `list_agents` to discover candidate specialists.\n2) `list_resources` and fetch:\n   - `prism://resource/tooling/run_agent`\n   - `prism://resource/tooling/orchestration-guide`\n3) If needed, `list_prompts` then `get_prompt` for a starter template.\n4) For chosen agent(s), fetch constitution via `get_resource` URI:\n   - `prism://resource/agent/<agent_id>/constitution`\n5) Execute one or more bounded `run_agent` calls with allowed `skill_names`.\n6) Synthesize specialist summaries in the parent model; keep final judgment in parent.\n\nDelegation decision rule:\n- Delegate when evidence is heavy (logs/runbooks/docs), domain-specific, or parallelizable.\n- Avoid delegation for tiny single-step tasks where overhead exceeds benefit.\n\nFirst-party source rule:\n- For tool/vendor-specific tasks, prefer first-party vendor skills/docs before community sources.\n- If first-party sources are unavailable, callback to parent with missing access/inputs.\n\nFail-closed rule:\n- If required identifiers are missing, do not guess and do not run speculative specialist calls.\n- Return callback request to parent with `status: insufficient_evidence` and exact missing fields.\n\nOutput contract:\n- Return tool-backed summary, key findings, command/artifact evidence, confidence, and recommended next action.",
 			task, success, evidence,
 		)
 		return title, prompt, nil
@@ -299,7 +299,8 @@ Optional:
 Rules:
 - skill_names must be allowed by the selected agent.
 - Keep task bounded and evidence-oriented.
-- Delegate narrow subtasks; synthesize in the parent orchestrator.`,
+- Delegate narrow subtasks; synthesize in the parent orchestrator.
+- If required identifiers/evidence are missing, return status "insufficient_evidence" with callback fields needed from parent.`,
 		}, nil
 	case "prism://resource/tooling/orchestration-guide":
 		return GetResourceOutput{
@@ -316,6 +317,11 @@ Keep parent-model context small by delegating evidence-heavy subtasks to Prism s
 - Task is domain-specific (GitHub, Kubernetes, Argo, docs lookup, Go codegen/scaffold).
 - Work can be split into parallel, bounded subtasks.
 
+## First-party source policy
+- For platform/tool-specific work, prefer first-party vendor skills/docs first.
+- Only fall back to community/general sources when first-party guidance is unavailable.
+- If first-party sources are expected but unavailable, callback to parent for missing access/inputs.
+
 ## When not to delegate
 - Tiny single-step requests where delegation overhead is larger than direct completion.
 - Tasks requiring direct parent-model creative synthesis with minimal evidence.
@@ -329,6 +335,12 @@ Keep parent-model context small by delegating evidence-heavy subtasks to Prism s
 3. Optional: list_prompts and get_prompt to generate valid run_agent payloads.
 4. run_agent with bounded tasks and explicit skill_names.
 5. Synthesize specialist outputs in the parent model.
+
+## Fail-closed rule
+- Do not emit placeholder or fabricated evidence.
+- If required identifiers are missing, stop and callback to parent with:
+  - status: insufficient_evidence
+  - needs_from_parent: exact missing repo/run/namespace/workload/version fields
 
 ## Task-shaping rules for run_agent
 - Use narrow, evidence-oriented tasks.
