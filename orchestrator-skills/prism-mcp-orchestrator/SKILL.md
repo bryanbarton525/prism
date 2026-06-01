@@ -1,6 +1,6 @@
 ---
 name: prism-mcp-orchestrator
-description: Instruct the parent LLM when to delegate through Prism MCP and how to execute the correct call sequence using list_agents, list_prompts/get_prompt, list_resources/get_resource, and run_agent.
+description: Auto-use for context-heavy prompts (logs, CI failures, Kubernetes issues, runbooks, docs lookup, PR triage, codegen subtasks). Decide when to delegate via Prism MCP and execute the required call order: list_agents -> list_resources/get_resource -> optional list_prompts/get_prompt -> run_agent -> parent synthesis.
 compatibility: Requires Prism MCP server availability, local repository context, and an MCP-capable host editor/agent.
 metadata:
   prism-agents: orchestrator parent-model
@@ -8,49 +8,33 @@ metadata:
 
 # Prism MCP orchestrator skill
 
-## Purpose
+Use this skill for orchestration only (not domain diagnosis). If the task is evidence-heavy or specialist-shaped, delegate via Prism MCP.
 
-Use this skill in the parent/orchestrator model to decide **when** delegation is worth it and **how** to call Prism tools correctly.
+## Activation rule
 
-This skill is for orchestration behavior, not domain diagnosis itself.
+Activate when prompts mention things like: CI failures, PR blockers, Kubernetes incidents, Argo drift/workflow failures, release notes/docs lookup, large logs/JSON, or "delegate/run_agent/MCP".
 
-## When to use
+Do **not** activate for tiny single-step tasks where delegation overhead is not worth it.
 
-Use when any of the following is true:
+## Required sequence (must follow)
 
-- The task includes heavy evidence (logs, runbooks, docs, chat exports, JSON blobs).
-- The task naturally splits across specialists (GitHub, Kubernetes, Argo, docs, Go helper/scaffold, frontend subtasking).
-- You need source-backed diagnostics before final synthesis.
-- You want to reduce parent-model context bloat while preserving quality.
+1. Call `list_agents` first.
+2. Call `list_resources`, then `get_resource` for:
+   - `prism://resource/tooling/run_agent`
+   - `prism://resource/tooling/orchestration-guide`
+   - `prism://resource/agent/<agent_id>/constitution` (for selected agents)
+3. Optional: `list_prompts` + `get_prompt` for payload templates.
+4. Call `run_agent` with bounded task + valid `skill_names`.
+5. Synthesize specialist outputs in parent model.
 
-## Do not use when
+## run_agent shaping
 
-- The task is tiny and single-step.
-- Delegation overhead exceeds expected value.
+- Keep tasks narrow and evidence-oriented.
+- Attach only relevant evidence per specialist.
+- Prefer multiple focused calls over one mixed-domain call.
+- Keep final judgment/tradeoffs/recommendation in parent synthesis.
 
-## Required MCP tool sequence
-
-1. `list_agents`
-   - Discover candidate agents and valid `allowed_skills`.
-2. `list_resources` then `get_resource`
-   - Fetch `prism://resource/tooling/run_agent`
-   - Fetch `prism://resource/tooling/orchestration-guide`
-   - Fetch `prism://resource/agent/<agent_id>/constitution` for selected agent(s)
-3. Optional templates
-   - `list_prompts`, then `get_prompt` for a call starter.
-4. Execute delegation
-   - Call `run_agent` with bounded task and valid `skill_names`.
-5. Parent synthesis
-   - Aggregate specialist summaries and produce final judgment in parent model.
-
-## run_agent shaping rules
-
-- Keep the task bounded and evidence-oriented.
-- Attach only the evidence needed for that specialist.
-- Prefer multiple narrow calls over one mixed-domain call.
-- Keep user-facing recommendations and tradeoffs in parent synthesis.
-
-## Minimum call template
+## Minimal call template
 
 ```json
 {
@@ -63,6 +47,6 @@ Use when any of the following is true:
 
 ## Parent output contract
 
-- Concise synthesis (no raw log dump).
-- Ordered findings with evidence.
-- Confidence and specific next actions.
+- Concise synthesis (no raw dumps)
+- Ordered findings with evidence
+- Confidence + concrete next action
