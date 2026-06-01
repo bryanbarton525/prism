@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bryanbarton525/prism/internal/app"
+	"github.com/bryanbarton525/prism/internal/rootresolver"
 )
 
 func newAgentCmd() *cobra.Command {
@@ -42,10 +43,11 @@ func newAgentListCmd() *cobra.Command {
 }
 
 func agentList(ctx context.Context, jsonOut bool) error {
-	runner, err := newRunner()
+	runner, cleanup, err := newRunner(ctx)
 	if err != nil {
 		return err
 	}
+	defer cleanup()
 	summaries, err := runner.ListAgents(ctx)
 	if err != nil {
 		return err
@@ -90,10 +92,11 @@ func newAgentShowCmd() *cobra.Command {
 }
 
 func agentShow(ctx context.Context, agentID string, jsonOut bool) error {
-	runner, err := newRunner()
+	runner, cleanup, err := newRunner(ctx)
 	if err != nil {
 		return err
 	}
+	defer cleanup()
 	spec, err := runner.GetSpec(ctx, agentID)
 	if err != nil {
 		return err
@@ -144,10 +147,11 @@ func newAgentConstitutionCmd() *cobra.Command {
 }
 
 func agentConstitution(ctx context.Context, agentID string, jsonOut bool) error {
-	runner, err := newRunner()
+	runner, cleanup, err := newRunner(ctx)
 	if err != nil {
 		return err
 	}
+	defer cleanup()
 	c, err := runner.GetConstitution(ctx, agentID)
 	if err != nil {
 		return err
@@ -171,13 +175,25 @@ func agentConstitution(ctx context.Context, agentID string, jsonOut bool) error 
 // Helpers
 // ---------------------------------------------------------------------------
 
-func newRunner() (*app.Runner, error) {
-	return app.New(app.Config{
-		RootDir:    gf.rootDir,
+// newRunner resolves gf.rootDir (which may be a remote git URL) to a local
+// path, then constructs an app.Runner from that path. The caller must call
+// cleanup() when finished to remove any temporary directory that was created.
+func newRunner(ctx context.Context) (*app.Runner, func(), error) {
+	localRoot, cleanup, err := rootresolver.Resolve(ctx, gf.rootDir)
+	if err != nil {
+		return nil, func() {}, fmt.Errorf("resolving root %q: %w", gf.rootDir, err)
+	}
+	runner, err := app.New(app.Config{
+		RootDir:    localRoot,
 		AgentDir:   gf.agentDir,
 		SkillsDir:  gf.skillsDir,
 		OllamaHost: gf.ollamaHost,
 	})
+	if err != nil {
+		cleanup()
+		return nil, func() {}, err
+	}
+	return runner, cleanup, nil
 }
 
 func resolvedAgentDir() string {

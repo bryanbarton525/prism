@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bryanbarton525/prism/internal/benchmark"
+	"github.com/bryanbarton525/prism/internal/rootresolver"
 )
 
 func newBenchmarkCmd() *cobra.Command {
@@ -55,6 +56,12 @@ Requires Ollama running with llama3.1:8b (or pass --model). Use --mock only for 
 				}
 			}
 
+			localRoot, cleanup, err := rootresolver.Resolve(cmd.Context(), root)
+			if err != nil {
+				return fmt.Errorf("resolving root %q: %w", root, err)
+			}
+			defer cleanup()
+
 			opts := benchmark.RunOptions{
 				Mock:          mock,
 				MockPerCallMS: mockDelay,
@@ -67,7 +74,7 @@ Requires Ollama running with llama3.1:8b (or pass --model). Use --mock only for 
 				}
 			}
 
-			report, err := benchmark.Compare(cmd.Context(), root, scenarioID, opts)
+			report, err := benchmark.Compare(cmd.Context(), localRoot, scenarioID, opts)
 			if err != nil {
 				return err
 			}

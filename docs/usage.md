@@ -137,6 +137,37 @@ After saving, reload MCP servers in your editor settings. The **prism** server s
 
 For a local Gemini MCP config, this repository also includes a helper at `scripts/install_mcp.py`. Review the paths in the script first, then run it from the repo root with `python3 scripts/install_mcp.py`.
 
+### Remote `--root` (git URL)
+
+`--root` accepts a remote git URL in addition to a local path. When a URL is given, Prism runs `git clone --depth 1 <url> <tmpdir>` at startup and uses the cloned directory as the root for the duration of the process.
+
+**Supported URL schemes:** `https://`, `http://`, `git@` (SSH), `ssh://`
+
+```json
+{
+  "mcpServers": {
+    "prism": {
+      "command": "/Users/you/go/bin/prism",
+      "args": [
+        "mcp",
+        "serve",
+        "--root",
+        "https://github.com/bryanbarton525/prism"
+      ],
+      "env": { "PRISM_OLLAMA_HOST": "http://127.0.0.1:11434" }
+    }
+  }
+}
+```
+
+**Requirements and behaviour:**
+
+- `git` must be on `PATH` — Prism shells out to it directly.
+- The temp directory is removed when the MCP server process exits.
+- Every restart re-clones; there is no caching between restarts.
+- Private repos require credentials already configured in the environment (SSH key or HTTPS credential helper). Prism does not inject credentials.
+- `--agent-dir` and `--skills-dir` still override subdirectory paths if set explicitly.
+
 ### Runtime plugins
 
 Agent specs may declare a `tools:` allowlist. Prism resolves those names through the native runtime plugin registry, collects bounded read-only evidence before prompt assembly, and includes that evidence in both the specialist prompt and the returned artifacts.

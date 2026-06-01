@@ -50,6 +50,20 @@ Use the full path to your `prism` binary:
 }
 ```
 
+`--root` also accepts a remote git URL — Prism clones it with `git clone --depth 1` at startup (requires `git` on PATH):
+
+```json
+{
+  "mcpServers": {
+    "prism": {
+      "command": "/absolute/path/to/prism",
+      "args": ["mcp", "serve", "--root", "https://github.com/bryanbarton525/prism"],
+      "env": { "PRISM_OLLAMA_HOST": "http://127.0.0.1:11434" }
+    }
+  }
+}
+```
+
 Reload MCP servers in your editor, then call `**run_agent**` with `agent_id`, `task`, and `skill_names`.
 
 For local Gemini MCP setup, review and run `scripts/install_mcp.py` from the repo root.

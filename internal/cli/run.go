@@ -65,10 +65,11 @@ func runAgent(ctx context.Context, agentID string, rf runFlags) error {
 
 	verboseLog("agent: %s  skills: %v  format: %s", agentID, rf.skills, rf.format)
 
-	runner, err := newRunner()
+	runner, cleanup, err := newRunner(ctx)
 	if err != nil {
 		return fmt.Errorf("initialising runner: %w", err)
 	}
+	defer cleanup()
 
 	res, err := runner.Run(ctx, app.RunRequest{
 		AgentID:    agentID,

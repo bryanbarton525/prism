@@ -37,14 +37,16 @@ Example Cursor mcp.json:
     }
   }`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			runner, err := newRunner()
+			runner, cleanup, err := newRunner(cmd.Context())
 			if err != nil {
 				return fmt.Errorf("initializing runtime: %w", err)
 			}
+			defer cleanup()
 
 			logger := log.New(os.Stderr, "[prism-mcp] ", log.LstdFlags)
 			logger.Println(mcp.StatusSummary(runner))
 			logger.Printf("ollama: %s", gf.ollamaHost)
+			logger.Printf("root: %s", gf.rootDir)
 			logger.Printf("agents: %s", resolvedAgentDir())
 			logger.Println("tools: list_agents, run_agent, get_constitution, doctor")
 
