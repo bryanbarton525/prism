@@ -37,7 +37,7 @@ Each skill is a directory with a required `SKILL.md` file:
 
 ```text
 skills/
-|-- go-testing/
+|-- gh-pr-triage/
 |   |-- SKILL.md
 |   |-- references/
 |   `-- scripts/

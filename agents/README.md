@@ -51,14 +51,17 @@ New work should add `agents/<id>.md` files; constitutions can be merged into the
 spec body or referenced via `constitution_path` until migration completes.
 
 
-## Initial targeted agent specs
+## Registered agents
 
-- `agents/github-cli.md`
-- `agents/web-docs-search.md`
-- `agents/kubectl.md`
-- `agents/argo.md`
+All agents are live and loaded at startup:
+
+- `agents/github-cli.md` — PR triage, GitHub Actions failures
+- `agents/kubectl.md` — Kubernetes pod/rollout diagnostics via native plugin
+- `agents/argo.md` — Argo CD sync, workflow debug
+- `agents/web-docs-search.md` — docs harvest, release notes
 - `agents/go-helper.md` — small Go helpers and pure utilities
 - `agents/go-scaffold.md` — package boilerplate and test scaffolds
+- `agents/frontend-builder.md` — vanilla HTML/CSS/JS UI subtasks
 
 Each spec uses Markdown + YAML frontmatter and references a matching
 constitution plus an `allowed_skills` list.

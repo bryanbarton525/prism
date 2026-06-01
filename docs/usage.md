@@ -124,7 +124,8 @@ Example for Cursor (`~/.cursor/mcp.json`). Other MCP-compatible editors use equi
         "serve",
         "--root",
         "/Users/you/src/prism"
-      ]
+      ],
+      "env": { "PRISM_OLLAMA_HOST": "http://127.0.0.1:11434" }
     }
   }
 }

@@ -68,14 +68,15 @@ Full setup, flags, troubleshooting: **[docs/usage.md](docs/usage.md)**
 ## Built-in agents
 
 
-| Agent             | Use for                             |
-| ----------------- | ----------------------------------- |
-| `github-cli`      | PR triage, GitHub Actions failures  |
-| `kubectl`         | Kubernetes pod/rollout diagnostics via native plugin |
-| `argo`            | Argo CD sync, workflow debug        |
-| `web-docs-search` | Docs harvest, release notes         |
-| `go-helper`       | Small Go helpers and utilities      |
-| `go-scaffold`     | Package boilerplate, test scaffolds |
+| Agent              | Use for                                          |
+| ------------------ | ------------------------------------------------ |
+| `github-cli`       | PR triage, GitHub Actions failures               |
+| `kubectl`          | Kubernetes pod/rollout diagnostics via native plugin |
+| `argo`             | Argo CD sync, workflow debug                     |
+| `web-docs-search`  | Docs harvest, release notes                      |
+| `go-helper`        | Small Go helpers and utilities                   |
+| `go-scaffold`      | Package boilerplate, test scaffolds              |
+| `frontend-builder` | Vanilla HTML/CSS/JS UI subtasks                  |
 
 
 Add your own under `agents/` and `skills/`. See [agents/README.md](agents/README.md) and [skills/README.md](skills/README.md).
