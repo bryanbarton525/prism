@@ -91,7 +91,7 @@ Useful skill for parent-model delegation behavior:
 
 - `prism-mcp-orchestrator` — tells the orchestrator **when** to delegate and **how** to call Prism MCP tools/resources/prompts in the correct sequence.
 
-Note: this orchestrator skill is intentionally stored under `orchestrator-skills/` (not `skills/`) so Prism MCP runtime agents do not load it as an attachable specialist skill.
+Note: `prism-mcp-orchestrator` is for your editor/host orchestrator only — it is not in any agent `allowed_skills`, so Prism runtime specialists will not attach it during `run_agent`.
 
 ## How it compares
 

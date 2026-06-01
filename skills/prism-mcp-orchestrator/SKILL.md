@@ -1,6 +1,10 @@
 ---
 name: prism-mcp-orchestrator
-description: Auto-use for context-heavy prompts (logs, CI failures, Kubernetes issues, runbooks, docs lookup, PR triage, codegen subtasks). Decide when to delegate via Prism MCP and execute the required call order: list_agents -> list_resources/get_resource -> optional list_prompts/get_prompt -> run_agent -> parent synthesis.
+description: >-
+  Auto-use for context-heavy prompts (logs, CI failures, Kubernetes issues,
+  runbooks, docs lookup, PR triage, codegen subtasks). Decide when to delegate
+  via Prism MCP and execute the required call order — list_agents, list_resources,
+  get_resource, optional list_prompts/get_prompt, run_agent, then parent synthesis.
 compatibility: Requires Prism MCP server availability, local repository context, and an MCP-capable host editor/agent.
 metadata:
   prism-agents: orchestrator parent-model

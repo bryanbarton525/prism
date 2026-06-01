@@ -239,9 +239,9 @@ npx skills add github.com/bryanbarton525/prism -l --full-depth
 npx skills add github.com/bryanbarton525/prism --skill prism-mcp-orchestrator --full-depth
 ```
 
-`prism-mcp-orchestrator` is intentionally stored under `orchestrator-skills/`
-rather than `skills/` so it teaches host-orchestrator behavior without being
-treated as a Prism specialist runtime skill.
+`prism-mcp-orchestrator` lives under `skills/` like the others (standard
+`npx skills` discovery). It is for host-orchestrator behavior only — no Prism
+agent lists it in `allowed_skills`.
 
 ## Troubleshooting
 
