@@ -1,7 +1,7 @@
 # Prism implementation plan
 
 > **Status:** Milestones 1–4 are implemented on `main` (CLI, shared runtime, Ollama
-> client, MCP adapter, contract tests). See [usage.md](usage.md) and the
+> client, MCP adapter, native runtime plugin registry, contract tests). See [usage.md](usage.md) and the
 > [README](../README.md) for current commands. This document remains the design
 > reference and roadmap for later milestones (benchmark suite depth, streaming,
 > agent hardening).
@@ -11,7 +11,7 @@
 Prism lets a primary LLM orchestrator delegate focused work to local
 specialist agents running on Ollama. The orchestrator remains responsible for
 task selection, final judgment, and user communication. Prism provides the
-local execution layer, agent definitions, prompts, tool references, and
+local execution layer, agent definitions, prompts, runtime plugins, and
 structured results needed for that delegation.
 
 The project should start with planning artifacts and then grow into a Go
@@ -27,7 +27,7 @@ application that can be exposed as either:
 - Preserve orchestration by the main LLM instead of building an autonomous
   multi-agent swarm.
 - Make local agent behavior reproducible through versioned constitutions,
-  prompt templates, model settings, and tool allowlists.
+  prompt templates, model settings, skill allowlists, and plugin allowlists.
 - Support both direct command-line invocation and MCP tool invocation from
   compatible clients.
 - Keep the first implementation simple enough to run on a developer laptop.
@@ -46,15 +46,15 @@ application that can be exposed as either:
 
 1. **Orchestrator-first**: Prism returns structured evidence and suggestions;
    the calling LLM decides what to do with them.
-2. **Narrow specialists**: each agent is tool-specific (for example GitHub CLI,
-   web/docs search, kubectl, Argo), with clear inputs, explicit non-goals, and
+2. **Narrow specialists**: each agent is domain-specific (for example GitHub,
+   web/docs search, Kubernetes, Argo), with clear inputs, explicit non-goals, and
    a bounded output schema.
 3. **Local by default**: requests run against a configurable local Ollama host.
 4. **Auditable prompts**: all agent prompts and constitutions live in the repo.
 5. **Shared core, thin adapters**: CLI and MCP entry points call the same Go
    services instead of duplicating behavior.
-6. **Safe capability grants**: tools are opt-in per agent and visible in agent
-   metadata.
+6. **Safe capability grants**: runtime plugins are opt-in per agent and visible
+   in agent metadata.
 
 
 ## Vision guardrails
@@ -83,7 +83,7 @@ prism
 |-- internal/result/           # common response schemas and validation
 |-- internal/mcp/              # MCP server adapter
 |-- internal/cli/              # Cobra command handlers
-|-- internal/tooling/          # optional local tools exposed to agents
+|-- internal/plugins/          # native read-only runtime plugins exposed to agents
 |-- agents/                    # Markdown + frontmatter agent specs
 |-- constitutions/             # initial contracts (migrate into agents/)
 |-- skills/                    # Agent Skills directories (SKILL.md)
@@ -107,7 +107,8 @@ The runner is responsible for:
 
 - resolving an agent by ID,
 - loading its Markdown+frontmatter spec, constitution, and attached Agent Skills,
-- validating requested tools against the agent allowlist,
+- validating requested skills against the agent allowlist,
+- resolving declared runtime plugins and collecting bounded read-only evidence,
 - assembling the Ollama request,
 - enforcing timeout and context-budget limits,
 - normalizing the result into a stable response schema, and
@@ -152,7 +153,7 @@ Required:
 Recommended:
 
 - `temperature` - conservative default (often low for analysis agents).
-- `tools` - explicit allowlist of Prism-local tools (empty in read-only phase).
+- `tools` - explicit allowlist of Prism runtime plugins (for example `kubernetes`).
 - `outputs` - short description of the response schema sections expected.
 - `constitution_path` - optional path if the Markdown body is not the constitution.
 
@@ -176,8 +177,7 @@ allowed_skills:
   - gh-pr-triage
   - gh-actions-diagnostics
 latency_budget_ms: 30000
-tools:
-  - gh
+tools: []
 ---
 
 # Researcher constitution
@@ -213,8 +213,9 @@ Runtime assembly order:
 2. Validate `skill_names` against `allowed_skills`.
 3. Load each skill's metadata (`name`, `description`) and then the full
    `SKILL.md` body for attached skills only.
-4. Build the Ollama prompt with constitution + skills + task input.
-5. Return normalized `RunResult` with usage and timing metadata for benchmarks.
+4. Resolve declared runtime plugins and collect bounded read-only evidence.
+5. Build the Ollama prompt with constitution + skills + plugin evidence + task input.
+6. Return normalized `RunResult` with usage and timing metadata for benchmarks.
 
 The orchestrator (your AI editor) is responsible for choosing skills; Prism
 is responsible for enforcement and progressive disclosure.
@@ -302,7 +303,7 @@ operations. Any write capability must be explicit, auditable, and opt-in.
 | --- | --- | --- |
 | GitHub CLI agent | Query PR state, CI run status, commit metadata, and workflow logs through `gh`. | Freeform code generation, architectural planning, or direct git writes. |
 | Web/docs search agent | Retrieve and summarize targeted docs, API references, and troubleshooting pages. | Opinionated design decisions without source-backed evidence. |
-| Kubernetes kubectl agent | Inspect cluster state, events, logs, pods, and rollout status using `kubectl`. | Applying destructive changes without explicit orchestrator approval. |
+| Kubernetes kubectl agent | Inspect cluster state, events, pods, services, EndpointSlices, and rollout signals through the native Kubernetes plugin. | Applying destructive changes without explicit orchestrator approval. |
 | Argo agent | Inspect Argo CD / Argo Workflows status, sync health, and failure diagnostics. | Treating Argo as generic Kubernetes reasoning without Argo-specific context. |
 
 The orchestrator should pick one agent at a time, attach only required skills,
@@ -340,7 +341,7 @@ Each agent spec body (or linked constitution) should include:
 - required input assumptions,
 - output contract,
 - refusal or escalation conditions,
-- allowed tools (for example `gh`, `kubectl`), and
+- allowed runtime plugins or external tool domains (for example `kubernetes`, `gh`), and
 - quality checklist.
 
 Initial external tooling references are summarized in [tooling references](tooling-references.md). Core references:
@@ -349,6 +350,8 @@ Initial external tooling references are summarized in [tooling references](tooli
 - **Cobra** for command routing, flags, help output, and shell completion.
 - **Go MCP SDK** for the MCP server adapter, tool schemas, resources, and
   stdio transport.
+- **Kubernetes client-go** for native read-only cluster evidence collection in
+  the Kubernetes runtime plugin.
 - **Go standard library** for config loading, HTTP, JSON, context cancellation,
   and testing unless a dependency clearly pays for itself.
 

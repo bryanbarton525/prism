@@ -9,9 +9,7 @@ allowed_skills:
   - argo-sync-health
   - argo-workflow-debug
 latency_budget_ms: 45000
-tools:
-  - argocd
-  - argo
+tools: []
 outputs: summary findings evidence likely_causes next_actions confidence
 constitution_path: constitutions/argo.md
 ---

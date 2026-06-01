@@ -19,14 +19,30 @@ constitution (behavior contract) unless `constitution_path` points elsewhere.
 | `allowed_skills` | Skill `name` values this agent may attach at run time. |
 | `latency_budget_ms` | Benchmark and runtime latency budget. |
 
+## Optional frontmatter
+
+| Field | Purpose |
+| --- | --- |
+| `tools` | Runtime plugin allowlist. Names resolve through Prism's plugin registry, for example `kubernetes`. |
+
 ## Run-time skill attachment
 
 Invocations must pass one or more skills from `allowed_skills`. Skills follow
 the [Agent Skills specification](https://agentskills.io/specification#frontmatter)
 under `skills/<name>/SKILL.md`.
 
-Prism does not load the full skill library into every prompt-only skills named
-on that run.
+Prism does not load the full skill library into every prompt; it loads only
+skills named on that run.
+
+## Runtime plugin evidence
+
+When an agent declares `tools:`, Prism collects bounded read-only evidence from
+those plugins before the local model runs. The evidence is added to the prompt
+and returned as artifacts such as `runtime-plugin:kubernetes`.
+
+The current built-in Kubernetes plugin uses native client-go APIs. The
+`kubectl` agent name is kept for familiarity, but its runtime evidence is not
+collected by shelling out to the `kubectl` CLI.
 
 ## Migration note
 

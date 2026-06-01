@@ -12,11 +12,12 @@ Prism is an MCP server + CLI that runs tool-specific agents on [Ollama](https://
 - **Local specialists at $0** — Ollama runs absorb skill bodies and domain context; the orchestrator synthesizes from summaries
 - **Editor stays in charge** — no autonomous swarm; you pick agent + skills per subtask
 - **Progressive disclosure** — only attached [Agent Skills](https://agentskills.io/) per call, enforced by allowlists
+- **Native runtime plugins** — read-only evidence collectors, such as Kubernetes diagnostics, run through Prism plugins instead of ad hoc shell calls
 - **Repo-native specs** — agents, skills, and constitutions are versioned Markdown in this tree
 
 ## Quick start
 
-**Requires:** Go 1.22+, [Ollama](https://ollama.com/) at `http://127.0.0.1:11434`, model from agent specs (default `llama3.1:8b`).
+**Requires:** Go 1.25+, [Ollama](https://ollama.com/) at `http://127.0.0.1:11434`, model from agent specs (default `llama3.1:8b`).
 
 ```bash
 go install ./cmd/prism
@@ -51,12 +52,16 @@ Use the full path to your `prism` binary:
 
 Reload MCP servers in your editor, then call `**run_agent**` with `agent_id`, `task`, and `skill_names`.
 
+For local Gemini MCP setup, review and run `scripts/install_mcp.py` from the repo root.
+
 Available tools include:
 
 - core: `list_agents`, `run_agent`, `get_constitution`, `doctor`
 - prompt/resource compatibility: `list_prompts`, `get_prompt`, `list_resources`, `get_resource`
 
 Typical flow: paste a **short brief** → delegate evidence-heavy subtasks to specialists → synthesize their compact summaries. Do not paste all skills and evidence into chat.
+
+When an agent declares `tools:` in its spec, Prism resolves those names through its runtime plugin registry before the local model runs. The Kubernetes agent declares `kubernetes`, so Prism collects bounded read-only cluster evidence with the native Kubernetes client and returns it as a `runtime-plugin:kubernetes` artifact for the specialist to analyze.
 
 Full setup, flags, troubleshooting: **[docs/usage.md](docs/usage.md)**
 
@@ -66,7 +71,7 @@ Full setup, flags, troubleshooting: **[docs/usage.md](docs/usage.md)**
 | Agent             | Use for                             |
 | ----------------- | ----------------------------------- |
 | `github-cli`      | PR triage, GitHub Actions failures  |
-| `kubectl`         | Pod/rollout diagnostics             |
+| `kubectl`         | Kubernetes pod/rollout diagnostics via native plugin |
 | `argo`            | Argo CD sync, workflow debug        |
 | `web-docs-search` | Docs harvest, release notes         |
 | `go-helper`       | Small Go helpers and utilities      |

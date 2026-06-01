@@ -11,6 +11,8 @@ import (
 
 	"github.com/bryanbarton525/prism/internal/agent"
 	"github.com/bryanbarton525/prism/internal/ollama"
+	"github.com/bryanbarton525/prism/internal/plugins"
+	kubeplugin "github.com/bryanbarton525/prism/internal/plugins/kubernetes"
 	"github.com/bryanbarton525/prism/internal/result"
 	"github.com/bryanbarton525/prism/internal/skill"
 )
@@ -56,6 +58,9 @@ type Config struct {
 	// OllamaHost is the base URL of the local Ollama server.
 	// Defaults to http://127.0.0.1:11434 if empty.
 	OllamaHost string
+	// RuntimePlugins is the optional registry of native plugins exposed to agents.
+	// Defaults to the built-in registry.
+	RuntimePlugins *plugins.Registry
 }
 
 func (c *Config) agentDir() string {
@@ -90,6 +95,7 @@ type RunRequest struct {
 type Runner struct {
 	cfg      Config
 	registry *agent.Registry
+	plugins  *plugins.Registry
 	ollama   *ollama.Client
 }
 
@@ -103,8 +109,18 @@ func New(cfg Config) (*Runner, error) {
 	if err := reg.Load(); err != nil {
 		return nil, fmt.Errorf("loading agents: %w", err)
 	}
+	pluginRegistry := cfg.RuntimePlugins
+	if pluginRegistry == nil {
+		pluginRegistry = defaultRuntimePlugins()
+	}
 	oc := ollama.NewClient(cfg.OllamaHost)
-	return &Runner{cfg: cfg, registry: reg, ollama: oc}, nil
+	return &Runner{cfg: cfg, registry: reg, plugins: pluginRegistry, ollama: oc}, nil
+}
+
+func defaultRuntimePlugins() *plugins.Registry {
+	reg := plugins.NewRegistry(kubeplugin.New())
+	reg.Alias("kubectl", "kubernetes")
+	return reg
 }
 
 // ListAgents implements AgentRunner.
@@ -195,10 +211,27 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 			fmt.Sprintf("loading skills: %s", err), time.Since(start)), nil
 	}
 
-	// ── 6. Assemble prompt with progressive disclosure ────────────────────
-	systemPrompt, userPrompt := assemblePrompt(constitutionText, skills, req.SkillNames, req.Task)
+	// ── 6. Apply latency budget as context deadline ───────────────────────
+	if spec.LatencyBudgetMS > 0 {
+		if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(
+				ctx, time.Duration(spec.LatencyBudgetMS)*time.Millisecond)
+			defer cancel()
+		}
+	}
 
-	// ── 7. Context budget enforcement ─────────────────────────────────────
+	// ── 7. Collect bounded runtime evidence for declared tools ────────────
+	evidence := collectRuntimeEvidence(ctx, r.plugins, spec, req.Task)
+	task := req.Task
+	if evidence.promptBlock != "" {
+		task += evidence.promptBlock
+	}
+
+	// ── 8. Assemble prompt with progressive disclosure ────────────────────
+	systemPrompt, userPrompt := assemblePrompt(constitutionText, skills, req.SkillNames, task)
+
+	// ── 9. Context budget enforcement ─────────────────────────────────────
 	promptSize := len(systemPrompt) + len(userPrompt)
 	budgetExceeded := false
 	if spec.ContextBudget > 0 {
@@ -212,17 +245,7 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 		}
 	}
 
-	// ── 8. Apply latency budget as context deadline ───────────────────────
-	if spec.LatencyBudgetMS > 0 {
-		if _, hasDeadline := ctx.Deadline(); !hasDeadline {
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithTimeout(
-				ctx, time.Duration(spec.LatencyBudgetMS)*time.Millisecond)
-			defer cancel()
-		}
-	}
-
-	// ── 9. Call Ollama ────────────────────────────────────────────────────
+	// ── 10. Call Ollama ───────────────────────────────────────────────────
 	chatReq := ollama.ChatRequest{
 		Model: spec.Model,
 		Messages: []ollama.Message{
@@ -243,32 +266,34 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 			status = result.StatusTimeout
 		}
 		return result.RunResult{
-			AgentID:            req.AgentID,
-			Model:              spec.Model,
-			Status:             status,
-			Summary:            fmt.Sprintf("model invocation failed: %s", err),
-			Findings:           []result.Finding{},
-			Artifacts:          []result.Artifact{},
-			SkillsUsed:         req.SkillNames,
-			ConstitutionSource: constitutionSrc,
-			ContextBudget:      spec.ContextBudget,
-			PromptSizeEstimate: promptSize,
+			AgentID:               req.AgentID,
+			Model:                 spec.Model,
+			Status:                status,
+			Summary:               fmt.Sprintf("model invocation failed: %s", err),
+			Findings:              []result.Finding{},
+			Artifacts:             evidence.artifacts,
+			SkillsUsed:            req.SkillNames,
+			ConstitutionSource:    constitutionSrc,
+			ContextBudget:         spec.ContextBudget,
+			PromptSizeEstimate:    promptSize,
 			ContextBudgetExceeded: budgetExceeded,
-			Usage:              result.Usage{DurationMS: elapsed.Milliseconds()},
+			Usage:                 result.Usage{DurationMS: elapsed.Milliseconds()},
 		}, nil
 	}
 
-	// ── 10. Build normalized result ───────────────────────────────────────
+	// ── 11. Build normalized result ───────────────────────────────────────
 	rawText := chatResp.Message.Content
 	parsed := result.ParseAgentOutput(rawText, result.DefaultCompactMaxChars)
+	artifacts := append([]result.Artifact{}, evidence.artifacts...)
+	artifacts = append(artifacts, parsed.Artifacts...)
 	return result.RunResult{
-		AgentID:   req.AgentID,
-		Model:     chatResp.Model,
-		Status:    result.StatusOK,
-		Summary:   parsed.Summary,
-		RawOutput: parsed.RawOutput,
-		Findings:  parsed.Findings,
-		Artifacts: parsed.Artifacts,
+		AgentID:    req.AgentID,
+		Model:      chatResp.Model,
+		Status:     result.StatusOK,
+		Summary:    parsed.Summary,
+		RawOutput:  parsed.RawOutput,
+		Findings:   parsed.Findings,
+		Artifacts:  artifacts,
 		Confidence: parsed.Confidence,
 		Usage: result.Usage{
 			PromptTokensEstimate:     chatResp.PromptEvalCount,

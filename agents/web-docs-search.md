@@ -9,9 +9,7 @@ allowed_skills:
   - docs-source-harvest
   - release-notes-scan
 latency_budget_ms: 35000
-tools:
-  - web-search
-  - web-fetch
+tools: []
 outputs: summary findings citations gaps confidence
 constitution_path: constitutions/web-docs-search.md
 ---

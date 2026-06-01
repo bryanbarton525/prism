@@ -9,8 +9,7 @@ allowed_skills:
   - gh-pr-triage
   - gh-actions-diagnostics
 latency_budget_ms: 30000
-tools:
-  - gh
+tools: []
 outputs: summary findings command_evidence confidence
 constitution_path: constitutions/github-cli.md
 ---

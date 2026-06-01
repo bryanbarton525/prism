@@ -28,6 +28,15 @@ re-checked before major dependency upgrades.
   - Start with health, model listing, and chat/generate calls.
   - Prefer explicit timeouts and context cancellation on every request.
 
+## Runtime plugins
+
+- Kubernetes client-go: <https://github.com/kubernetes/client-go>
+  - Powers the built-in `kubernetes` runtime plugin under `internal/plugins/`.
+  - Use typed clients for core resources such as namespaces, pods,
+    deployments, services, events, and EndpointSlices.
+  - Use the dynamic client for optional APIs such as Gateway API HTTPRoutes.
+  - Keep plugin calls read-only unless a future agent explicitly declares and
+    audits write capabilities.
 
 ## Agent Skills
 

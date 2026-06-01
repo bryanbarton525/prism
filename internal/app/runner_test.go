@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bryanbarton525/prism/internal/plugins"
 	"github.com/bryanbarton525/prism/internal/result"
 )
 
@@ -124,6 +125,55 @@ description: Triage pull requests with gh.
 1. Gather PR metadata.
 2. Return findings.
 `
+}
+
+func kubectlSpec() string {
+	return `---
+id: kubectl
+name: Kubernetes kubectl
+description: Diagnose Kubernetes state.
+model: llama3.1:8b
+context_budget: 8192
+allowed_skills:
+  - kubectl-triage
+latency_budget_ms: 30000
+temperature: 0.1
+tools:
+  - kubernetes
+---
+
+# Kubernetes agent
+`
+}
+
+func kubectlTriageSkill() string {
+	return `---
+name: kubectl-triage
+description: Triage Kubernetes workloads.
+---
+
+Use read-only kubectl evidence.
+`
+}
+
+type fakeRuntimePlugin struct {
+	name    string
+	content string
+}
+
+func (f fakeRuntimePlugin) Name() string {
+	return f.name
+}
+
+func (f fakeRuntimePlugin) Tools() []plugins.ToolSpec {
+	return []plugins.ToolSpec{{Name: "kubernetes.collect_diagnostics", ReadOnly: true}}
+}
+
+func (f fakeRuntimePlugin) Call(_ context.Context, call plugins.ToolCall) (plugins.ToolResult, error) {
+	return plugins.ToolResult{
+		Label:   "runtime-plugin:" + f.name,
+		Content: "tool=" + call.Tool + " namespace=" + call.Args["namespace"] + "\n" + f.content,
+	}, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -408,6 +458,46 @@ func TestRunner_Run_MetadataPopulated(t *testing.T) {
 	}
 	if res.PromptSizeEstimate == 0 {
 		t.Error("PromptSizeEstimate should be > 0")
+	}
+}
+
+func TestRunner_Run_KubectlToolCollectsEvidence(t *testing.T) {
+	root := makeTestRoot(t,
+		map[string]string{"kubectl.md": kubectlSpec()},
+		map[string]string{"kubectl-triage": kubectlTriageSkill()},
+	)
+	runtimePlugins := plugins.NewRegistry(fakeRuntimePlugin{
+		name:    "kubernetes",
+		content: "pod/temporal-frontend Init:2/3",
+	})
+
+	srv := mockOllama(t, `{"summary":"used evidence","findings":["ok"],"confidence":"high"}`)
+	defer srv.Close()
+
+	runner, _ := New(Config{RootDir: root, OllamaHost: srv.URL, RuntimePlugins: runtimePlugins})
+	res, err := runner.Run(context.Background(), RunRequest{
+		AgentID:    "kubectl",
+		Task:       "Namespace: temporal. Diagnose Temporal.",
+		SkillNames: []string{"kubectl-triage"},
+	})
+	if err != nil {
+		t.Fatalf("Run(): %v", err)
+	}
+
+	var found bool
+	for _, artifact := range res.Artifacts {
+		if artifact.Label == "runtime-plugin:kubernetes" {
+			found = true
+			if !strings.Contains(artifact.Content, "namespace=temporal") {
+				t.Fatalf("runtime evidence missing namespace argument:\n%s", artifact.Content)
+			}
+			if !strings.Contains(artifact.Content, "pod/temporal-frontend Init:2/3") {
+				t.Fatalf("runtime evidence missing app output:\n%s", artifact.Content)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected runtime-plugin:kubernetes artifact, got %#v", res.Artifacts)
 	}
 }
 

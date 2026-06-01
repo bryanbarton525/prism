@@ -82,7 +82,7 @@ project once baselines exist.
 | --- | --- |
 | GitHub CLI agent | 30000 |
 | Web/docs search agent | 35000 |
-| Kubernetes kubectl agent | 45000 |
+| Kubernetes agent (`kubectl`) | 45000 |
 | Argo agent | 45000 |
 
 ## Test types

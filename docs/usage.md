@@ -5,7 +5,7 @@ This guide covers day-to-day use of the Prism CLI and MCP server as implemented 
 ## Before you start
 
 1. **Clone** the repository and `cd` into it (or pass `--root` to every command).
-2. **Install** the binary: `go install ./cmd/prism`
+2. **Install** Go 1.25+ and the binary: `go install ./cmd/prism`
 3. **Start Ollama** and confirm it responds: `curl http://127.0.0.1:11434/api/version`
 4. **Pull models** used by your agents (see `model:` in `agents/*.md`), e.g.:
   ```bash
@@ -106,7 +106,7 @@ Checks include:
 - Command: `prism mcp serve`
 - Transport: **stdio** (JSON-RPC)
 - Logging: **stderr** only (`[prism-mcp] ...`)
-- Same `AgentRunner` as the CLI — tool outputs match CLI JSON shapes
+- Same `AgentRunner` as the CLI — plugin evidence and results match CLI JSON shapes
 
 Always pass `**--root`** to the absolute path of this repository when the MCP host’s working directory is not the repo root.
 
@@ -133,6 +133,21 @@ Example for Cursor (`~/.cursor/mcp.json`). Other MCP-compatible editors use equi
 After saving, reload MCP servers in your editor settings. The **prism** server should list:
 - Core tools: `list_agents`, `run_agent`, `get_constitution`, `doctor`
 - Compatibility tools: `list_prompts`, `get_prompt`, `list_resources`, `get_resource`
+
+For a local Gemini MCP config, this repository also includes a helper at `scripts/install_mcp.py`. Review the paths in the script first, then run it from the repo root with `python3 scripts/install_mcp.py`.
+
+### Runtime plugins
+
+Agent specs may declare a `tools:` allowlist. Prism resolves those names through the native runtime plugin registry, collects bounded read-only evidence before prompt assembly, and includes that evidence in both the specialist prompt and the returned artifacts.
+
+The first built-in plugin is `kubernetes`. The `kubectl` agent declares:
+
+```yaml
+tools:
+  - kubernetes
+```
+
+That means Prism uses Kubernetes client-go APIs to collect namespace, pod, deployment, service, event, EndpointSlice, HTTPRoute, and server-version evidence. It does not shell out to `kubectl` for this runtime evidence. Results are labeled `runtime-plugin:kubernetes`; `kubectl` remains accepted as a compatibility alias for older agent specs.
 
 ### Tool reference
 
@@ -218,7 +233,8 @@ Suggested order:
 1. Create `agents/<id>.md` with required frontmatter (see [agents/README.md](../agents/README.md)).
 2. Put the constitution in the file body, or set `constitution_path`, or add `constitutions/<id>.md`.
 3. List skill names in `allowed_skills`.
-4. Verify: `prism agent show <id>` and `prism config doctor`.
+4. Optionally list native runtime plugins in `tools` when the agent needs Prism-collected evidence.
+5. Verify: `prism agent show <id>` and `prism config doctor`.
 
 ### New skill
 
