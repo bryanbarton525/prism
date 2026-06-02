@@ -19,15 +19,16 @@ This guide covers day-to-day use of the Prism CLI and MCP server as implemented 
 
 ## Configuration
 
-Prism resolves paths relative to `**--root**` (default: current working directory).
+Prism resolves paths relative to `**--root**` (default: current working directory). It also reads an optional `.env` file from the current working directory before checking environment variables.
 
 
 | Setting      | Flag            | Environment variable |
 | ------------ | --------------- | -------------------- |
-| Project root | `--root`        | —                    |
+| Project root | `--root`        | `PRISM_ROOT`         |
 | Agent specs  | `--agent-dir`   | `PRISM_AGENT_DIR`    |
-| Skills       | `--skills-dir`  | —                    |
+| Skills       | `--skills-dir`  | `PRISM_SKILLS_DIR`   |
 | Ollama URL   | `--ollama-host` | `PRISM_OLLAMA_HOST`  |
+| GitHub token | —               | `PRISM_GITHUB_TOKEN`, `PRISM_GH_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN` |
 
 
 Example running from another directory:
@@ -165,8 +166,8 @@ For a local Gemini MCP config, this repository also includes a helper at `script
 
 **Requirements and behaviour:**
 
-- Set `GITHUB_TOKEN` in the environment. This prevents strict rate limiting (5,000 req/hr vs 60 req/hr unauthenticated) and provides access to private repositories.
-- If `GITHUB_TOKEN` is unset or the API is inaccessible, Prism falls back to `git clone --depth 1 <url> <tmpdir>` (requires `git` on `PATH`).
+- Set `PRISM_GITHUB_TOKEN`, `PRISM_GH_TOKEN`, `GITHUB_TOKEN`, or `GH_TOKEN` in the environment or local `.env` file. `PRISM_GITHUB_TOKEN` is the Prism-native name; the others are accepted aliases.
+- If neither token is set or the API is inaccessible, Prism falls back to `git clone --depth 1 <url> <tmpdir>` (requires `git` on `PATH`).
 - The fallback temp directory is removed when the process exits.
 - `--agent-dir` and `--skills-dir` still override subdirectory paths if set explicitly.
 

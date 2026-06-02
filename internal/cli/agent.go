@@ -177,11 +177,10 @@ func agentConstitution(ctx context.Context, agentID string, jsonOut bool) error 
 
 // newRunner resolves gf.rootDir (local path or remote GitHub URL) to an fs.FS,
 // then constructs an app.Runner. The caller must call cleanup() when finished.
-// GITHUB_TOKEN is read from the environment and passed to rootresolver so the
-// GitHub Contents API is used when available; git clone is the fallback.
+// GitHubToken is read from config and passed to rootresolver so the GitHub
+// Contents API is used when available; git clone is the fallback.
 func newRunner(ctx context.Context) (*app.Runner, func(), error) {
-	token := os.Getenv("GITHUB_TOKEN")
-	rootFS, cleanup, err := rootresolver.Resolve(ctx, gf.rootDir, token)
+	rootFS, cleanup, err := rootresolver.Resolve(ctx, gf.rootDir, cfg.GitHubToken)
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("resolving root %q: %w", gf.rootDir, err)
 	}
@@ -198,7 +197,6 @@ func newRunner(ctx context.Context) (*app.Runner, func(), error) {
 	}
 	return runner, cleanup, nil
 }
-
 
 func resolvedAgentDir() string {
 	if gf.agentDir != "" {

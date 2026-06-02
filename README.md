@@ -50,7 +50,7 @@ Use the full path to your `prism` binary:
 }
 ```
 
-`--root` also accepts a github.com URL — Prism reads files directly via the GitHub Contents API (set `GITHUB_TOKEN` to avoid rate limits for public repos; required for private repos). It falls back to `git clone` if the API is inaccessible:
+`--root` also accepts a github.com URL — Prism reads files directly via the GitHub Contents API (set `PRISM_GITHUB_TOKEN`, `PRISM_GH_TOKEN`, `GITHUB_TOKEN`, or `GH_TOKEN` to avoid rate limits for public repos; required for private repos). It falls back to `git clone` if the API is inaccessible:
 
 ```json
 {

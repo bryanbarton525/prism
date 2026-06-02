@@ -10,9 +10,8 @@
 //     git clone --depth 1 into a temp directory and returns os.DirFS of
 //     that directory. Cleanup removes the temp dir.
 //
-// The token parameter should be populated from the GITHUB_TOKEN environment
-// variable by the caller (CLI layer). Passing an empty token triggers the
-// clone fallback for GitHub URLs.
+// The token parameter should be populated by the caller (CLI layer). Passing an
+// empty token triggers the clone fallback for GitHub URLs.
 package rootresolver
 
 import (
@@ -23,6 +22,12 @@ import (
 	"os/exec"
 
 	"github.com/bryanbarton525/prism/internal/github"
+)
+
+var (
+	newGitHubFS = func(owner, repo, ref, token string) fs.FS { return github.New(owner, repo, ref, token) }
+	probeFS     = probe
+	cloneRepo   = cloneFallback
 )
 
 // Resolve returns an fs.FS for the given root and a cleanup function.
@@ -46,8 +51,8 @@ func Resolve(ctx context.Context, root, token string) (fsys fs.FS, cleanup func(
 		// Primary: GitHub Contents API.
 		// We do a lightweight probe (list repo root) to verify the token and
 		// URL are valid before handing the FS to the caller.
-		ghFS := github.New(owner, repo, ref, token)
-		probeErr := probe(ctx, ghFS)
+		ghFS := newGitHubFS(owner, repo, ref, token)
+		probeErr := probeFS(ctx, ghFS)
 		if probeErr == nil {
 			return ghFS, func() {}, nil
 		}
@@ -56,7 +61,7 @@ func Resolve(ctx context.Context, root, token string) (fsys fs.FS, cleanup func(
 	}
 
 	// Fallback: git clone --depth 1.
-	return cloneFallback(ctx, root)
+	return cloneRepo(ctx, root)
 }
 
 // probe verifies that the FS is accessible by attempting to read the root directory.
