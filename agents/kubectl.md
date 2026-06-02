@@ -2,7 +2,7 @@
 id: kubectl
 name: Kubernetes kubectl
 description: Use for Kubernetes cluster diagnostics across pods, events, services, and rollouts.
-model: llama3.1:8b
+model: qwen3.5:9b
 context_budget: 8192
 temperature: 0.1
 allowed_skills:

@@ -2,7 +2,7 @@
 id: go-scaffold
 name: Go Scaffold
 description: Offload Go package boilerplate, table-driven tests, and scaffold files when the orchestrator is creating a new package or test suite.
-model: llama3.1:8b
+model: qwen3.5:9b
 context_budget: 8192
 temperature: 0.1
 allowed_skills:
