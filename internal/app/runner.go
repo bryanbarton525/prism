@@ -6,6 +6,8 @@ package app
 import (
 	"context"
 	"fmt"
+	"io/fs"
+	"os"
 	"strings"
 	"time"
 
@@ -46,14 +48,21 @@ type Constitution struct {
 
 // Config holds runtime configuration for a Runner.
 type Config struct {
-	// RootDir is the repository or project root used to resolve relative paths
-	// such as constitution_path values in agent specs.
+	// RootFS is the resolved fs.FS for the project root. When set it takes
+	// priority over RootDir. Set by the CLI via rootresolver after resolving
+	// the --root flag (local path or remote GitHub URL).
+	RootFS fs.FS
+	// RootLabel is the human-readable root descriptor for display (e.g.
+	// "https://github.com/owner/repo" or "/local/path"). Used in doctor output.
+	RootLabel string
+	// RootDir is the local project root. Used when RootFS is nil. Kept for
+	// backward compatibility with tests that create on-disk fixtures.
 	RootDir string
-	// AgentDir is the directory that contains *.md agent spec files.
-	// Defaults to <RootDir>/agents if empty.
+	// AgentDir is a local path override for the agents directory.
+	// When set it overrides the agents/ sub-FS derived from RootFS/RootDir.
 	AgentDir string
-	// SkillsDir is the directory that contains per-skill subdirectories.
-	// Defaults to <RootDir>/skills if empty.
+	// SkillsDir is a local path override for the skills directory.
+	// When set it overrides the skills/ sub-FS derived from RootFS/RootDir.
 	SkillsDir string
 	// OllamaHost is the base URL of the local Ollama server.
 	// Defaults to http://127.0.0.1:11434 if empty.
@@ -63,18 +72,61 @@ type Config struct {
 	RuntimePlugins *plugins.Registry
 }
 
-func (c *Config) agentDir() string {
+// rootFS returns the effective root FS: RootFS if set, else os.DirFS(RootDir).
+func (c *Config) rootFS() fs.FS {
+	if c.RootFS != nil {
+		return c.RootFS
+	}
+	return os.DirFS(c.RootDir)
+}
+
+// agentFS returns the FS to use for reading agent specs.
+func (c *Config) agentFS() fs.FS {
+	if c.AgentDir != "" {
+		return os.DirFS(c.AgentDir)
+	}
+	sub, err := fs.Sub(c.rootFS(), "agents")
+	if err != nil {
+		// Should never happen for valid paths; fall back to root.
+		return c.rootFS()
+	}
+	return sub
+}
+
+// skillsFS returns the FS to use for reading skills.
+func (c *Config) skillsFS() fs.FS {
+	if c.SkillsDir != "" {
+		return os.DirFS(c.SkillsDir)
+	}
+	sub, err := fs.Sub(c.rootFS(), "skills")
+	if err != nil {
+		return c.rootFS()
+	}
+	return sub
+}
+
+// agentDirLabel returns a display string for the agents directory.
+func (c *Config) agentDirLabel() string {
 	if c.AgentDir != "" {
 		return c.AgentDir
 	}
-	return c.RootDir + "/agents"
+	label := c.RootLabel
+	if label == "" {
+		label = c.RootDir
+	}
+	return label + "/agents"
 }
 
-func (c *Config) skillsDir() string {
+// skillsDirLabel returns a display string for the skills directory.
+func (c *Config) skillsDirLabel() string {
 	if c.SkillsDir != "" {
 		return c.SkillsDir
 	}
-	return c.RootDir + "/skills"
+	label := c.RootLabel
+	if label == "" {
+		label = c.RootDir
+	}
+	return label + "/skills"
 }
 
 // RunRequest is the input to Runner.Run.
@@ -94,6 +146,8 @@ type RunRequest struct {
 // Runner implements AgentRunner using a local Ollama server.
 type Runner struct {
 	cfg      Config
+	rootFS   fs.FS // resolved root FS (cached from cfg)
+	skillsFS fs.FS // resolved skills FS (cached from cfg)
 	registry *agent.Registry
 	plugins  *plugins.Registry
 	ollama   *ollama.Client
@@ -105,7 +159,8 @@ var _ AgentRunner = (*Runner)(nil)
 // New creates a Runner from cfg, loads all agent specs, and returns.
 // It fails fast if the agent directory cannot be read or any spec is invalid.
 func New(cfg Config) (*Runner, error) {
-	reg := agent.NewRegistry(cfg.agentDir())
+	agentFS := cfg.agentFS()
+	reg := agent.NewRegistry(agentFS)
 	if err := reg.Load(); err != nil {
 		return nil, fmt.Errorf("loading agents: %w", err)
 	}
@@ -114,7 +169,14 @@ func New(cfg Config) (*Runner, error) {
 		pluginRegistry = defaultRuntimePlugins()
 	}
 	oc := ollama.NewClient(cfg.OllamaHost)
-	return &Runner{cfg: cfg, registry: reg, plugins: pluginRegistry, ollama: oc}, nil
+	return &Runner{
+		cfg:      cfg,
+		rootFS:   cfg.rootFS(),
+		skillsFS: cfg.skillsFS(),
+		registry: reg,
+		plugins:  pluginRegistry,
+		ollama:   oc,
+	}, nil
 }
 
 func defaultRuntimePlugins() *plugins.Registry {
@@ -143,7 +205,7 @@ func (r *Runner) GetConstitution(_ context.Context, agentID string) (Constitutio
 		return Constitution{}, err
 	}
 
-	text, src, err := spec.ResolveConstitution(r.cfg.RootDir)
+	text, src, err := spec.ResolveConstitution(r.rootFS)
 	if err != nil {
 		return Constitution{}, fmt.Errorf("resolving constitution for %s: %w", agentID, err)
 	}
@@ -198,14 +260,14 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 	}
 
 	// ── 4. Load constitution ──────────────────────────────────────────────
-	constitutionText, constitutionSrc, err := spec.ResolveConstitution(r.cfg.RootDir)
+	constitutionText, constitutionSrc, err := spec.ResolveConstitution(r.rootFS)
 	if err != nil {
 		return result.Error(req.AgentID, spec.Model,
 			fmt.Sprintf("resolving constitution: %s", err), time.Since(start)), nil
 	}
 
 	// ── 5. Load skill content ─────────────────────────────────────────────
-	skills, err := skill.LoadMany(r.cfg.skillsDir(), req.SkillNames)
+	skills, err := skill.LoadMany(r.skillsFS, req.SkillNames)
 	if err != nil {
 		return result.Error(req.AgentID, spec.Model,
 			fmt.Sprintf("loading skills: %s", err), time.Since(start)), nil

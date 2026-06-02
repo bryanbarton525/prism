@@ -2,37 +2,42 @@ package agent
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
+	"io/fs"
 	"sort"
 	"strings"
 )
 
-// Registry loads and caches agent specs from a directory.
+// Registry loads and caches agent specs from an fs.FS.
 type Registry struct {
-	dir   string
+	fsys  fs.FS
 	specs map[string]*Spec
 }
 
-// NewRegistry creates a Registry that reads specs from dir.
-func NewRegistry(dir string) *Registry {
-	return &Registry{dir: dir, specs: make(map[string]*Spec)}
+// NewRegistry creates a Registry that reads specs from fsys.
+// The FS should be the agents directory (or a sub-FS of the project root at "agents").
+// For a local directory: agent.NewRegistry(os.DirFS(agentDir))
+// For GitHub: agent.NewRegistry(fs.Sub(githubFS, "agents"))
+func NewRegistry(fsys fs.FS) *Registry {
+	return &Registry{fsys: fsys, specs: make(map[string]*Spec)}
 }
 
-// Load scans dir for *.md files and parses them as agent specs.
-// README.md and directories are silently skipped. Any parsing or
+// Load scans the FS root for *.md files and parses them as agent specs.
+// README.md and directory entries are silently skipped. Any parsing or
 // validation error causes Load to return immediately.
 func (r *Registry) Load() error {
-	entries, err := os.ReadDir(r.dir)
+	entries, err := fs.ReadDir(r.fsys, ".")
 	if err != nil {
-		return fmt.Errorf("opening agent directory %s: %w", r.dir, err)
+		return fmt.Errorf("opening agent directory: %w", err)
 	}
 	for _, e := range entries {
-		if e.IsDir() || filepath.Ext(e.Name()) != ".md" || e.Name() == "README.md" {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") || e.Name() == "README.md" {
 			continue
 		}
-		path := filepath.Join(r.dir, e.Name())
-		spec, err := ParseFile(path)
+		data, err := fs.ReadFile(r.fsys, e.Name())
+		if err != nil {
+			return fmt.Errorf("reading agent spec %s: %w", e.Name(), err)
+		}
+		spec, err := Parse(data, e.Name())
 		if err != nil {
 			return fmt.Errorf("loading agent spec %s: %w", e.Name(), err)
 		}

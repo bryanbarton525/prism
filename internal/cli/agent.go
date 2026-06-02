@@ -175,16 +175,19 @@ func agentConstitution(ctx context.Context, agentID string, jsonOut bool) error 
 // Helpers
 // ---------------------------------------------------------------------------
 
-// newRunner resolves gf.rootDir (which may be a remote git URL) to a local
-// path, then constructs an app.Runner from that path. The caller must call
-// cleanup() when finished to remove any temporary directory that was created.
+// newRunner resolves gf.rootDir (local path or remote GitHub URL) to an fs.FS,
+// then constructs an app.Runner. The caller must call cleanup() when finished.
+// GITHUB_TOKEN is read from the environment and passed to rootresolver so the
+// GitHub Contents API is used when available; git clone is the fallback.
 func newRunner(ctx context.Context) (*app.Runner, func(), error) {
-	localRoot, cleanup, err := rootresolver.Resolve(ctx, gf.rootDir)
+	token := os.Getenv("GITHUB_TOKEN")
+	rootFS, cleanup, err := rootresolver.Resolve(ctx, gf.rootDir, token)
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("resolving root %q: %w", gf.rootDir, err)
 	}
 	runner, err := app.New(app.Config{
-		RootDir:    localRoot,
+		RootFS:     rootFS,
+		RootLabel:  gf.rootDir,
 		AgentDir:   gf.agentDir,
 		SkillsDir:  gf.skillsDir,
 		OllamaHost: gf.ollamaHost,
@@ -195,6 +198,7 @@ func newRunner(ctx context.Context) (*app.Runner, func(), error) {
 	}
 	return runner, cleanup, nil
 }
+
 
 func resolvedAgentDir() string {
 	if gf.agentDir != "" {

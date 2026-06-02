@@ -139,9 +139,9 @@ For a local Gemini MCP config, this repository also includes a helper at `script
 
 ### Remote `--root` (git URL)
 
-`--root` accepts a remote git URL in addition to a local path. When a URL is given, Prism runs `git clone --depth 1 <url> <tmpdir>` at startup and uses the cloned directory as the root for the duration of the process.
+`--root` accepts a github.com URL in addition to a local path. When a URL is given, Prism reads files dynamically via the GitHub Contents API without cloning the repository.
 
-**Supported URL schemes:** `https://`, `http://`, `git@` (SSH), `ssh://`
+**Supported URL formats:** `https://github.com/owner/repo`, `git@github.com:owner/repo.git`, `https://github.com/owner/repo/tree/branch`
 
 ```json
 {
@@ -154,7 +154,10 @@ For a local Gemini MCP config, this repository also includes a helper at `script
         "--root",
         "https://github.com/bryanbarton525/prism"
       ],
-      "env": { "PRISM_OLLAMA_HOST": "http://127.0.0.1:11434" }
+      "env": {
+        "PRISM_OLLAMA_HOST": "http://127.0.0.1:11434",
+        "GITHUB_TOKEN": "ghp_yourtokenhere"
+      }
     }
   }
 }
@@ -162,10 +165,9 @@ For a local Gemini MCP config, this repository also includes a helper at `script
 
 **Requirements and behaviour:**
 
-- `git` must be on `PATH` — Prism shells out to it directly.
-- The temp directory is removed when the MCP server process exits.
-- Every restart re-clones; there is no caching between restarts.
-- Private repos require credentials already configured in the environment (SSH key or HTTPS credential helper). Prism does not inject credentials.
+- Set `GITHUB_TOKEN` in the environment. This prevents strict rate limiting (5,000 req/hr vs 60 req/hr unauthenticated) and provides access to private repositories.
+- If `GITHUB_TOKEN` is unset or the API is inaccessible, Prism falls back to `git clone --depth 1 <url> <tmpdir>` (requires `git` on `PATH`).
+- The fallback temp directory is removed when the process exits.
 - `--agent-dir` and `--skills-dir` still override subdirectory paths if set explicitly.
 
 ### Runtime plugins

@@ -45,7 +45,7 @@ func init() {
 	}
 
 	rootCmd.PersistentFlags().StringVar(&gf.rootDir, "root", defaultRoot,
-		"Project root — local path or remote git URL (https://, git@). Remote URLs are cloned with 'git clone --depth 1' at startup.")
+		"Project root — local path or github.com URL. URLs are read via the GitHub Contents API (set GITHUB_TOKEN) with git clone fallback.")
 	rootCmd.PersistentFlags().StringVar(&gf.agentDir, "agent-dir", "",
 		"Agent spec directory (default: <root>/agents)")
 	rootCmd.PersistentFlags().StringVar(&gf.skillsDir, "skills-dir", "",

@@ -3,13 +3,14 @@ package agent
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
+	"io/fs"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
+
 
 // Spec holds the parsed YAML frontmatter and Markdown body of an agent file.
 type Spec struct {
@@ -73,20 +74,21 @@ func (s *Spec) AllowsSkill(name string) bool {
 // ResolveConstitution returns the constitution text for this agent following
 // a three-priority chain:
 //
-//  1. constitution_path field (resolved relative to rootDir)
+//  1. constitution_path field (resolved relative to the FS root)
 //  2. inline spec body (Markdown after the frontmatter block)
-//  3. legacy constitutions/<id>.md (relative to rootDir)
+//  3. legacy constitutions/<id>.md (relative to the FS root)
 //
 // The second return value names the source: "path", "body", or "legacy".
-func (s *Spec) ResolveConstitution(rootDir string) (text, source string, err error) {
+// fsys should be the project root FS (not the agents sub-FS).
+func (s *Spec) ResolveConstitution(fsys fs.FS) (text, source string, err error) {
 	if s.ConstitutionPath != "" {
-		full := s.ConstitutionPath
-		if !filepath.IsAbs(full) {
-			full = filepath.Join(rootDir, full)
+		// Reject absolute paths — they cannot be resolved via fs.FS.
+		if len(s.ConstitutionPath) > 0 && s.ConstitutionPath[0] == '/' {
+			return "", "", fmt.Errorf("constitution_path must be relative, got %q", s.ConstitutionPath)
 		}
-		data, readErr := os.ReadFile(full)
+		data, readErr := fs.ReadFile(fsys, s.ConstitutionPath)
 		if readErr != nil {
-			return "", "", fmt.Errorf("reading constitution_path %s: %w", full, readErr)
+			return "", "", fmt.Errorf("reading constitution_path %s: %w", s.ConstitutionPath, readErr)
 		}
 		return strings.TrimSpace(string(data)), "path", nil
 	}
@@ -95,10 +97,10 @@ func (s *Spec) ResolveConstitution(rootDir string) (text, source string, err err
 		return s.Body, "body", nil
 	}
 
-	legacyPath := filepath.Join(rootDir, "constitutions", s.ID+".md")
-	data, readErr := os.ReadFile(legacyPath)
+	legacyPath := "constitutions/" + s.ID + ".md"
+	data, readErr := fs.ReadFile(fsys, legacyPath)
 	if readErr != nil {
-		if os.IsNotExist(readErr) {
+		if errors.Is(readErr, fs.ErrNotExist) {
 			return "", "none", nil
 		}
 		return "", "", fmt.Errorf("reading legacy constitution %s: %w", legacyPath, readErr)
@@ -106,14 +108,6 @@ func (s *Spec) ResolveConstitution(rootDir string) (text, source string, err err
 	return strings.TrimSpace(string(data)), "legacy", nil
 }
 
-// ParseFile reads a Markdown+frontmatter agent spec file from path.
-func ParseFile(path string) (*Spec, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("reading agent spec %s: %w", path, err)
-	}
-	return Parse(data, path)
-}
 
 // Parse parses raw bytes that begin with a YAML frontmatter block delimited by
 // "---". The sourcePath is used only for error messages and id-stem validation.
@@ -174,10 +168,23 @@ func validate(s *Spec, src string) error {
 	}
 
 	if src != "" {
-		stem := strings.TrimSuffix(filepath.Base(src), filepath.Ext(src))
+		stem := stemFromName(src)
 		if stem != "." && stem != s.ID {
 			return fmt.Errorf("%s: id %q does not match filename stem %q", src, s.ID, stem)
 		}
 	}
 	return nil
+}
+
+// stemFromName returns the filename stem (no extension) from a path or bare filename.
+func stemFromName(name string) string {
+	// Strip directory prefix.
+	if i := strings.LastIndex(name, "/"); i >= 0 {
+		name = name[i+1:]
+	}
+	// Strip extension.
+	if i := strings.LastIndex(name, "."); i >= 0 {
+		return name[:i]
+	}
+	return name
 }

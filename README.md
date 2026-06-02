@@ -50,7 +50,7 @@ Use the full path to your `prism` binary:
 }
 ```
 
-`--root` also accepts a remote git URL — Prism clones it with `git clone --depth 1` at startup (requires `git` on PATH):
+`--root` also accepts a github.com URL — Prism reads files directly via the GitHub Contents API (set `GITHUB_TOKEN` to avoid rate limits for public repos; required for private repos). It falls back to `git clone` if the API is inaccessible:
 
 ```json
 {
@@ -58,7 +58,10 @@ Use the full path to your `prism` binary:
     "prism": {
       "command": "/absolute/path/to/prism",
       "args": ["mcp", "serve", "--root", "https://github.com/bryanbarton525/prism"],
-      "env": { "PRISM_OLLAMA_HOST": "http://127.0.0.1:11434" }
+      "env": {
+        "PRISM_OLLAMA_HOST": "http://127.0.0.1:11434",
+        "GITHUB_TOKEN": "ghp_yourtokenhere"
+      }
     }
   }
 }
