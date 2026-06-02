@@ -23,10 +23,11 @@ func newDoctorCmd() *cobra.Command {
 		Short: "Check Ollama connectivity and Prism configuration",
 		Long:  "Reports agent and skill registry state and probes the local Ollama server.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			runner, err := newRunner()
+			runner, cleanup, err := newRunner(cmd.Context())
 			if err != nil {
 				return err
 			}
+			defer cleanup()
 			dr, err := runner.Doctor(cmd.Context())
 			if err != nil {
 				return err

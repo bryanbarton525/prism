@@ -132,7 +132,7 @@ func TestAllowsSkill(t *testing.T) {
 
 func TestResolveConstitution_Body(t *testing.T) {
 	spec, _ := Parse([]byte(validSpec), "github-cli.md")
-	text, src, err := spec.ResolveConstitution("/nonexistent")
+	text, src, err := spec.ResolveConstitution(os.DirFS("/nonexistent"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestResolveConstitution_Path(t *testing.T) {
 		AllowedSkills:    []string{"some-skill"},
 		ConstitutionPath: "constitutions/myagent.md",
 	}
-	text, src, err := spec.ResolveConstitution(rootDir)
+	text, src, err := spec.ResolveConstitution(os.DirFS(rootDir))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestResolveConstitution_Legacy(t *testing.T) {
 		AllowedSkills: []string{"some-skill"},
 		// No Body, no ConstitutionPath — should fall back to legacy path.
 	}
-	text, src, err := spec.ResolveConstitution(rootDir)
+	text, src, err := spec.ResolveConstitution(os.DirFS(rootDir))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -217,7 +217,7 @@ func TestResolveConstitution_None(t *testing.T) {
 		ContextBudget: 4096,
 		AllowedSkills: []string{"some-skill"},
 	}
-	text, src, err := spec.ResolveConstitution(t.TempDir())
+	text, src, err := spec.ResolveConstitution(os.DirFS(t.TempDir()))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -234,7 +234,7 @@ func TestResolveConstitution_PathNotFound(t *testing.T) {
 		ID:               "x",
 		ConstitutionPath: "constitutions/missing.md",
 	}
-	_, _, err := spec.ResolveConstitution(t.TempDir())
+	_, _, err := spec.ResolveConstitution(os.DirFS(t.TempDir()))
 	if err == nil {
 		t.Fatal("expected error for missing constitution_path")
 	}

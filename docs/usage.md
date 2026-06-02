@@ -19,15 +19,16 @@ This guide covers day-to-day use of the Prism CLI and MCP server as implemented 
 
 ## Configuration
 
-Prism resolves paths relative to `**--root**` (default: current working directory).
+Prism resolves paths relative to `**--root**` (default: current working directory). It also reads an optional `.env` file from the current working directory before checking environment variables.
 
 
 | Setting      | Flag            | Environment variable |
 | ------------ | --------------- | -------------------- |
-| Project root | `--root`        | —                    |
+| Project root | `--root`        | `PRISM_ROOT`         |
 | Agent specs  | `--agent-dir`   | `PRISM_AGENT_DIR`    |
-| Skills       | `--skills-dir`  | —                    |
+| Skills       | `--skills-dir`  | `PRISM_SKILLS_DIR`   |
 | Ollama URL   | `--ollama-host` | `PRISM_OLLAMA_HOST`  |
+| GitHub token | —               | `PRISM_GITHUB_TOKEN`, `PRISM_GH_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN` |
 
 
 Example running from another directory:
@@ -136,6 +137,39 @@ After saving, reload MCP servers in your editor settings. The **prism** server s
 - Compatibility tools: `list_prompts`, `get_prompt`, `list_resources`, `get_resource`
 
 For a local Gemini MCP config, this repository also includes a helper at `scripts/install_mcp.py`. Review the paths in the script first, then run it from the repo root with `python3 scripts/install_mcp.py`.
+
+### Remote `--root` (git URL)
+
+`--root` accepts a github.com URL in addition to a local path. When a URL is given, Prism reads files dynamically via the GitHub Contents API without cloning the repository.
+
+**Supported URL formats:** `https://github.com/owner/repo`, `git@github.com:owner/repo.git`, `https://github.com/owner/repo/tree/branch`
+
+```json
+{
+  "mcpServers": {
+    "prism": {
+      "command": "/Users/you/go/bin/prism",
+      "args": [
+        "mcp",
+        "serve",
+        "--root",
+        "https://github.com/bryanbarton525/prism"
+      ],
+      "env": {
+        "PRISM_OLLAMA_HOST": "http://127.0.0.1:11434",
+        "GITHUB_TOKEN": "ghp_yourtokenhere"
+      }
+    }
+  }
+}
+```
+
+**Requirements and behaviour:**
+
+- Set `PRISM_GITHUB_TOKEN`, `PRISM_GH_TOKEN`, `GITHUB_TOKEN`, or `GH_TOKEN` in the environment or local `.env` file. `PRISM_GITHUB_TOKEN` is the Prism-native name; the others are accepted aliases.
+- If neither token is set or the API is inaccessible, Prism falls back to `git clone --depth 1 <url> <tmpdir>` (requires `git` on `PATH`).
+- The fallback temp directory is removed when the process exits.
+- `--agent-dir` and `--skills-dir` still override subdirectory paths if set explicitly.
 
 ### Runtime plugins
 

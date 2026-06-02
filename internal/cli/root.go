@@ -4,9 +4,10 @@ package cli
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
+
+	"github.com/bryanbarton525/prism/internal/config"
 )
 
 // globalFlags are the persistent flags shared by all subcommands.
@@ -20,6 +21,7 @@ type globalFlags struct {
 }
 
 var gf globalFlags
+var cfg config.Settings
 
 // rootCmd is the Cobra root command.
 var rootCmd = &cobra.Command{
@@ -38,39 +40,32 @@ func Execute() error {
 }
 
 func init() {
-	home, _ := os.UserHomeDir()
-	defaultRoot := "."
-	if cwd, err := os.Getwd(); err == nil {
-		defaultRoot = cwd
+	loaded, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[prism] config load warning: %v\n", err)
+		loaded = config.Settings{
+			RootDir:    ".",
+			OllamaHost: config.DefaultOllamaHost,
+		}
 	}
+	cfg = loaded
 
-	rootCmd.PersistentFlags().StringVar(&gf.rootDir, "root", defaultRoot,
-		"Project root (used to resolve constitution_path and default agent/skill dirs)")
-	rootCmd.PersistentFlags().StringVar(&gf.agentDir, "agent-dir", "",
+	rootCmd.PersistentFlags().StringVar(&gf.rootDir, "root", cfg.RootDir,
+		"Project root — local path or github.com URL. URLs are read via the GitHub Contents API (set GITHUB_TOKEN or GH_TOKEN) with git clone fallback.")
+	rootCmd.PersistentFlags().StringVar(&gf.agentDir, "agent-dir", cfg.AgentDir,
 		"Agent spec directory (default: <root>/agents)")
-	rootCmd.PersistentFlags().StringVar(&gf.skillsDir, "skills-dir", "",
+	rootCmd.PersistentFlags().StringVar(&gf.skillsDir, "skills-dir", cfg.SkillsDir,
 		"Skills directory (default: <root>/skills)")
-	rootCmd.PersistentFlags().StringVar(&gf.ollamaHost, "ollama-host",
-		envOrDefault("PRISM_OLLAMA_HOST", "http://127.0.0.1:11434"),
+	rootCmd.PersistentFlags().StringVar(&gf.ollamaHost, "ollama-host", cfg.OllamaHost,
 		"Ollama server URL [$PRISM_OLLAMA_HOST]")
 	rootCmd.PersistentFlags().BoolVarP(&gf.verbose, "verbose", "v", false, "Verbose output")
 	rootCmd.PersistentFlags().BoolVar(&gf.jsonOut, "json", false, "Force JSON output")
-
-	_ = home
-	_ = filepath.Join // keep import
 
 	rootCmd.AddCommand(newAgentCmd())
 	rootCmd.AddCommand(newRunCmd())
 	rootCmd.AddCommand(newConfigCmd())
 	rootCmd.AddCommand(newMCPCmd())
 	rootCmd.AddCommand(newBenchmarkCmd())
-}
-
-func envOrDefault(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
 }
 
 func verboseLog(format string, args ...interface{}) {

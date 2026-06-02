@@ -11,8 +11,13 @@ on:
     inputs:
       release_tag:
         description: "Existing git tag to release (for example: v1.2.3)"
-        required: true
+        required: false
         type: string
+      run_live_benchmark:
+        description: "Run live Ollama benchmark tests (requires hosted runner access to Ollama)"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -32,11 +37,29 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Run tests
-        run: go test ./...
+      - name: Run deterministic release checks
+        run: bash scripts/ci-check.sh
 
-      - name: Build binary
-        run: go build -v ./cmd/prism
+      - name: Check generated files are clean
+        run: git diff --exit-code
+
+  live-benchmark:
+    name: Live benchmark smoke
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.run_live_benchmark
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run live benchmark tests
+        run: go test -tags live ./internal/benchmark -run TestHomelabReleaseIncident -count=1 -timeout=20m
 
   prepare-release:
     name: Prepare release tag
@@ -59,6 +82,11 @@ jobs:
         run: |
           if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
             TAG="${{ inputs.release_tag }}"
+            if [ -z "${TAG}" ]; then
+              echo "No release_tag provided; skipping release preparation."
+              echo "release_tag=" >> "${GITHUB_OUTPUT}"
+              exit 0
+            fi
             case "${TAG}" in
               v*) ;;
               *)

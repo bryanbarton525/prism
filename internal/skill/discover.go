@@ -1,36 +1,36 @@
 package skill
 
 import (
+	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
+	"io/fs"
 )
 
 // ValidateStructure ensures a skill directory has SKILL.md, references/, and scripts/.
-func ValidateStructure(dir string) error {
-	dirName := filepath.Base(dir)
+func ValidateStructure(fsys fs.FS, name string) error {
 	var missing []string
-	for _, name := range []string{"SKILL.md", "references", "scripts"} {
-		if _, err := os.Stat(filepath.Join(dir, name)); err != nil {
-			if os.IsNotExist(err) {
-				missing = append(missing, name)
+	for _, sub := range []string{"SKILL.md", "references", "scripts"} {
+		path := name + "/" + sub
+		if _, err := fs.Stat(fsys, path); err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				missing = append(missing, sub)
 				continue
 			}
-			return fmt.Errorf("skill %q: %s: %w", dirName, name, err)
+			return fmt.Errorf("skill %q: %s: %w", name, sub, err)
 		}
 	}
 	if len(missing) > 0 {
-		return fmt.Errorf("skill %q: missing required paths: %s", dirName, joinStrings(missing))
+		return fmt.Errorf("skill %q: missing required paths: %s", name, joinStrings(missing))
 	}
 	return nil
 }
 
-// DiscoverAll loads every skill subdirectory under skillsRoot.
+// DiscoverAll loads every skill subdirectory under fsys (the skills root FS).
 // Structure and frontmatter validation errors are aggregated.
-func DiscoverAll(skillsRoot string) ([]*Skill, error) {
-	entries, err := os.ReadDir(skillsRoot)
+func DiscoverAll(fsys fs.FS) ([]*Skill, error) {
+	entries, err := fs.ReadDir(fsys, ".")
 	if err != nil {
-		return nil, fmt.Errorf("reading skills directory %q: %w", skillsRoot, err)
+		return nil, fmt.Errorf("reading skills directory: %w", err)
 	}
 	var skills []*Skill
 	var errs []string
@@ -38,12 +38,12 @@ func DiscoverAll(skillsRoot string) ([]*Skill, error) {
 		if !e.IsDir() {
 			continue
 		}
-		dir := filepath.Join(skillsRoot, e.Name())
-		if err := ValidateStructure(dir); err != nil {
+		name := e.Name()
+		if err := ValidateStructure(fsys, name); err != nil {
 			errs = append(errs, err.Error())
 			continue
 		}
-		sk, err := ParseFile(filepath.Join(dir, "SKILL.md"))
+		sk, err := LoadDir(fsys, name)
 		if err != nil {
 			errs = append(errs, err.Error())
 			continue
@@ -54,15 +54,4 @@ func DiscoverAll(skillsRoot string) ([]*Skill, error) {
 		return skills, fmt.Errorf("skill discovery: %s", joinStrings(errs))
 	}
 	return skills, nil
-}
-
-func joinStrings(parts []string) string {
-	if len(parts) == 0 {
-		return ""
-	}
-	out := parts[0]
-	for i := 1; i < len(parts); i++ {
-		out += "; " + parts[i]
-	}
-	return out
 }

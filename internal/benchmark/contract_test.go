@@ -2,6 +2,7 @@
 package benchmark
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -23,7 +24,7 @@ func repoRoot(t *testing.T) string {
 // TestAgentSpecsLoad validates every agents/*.md spec in the repository.
 func TestAgentSpecsLoad(t *testing.T) {
 	root := repoRoot(t)
-	reg := agent.NewRegistry(filepath.Join(root, "agents"))
+	reg := agent.NewRegistry(os.DirFS(filepath.Join(root, "agents")))
 	if err := reg.Load(); err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +37,7 @@ func TestAgentSpecsLoad(t *testing.T) {
 // TestSkillsDiscover validates skill layout (SKILL.md, references/, scripts/).
 func TestSkillsDiscover(t *testing.T) {
 	root := repoRoot(t)
-	skills, err := skill.DiscoverAll(filepath.Join(root, "skills"))
+	skills, err := skill.DiscoverAll(os.DirFS(filepath.Join(root, "skills")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +49,7 @@ func TestSkillsDiscover(t *testing.T) {
 // TestAgentSkillAllowlists ensures every allowed_skills entry resolves to a skill directory.
 func TestAgentSkillAllowlists(t *testing.T) {
 	root := repoRoot(t)
-	skills, err := skill.DiscoverAll(filepath.Join(root, "skills"))
+	skills, err := skill.DiscoverAll(os.DirFS(filepath.Join(root, "skills")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +58,7 @@ func TestAgentSkillAllowlists(t *testing.T) {
 		index[sk.Name] = struct{}{}
 	}
 
-	reg := agent.NewRegistry(filepath.Join(root, "agents"))
+	reg := agent.NewRegistry(os.DirFS(filepath.Join(root, "agents")))
 	if err := reg.Load(); err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +78,7 @@ func TestAgentSkillAllowlists(t *testing.T) {
 // TestGoldenPromptAssembly_githubCLI verifies prompt assembly uses constitution + attached skill only.
 func TestGoldenPromptAssembly_githubCLI(t *testing.T) {
 	root := repoRoot(t)
-	reg := agent.NewRegistry(filepath.Join(root, "agents"))
+	reg := agent.NewRegistry(os.DirFS(filepath.Join(root, "agents")))
 	if err := reg.Load(); err != nil {
 		t.Fatal(err)
 	}
@@ -85,11 +86,11 @@ func TestGoldenPromptAssembly_githubCLI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	constitution, _, err := spec.ResolveConstitution(root)
+	constitution, _, err := spec.ResolveConstitution(os.DirFS(root))
 	if err != nil {
 		t.Fatal(err)
 	}
-	skills, err := skill.LoadMany(filepath.Join(root, "skills"), []string{"gh-pr-triage"})
+	skills, err := skill.LoadMany(os.DirFS(filepath.Join(root, "skills")), []string{"gh-pr-triage"})
 	if err != nil {
 		t.Fatal(err)
 	}
