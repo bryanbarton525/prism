@@ -191,8 +191,15 @@ More scenarios: **[docs/benchmark-scale.md](docs/benchmark-scale.md)**
 ## Develop
 
 ```bash
-go test ./...
+bash scripts/ci-check.sh
 go build -o prism ./cmd/prism
+```
+
+`scripts/ci-check.sh` is the deterministic release gate: module verification, normal tests, mock benchmark coverage, `go vet`, and CLI build. Live Ollama benchmarks are opt-in:
+
+```bash
+go test -tags live ./internal/benchmark -run TestHomelabReleaseIncident -count=1 -timeout=20m
+go test -tags docsgen ./internal/benchmark -run TestWriteShowcaseDocs -count=1
 ```
 
 ### Prevent direct pushes to main
@@ -210,7 +217,7 @@ Run all commit-stage hooks manually:
 pre-commit run --all-files
 ```
 
-Commit hooks include `go test ./...`, `go build ./cmd/prism`, and basic file checks. The pre-push hook in `.pre-commit-config.yaml` runs `scripts/hooks/pre-push-block-main.sh` to block direct pushes to `main`.
+Commit hooks include `scripts/ci-check.sh` and basic file checks. The pre-push hook in `.pre-commit-config.yaml` runs `scripts/hooks/pre-push-block-main.sh` to block direct pushes to `main`.
 
 If you need an emergency one-off bypass:
 
