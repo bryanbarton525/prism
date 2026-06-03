@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bryanbarton525/prism/internal/app"
+	"github.com/bryanbarton525/prism/pkg/observe"
 )
 
 type runFlags struct {
@@ -76,6 +77,7 @@ func runAgent(ctx context.Context, agentID string, rf runFlags) error {
 		Task:       task,
 		SkillNames: rf.skills,
 		Format:     rf.format,
+		Metadata:   observe.Metadata{Source: "cli"},
 	})
 	if err != nil {
 		return fmt.Errorf("run failed: %w", err)

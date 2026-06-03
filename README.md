@@ -17,11 +17,11 @@ Prism is an MCP server + CLI that runs tool-specific agents on [Ollama](https://
 
 ## Quick start
 
-**Requires:** Go 1.25+, [Ollama](https://ollama.com/) at `http://127.0.0.1:11434`, model from agent specs (default `llama3.1:8b`).
+**Requires:** Go 1.25+, [Ollama](https://ollama.com/) at `http://127.0.0.1:11434`, model from agent specs (default `qwen3.5:9b`).
 
 ```bash
 go install ./cmd/prism
-ollama pull llama3.1:8b
+ollama pull qwen3.5:9b
 
 cd /path/to/prism          # or pass --root everywhere
 prism config doctor        # Ollama + agent registry check
@@ -97,6 +97,16 @@ Full setup, flags, troubleshooting: **[docs/usage.md](docs/usage.md)**
 
 
 Add your own under `agents/` and `skills/`. See [agents/README.md](agents/README.md) and [skills/README.md](skills/README.md).
+
+## Extension points
+
+Prism also exposes a few OSS packages for repo-local integrations and wrappers:
+
+- `pkg/observe` — stable run-event contract plus a sink interface for capturing agent invocation metadata
+- `pkg/registry` — signed agent/skill bundle verification plus fail-closed install helpers that enforce signature, Prism-version compatibility, and file integrity
+- `pkg/report` — benchmark projection exports in JSON, Markdown, or structured Go types
+
+These packages are intended for external tooling that wants to build around Prism without scraping CLI output or reimplementing core verification logic.
 
 ## Install skills via skills CLI
 
@@ -183,6 +193,7 @@ More scenarios: **[docs/benchmark-scale.md](docs/benchmark-scale.md)**
 | [docs/comparison.md](docs/comparison.md)                   | Landscape vs Claude, Cursor, frameworks      |
 | [docs/benchmark-scale.md](docs/benchmark-scale.md)         | At-scale scenarios, monthly projections      |
 | [docs/workflow-token-diagrams.md](docs/workflow-token-diagrams.md) | Why token savings happen (visual diagrams) |
+| [docs/tooling-references.md](docs/tooling-references.md)   | Libraries, protocols, and implementation references |
 | [docs/blog-prism-launch.md](docs/blog-prism-launch.md)     | Launch post / product narrative              |
 | [docs/implementation-plan.md](docs/implementation-plan.md) | Architecture and design                      |
 | [docs/success-metrics.md](docs/success-metrics.md)         | Benchmark targets and report format          |

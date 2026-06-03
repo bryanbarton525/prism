@@ -5,6 +5,8 @@ package app
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io/fs"
 	"os"
@@ -17,6 +19,7 @@ import (
 	kubeplugin "github.com/bryanbarton525/prism/internal/plugins/kubernetes"
 	"github.com/bryanbarton525/prism/internal/result"
 	"github.com/bryanbarton525/prism/internal/skill"
+	"github.com/bryanbarton525/prism/pkg/observe"
 )
 
 // AgentRunner is the service interface consumed by both the CLI and MCP adapters.
@@ -70,6 +73,9 @@ type Config struct {
 	// RuntimePlugins is the optional registry of native plugins exposed to agents.
 	// Defaults to the built-in registry.
 	RuntimePlugins *plugins.Registry
+	// EventSink receives one stable RunEvent after each Run call. Defaults to a
+	// no-op sink so OSS behavior is unchanged when observability is not enabled.
+	EventSink observe.Sink
 }
 
 // rootFS returns the effective root FS: RootFS if set, else os.DirFS(RootDir).
@@ -141,6 +147,8 @@ type RunRequest struct {
 	SkillNames []string
 	// Format controls the rendered output: "json" (default) or "markdown".
 	Format string
+	// Metadata is optional caller context used by team dashboards and reports.
+	Metadata observe.Metadata
 }
 
 // Runner implements AgentRunner using a local Ollama server.
@@ -151,6 +159,7 @@ type Runner struct {
 	registry *agent.Registry
 	plugins  *plugins.Registry
 	ollama   *ollama.Client
+	events   observe.Sink
 }
 
 // Ensure Runner satisfies the AgentRunner interface at compile time.
@@ -168,6 +177,10 @@ func New(cfg Config) (*Runner, error) {
 	if pluginRegistry == nil {
 		pluginRegistry = defaultRuntimePlugins()
 	}
+	eventSink := cfg.EventSink
+	if eventSink == nil {
+		eventSink = observe.NoopSink{}
+	}
 	oc := ollama.NewClient(cfg.OllamaHost)
 	return &Runner{
 		cfg:      cfg,
@@ -176,6 +189,7 @@ func New(cfg Config) (*Runner, error) {
 		registry: reg,
 		plugins:  pluginRegistry,
 		ollama:   oc,
+		events:   eventSink,
 	}, nil
 }
 
@@ -237,40 +251,56 @@ func (r *Runner) GetConstitution(_ context.Context, agentID string) (Constitutio
 //  10. Return a normalized RunResult with usage and provenance metadata.
 func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, error) {
 	start := time.Now()
+	runID := newRunID()
+	emit := func(res result.RunResult) result.RunResult {
+		_ = r.events.ObserveRun(context.WithoutCancel(ctx), runEventFromResult(runID, req.Metadata, res))
+		return res
+	}
 
 	// ── 1. Resolve agent spec ──────────────────────────────────────────────
 	spec, err := r.registry.Get(req.AgentID)
 	if err != nil {
-		return result.Error(req.AgentID, "", err.Error(), time.Since(start)), nil
+		return emit(result.Error(req.AgentID, "", err.Error(), time.Since(start))), nil
 	}
 
 	// ── 2. Require at least one skill ─────────────────────────────────────
 	if len(req.SkillNames) == 0 {
-		return r.validationFail(req.AgentID, spec.Model, start,
-			"at least one skill is required; pass one or more values from allowed_skills"), nil
+		res := r.validationFail(req.AgentID, spec.Model, start,
+			"at least one skill is required; pass one or more values from allowed_skills")
+		res.ContextBudget = spec.ContextBudget
+		return emit(res), nil
 	}
 
 	// ── 3. Validate skills against the agent allowlist ────────────────────
 	for _, name := range req.SkillNames {
 		if !spec.AllowsSkill(name) {
-			return r.validationFail(req.AgentID, spec.Model, start,
+			res := r.validationFail(req.AgentID, spec.Model, start,
 				fmt.Sprintf("skill %q is not in agent %q allowed_skills: [%s]",
-					name, req.AgentID, strings.Join(spec.AllowedSkills, ", "))), nil
+					name, req.AgentID, strings.Join(spec.AllowedSkills, ", ")))
+			res.SkillsUsed = append([]string{}, req.SkillNames...)
+			res.ContextBudget = spec.ContextBudget
+			return emit(res), nil
 		}
 	}
 
 	// ── 4. Load constitution ──────────────────────────────────────────────
 	constitutionText, constitutionSrc, err := spec.ResolveConstitution(r.rootFS)
 	if err != nil {
-		return result.Error(req.AgentID, spec.Model,
-			fmt.Sprintf("resolving constitution: %s", err), time.Since(start)), nil
+		res := result.Error(req.AgentID, spec.Model,
+			fmt.Sprintf("resolving constitution: %s", err), time.Since(start))
+		res.SkillsUsed = append([]string{}, req.SkillNames...)
+		res.ContextBudget = spec.ContextBudget
+		return emit(res), nil
 	}
 
 	// ── 5. Load skill content ─────────────────────────────────────────────
 	skills, err := skill.LoadMany(r.skillsFS, req.SkillNames)
 	if err != nil {
-		return result.Error(req.AgentID, spec.Model,
-			fmt.Sprintf("loading skills: %s", err), time.Since(start)), nil
+		res := result.Error(req.AgentID, spec.Model,
+			fmt.Sprintf("loading skills: %s", err), time.Since(start))
+		res.SkillsUsed = append([]string{}, req.SkillNames...)
+		res.ContextBudget = spec.ContextBudget
+		return emit(res), nil
 	}
 
 	// ── 6. Apply latency budget as context deadline ───────────────────────
@@ -327,7 +357,7 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 		if ctx.Err() == context.DeadlineExceeded {
 			status = result.StatusTimeout
 		}
-		return result.RunResult{
+		return emit(result.RunResult{
 			AgentID:               req.AgentID,
 			Model:                 spec.Model,
 			Status:                status,
@@ -340,7 +370,7 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 			PromptSizeEstimate:    promptSize,
 			ContextBudgetExceeded: budgetExceeded,
 			Usage:                 result.Usage{DurationMS: elapsed.Milliseconds()},
-		}, nil
+		}), nil
 	}
 
 	// ── 11. Build normalized result ───────────────────────────────────────
@@ -348,7 +378,7 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 	parsed := result.ParseAgentOutput(rawText, result.DefaultCompactMaxChars)
 	artifacts := append([]result.Artifact{}, evidence.artifacts...)
 	artifacts = append(artifacts, parsed.Artifacts...)
-	return result.RunResult{
+	return emit(result.RunResult{
 		AgentID:    req.AgentID,
 		Model:      chatResp.Model,
 		Status:     result.StatusOK,
@@ -367,7 +397,7 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 		ContextBudget:         spec.ContextBudget,
 		PromptSizeEstimate:    promptSize,
 		ContextBudgetExceeded: budgetExceeded,
-	}, nil
+	}), nil
 }
 
 // validationFail constructs a validation_fail result.
@@ -381,4 +411,38 @@ func (r *Runner) validationFail(agentID, model string, start time.Time, msg stri
 		Artifacts: []result.Artifact{},
 		Usage:     result.Usage{DurationMS: time.Since(start).Milliseconds()},
 	}
+}
+
+func runEventFromResult(runID string, meta observe.Metadata, res result.RunResult) observe.RunEvent {
+	event := observe.RunEvent{
+		Timestamp:                time.Now().UTC(),
+		RunID:                    runID,
+		Metadata:                 meta,
+		AgentID:                  res.AgentID,
+		Model:                    res.Model,
+		Status:                   res.Status,
+		Skills:                   append([]string{}, res.SkillsUsed...),
+		DurationMS:               res.Usage.DurationMS,
+		PromptTokensEstimate:     res.Usage.PromptTokensEstimate,
+		CompletionTokensEstimate: res.Usage.CompletionTokensEstimate,
+		ContextBudget:            res.ContextBudget,
+		PromptSizeEstimate:       res.PromptSizeEstimate,
+		ContextBudgetExceeded:    res.ContextBudgetExceeded,
+		ValidationError:          res.ValidationError,
+	}
+	if res.Status == result.StatusError || res.Status == result.StatusTimeout {
+		event.Error = res.Summary
+	}
+	if res.Status == result.StatusValidationFail {
+		event.ValidationError = res.Summary
+	}
+	return event
+}
+
+func newRunID() string {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return fmt.Sprintf("run-%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(b[:])
 }

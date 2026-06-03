@@ -2,7 +2,7 @@
 id: github-cli
 name: GitHub CLI
 description: Use for PR, CI, commit, and repository diagnostics through gh commands.
-model: llama3.1:8b
+model: qwen3.5:9b
 context_budget: 6144
 temperature: 0.1
 allowed_skills:

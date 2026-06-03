@@ -12,6 +12,7 @@ import (
 	"github.com/bryanbarton525/prism/internal/agent"
 	"github.com/bryanbarton525/prism/internal/app"
 	"github.com/bryanbarton525/prism/internal/result"
+	"github.com/bryanbarton525/prism/pkg/observe"
 )
 
 const (
@@ -117,6 +118,7 @@ func runAgentHandler(runner app.AgentRunner) func(context.Context, *mcpsdk.CallT
 			Task:       input.Task,
 			SkillNames: input.SkillNames,
 			Format:     format,
+			Metadata:   observe.Metadata{Source: "mcp"},
 		})
 		if err != nil {
 			return nil, result.RunResult{}, err

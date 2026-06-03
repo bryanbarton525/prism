@@ -9,7 +9,7 @@ This guide covers day-to-day use of the Prism CLI and MCP server as implemented 
 3. **Start Ollama** and confirm it responds: `curl http://127.0.0.1:11434/api/version`
 4. **Pull models** used by your agents (see `model:` in `agents/*.md`), e.g.:
   ```bash
-   ollama pull llama3.1:8b
+   ollama pull qwen3.5:9b
   ```
 5. **Run doctor**:
   ```bash
@@ -99,6 +99,47 @@ Checks include:
 - `agent_models` — warn when a spec’s `model` is not in the local list
 - `agent_registry` — loaded agent count and IDs
 - `skill_registry` — skills passing structure validation
+
+## Programmatic integrations
+
+Prism's primary interfaces are still the CLI and MCP server, but the repository
+also exposes a few Go packages for integrations that need stable contracts
+without scraping command output.
+
+### `pkg/observe`
+
+- `Metadata` carries optional caller context such as `actor_id`,
+  `workspace_id`, `source`, and `correlation_id`.
+- `RunEvent` is a stable event shape emitted after each `Runner.Run` call.
+- `Sink` is a small interface you can implement and pass through
+  `app.Config.EventSink`.
+
+The shared runner emits one event for successful runs, validation failures,
+timeouts, and model/runtime errors. CLI calls tag `source: cli`; MCP calls tag
+`source: mcp`.
+
+### `pkg/registry`
+
+- `Manifest` defines a signed registry document for agent/skill bundles.
+- `VerifySignature` checks the Ed25519 signature over the manifest payload.
+- `VerifyCompat` checks the manifest's Prism version bounds.
+- `VerifyManifest` runs signature, compatibility, and file integrity checks together.
+- `VerifyFiles` checks SHA-256 digests for bundle files under a source root.
+- `Install` is the safe install entrypoint: it verifies signature, compatibility,
+  and file hashes before copying files into the destination root with path-safety checks.
+
+This is useful for controlled distribution of approved `agents/` and `skills/`
+content while still relying on Prism's existing `--agent-dir` and `--skills-dir`
+resolution.
+
+### `pkg/report`
+
+- `MonthlyProjectionReport` returns the structured benchmark projection.
+- `MonthlyProjectionJSON` returns the same projection as indented JSON.
+- `MonthlyProjectionMarkdown` returns the human-readable report.
+
+These helpers wrap the existing benchmark projection logic in
+`internal/benchmark` so external tooling can reuse it directly.
 
 ## MCP server
 

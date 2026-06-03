@@ -13,6 +13,7 @@ import (
 
 	"github.com/bryanbarton525/prism/internal/plugins"
 	"github.com/bryanbarton525/prism/internal/result"
+	"github.com/bryanbarton525/prism/pkg/observe"
 )
 
 // ---------------------------------------------------------------------------
@@ -176,6 +177,15 @@ func (f fakeRuntimePlugin) Call(_ context.Context, call plugins.ToolCall) (plugi
 	}, nil
 }
 
+type captureSink struct {
+	events []observe.RunEvent
+}
+
+func (c *captureSink) ObserveRun(_ context.Context, event observe.RunEvent) error {
+	c.events = append(c.events, event)
+	return nil
+}
+
 // ---------------------------------------------------------------------------
 // Runner construction
 // ---------------------------------------------------------------------------
@@ -320,7 +330,8 @@ func TestRunner_Run_SkillNotAllowed(t *testing.T) {
 	srv := mockOllama(t, "response")
 	defer srv.Close()
 
-	runner, _ := New(Config{RootDir: root, OllamaHost: srv.URL})
+	sink := &captureSink{}
+	runner, _ := New(Config{RootDir: root, OllamaHost: srv.URL, EventSink: sink})
 	res, err := runner.Run(context.Background(), RunRequest{
 		AgentID:    "github-cli",
 		Task:       "task",
@@ -334,6 +345,12 @@ func TestRunner_Run_SkillNotAllowed(t *testing.T) {
 	}
 	if !strings.Contains(res.Summary, "allowed_skills") {
 		t.Errorf("error message should reference allowed_skills: %s", res.Summary)
+	}
+	if len(sink.events) != 1 {
+		t.Fatalf("expected one event, got %d", len(sink.events))
+	}
+	if sink.events[0].ValidationError == "" {
+		t.Fatalf("validation error should be captured: %#v", sink.events[0])
 	}
 }
 
@@ -428,6 +445,61 @@ func TestRunner_Run_Success(t *testing.T) {
 	}
 	if res.RawOutput == "" {
 		t.Error("RawOutput should be non-empty")
+	}
+}
+
+func TestRunner_Run_EmitsRunEvent(t *testing.T) {
+	root := makeTestRoot(t,
+		map[string]string{"github-cli.md": githubCLISpec()},
+		map[string]string{"gh-pr-triage": ghPRTriageSkill()},
+	)
+	srv := mockOllama(t, "analysis complete")
+	defer srv.Close()
+
+	sink := &captureSink{}
+	runner, err := New(Config{RootDir: root, OllamaHost: srv.URL, EventSink: sink})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	res, err := runner.Run(context.Background(), RunRequest{
+		AgentID:    "github-cli",
+		Task:       "check pr",
+		SkillNames: []string{"gh-pr-triage"},
+		Metadata: observe.Metadata{
+			ActorID:       "alice",
+			WorkspaceID:   "platform",
+			Source:        "team",
+			CorrelationID: "corr-1",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Run(): %v", err)
+	}
+	if res.Status != result.StatusOK {
+		t.Fatalf("status = %s", res.Status)
+	}
+	if len(sink.events) != 1 {
+		t.Fatalf("expected one event, got %d", len(sink.events))
+	}
+	event := sink.events[0]
+	if event.RunID == "" {
+		t.Fatal("RunID should be set")
+	}
+	if event.Timestamp.IsZero() {
+		t.Fatal("Timestamp should be set")
+	}
+	if event.ActorID != "alice" || event.WorkspaceID != "platform" || event.Source != "team" || event.CorrelationID != "corr-1" {
+		t.Fatalf("metadata not preserved: %#v", event.Metadata)
+	}
+	if event.AgentID != "github-cli" || event.Status != result.StatusOK || event.Model != "llama3.1:8b" {
+		t.Fatalf("unexpected event identity/status: %#v", event)
+	}
+	if event.PromptTokensEstimate != 42 || event.CompletionTokensEstimate != 10 {
+		t.Fatalf("unexpected token estimates: %#v", event)
+	}
+	if len(event.Skills) != 1 || event.Skills[0] != "gh-pr-triage" {
+		t.Fatalf("skills not captured: %#v", event.Skills)
 	}
 }
 
@@ -607,7 +679,8 @@ temperature: 0.1
 	srv := mockOllama(t, "response")
 	defer srv.Close()
 
-	runner, _ := New(Config{RootDir: root, OllamaHost: srv.URL})
+	sink := &captureSink{}
+	runner, _ := New(Config{RootDir: root, OllamaHost: srv.URL, EventSink: sink})
 	res, err := runner.Run(context.Background(), RunRequest{
 		AgentID:    "tiny-agent",
 		Task:       "task",
@@ -622,6 +695,12 @@ temperature: 0.1
 	}
 	if !res.ContextBudgetExceeded {
 		t.Error("ContextBudgetExceeded should be true when prompt exceeds budget")
+	}
+	if len(sink.events) != 1 {
+		t.Fatalf("expected one event, got %d", len(sink.events))
+	}
+	if !sink.events[0].ContextBudgetExceeded {
+		t.Fatalf("event should capture ContextBudgetExceeded: %#v", sink.events[0])
 	}
 }
 

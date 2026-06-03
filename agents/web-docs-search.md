@@ -2,7 +2,7 @@
 id: web-docs-search
 name: Web Docs Search
 description: Use for source-backed documentation retrieval, API reference lookup, and release-note checks.
-model: llama3.1:8b
+model: qwen3.5:9b
 context_budget: 6144
 temperature: 0.2
 allowed_skills:
