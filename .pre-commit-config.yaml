@@ -9,14 +9,8 @@ repos:
   - repo: local
     hooks:
       - id: go-test
-        name: go test ./...
-        entry: go test ./... -skip 'TestHomelabReleaseIncident|TestWriteShowcaseDocs'
-        language: system
-        pass_filenames: false
-
-      - id: go-build
-        name: go build ./cmd/prism
-        entry: go build ./cmd/prism
+        name: deterministic Go release checks
+        entry: bash scripts/ci-check.sh
         language: system
         pass_filenames: false
 

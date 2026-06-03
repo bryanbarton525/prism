@@ -15,8 +15,8 @@ import (
 func (r *Runner) Doctor(ctx context.Context) (result.DoctorResult, error) {
 	dr := result.DoctorResult{
 		OllamaHost: r.ollama.Host(),
-		AgentDir:   r.cfg.agentDir(),
-		SkillsDir:  r.cfg.skillsDir(),
+		AgentDir:   r.cfg.agentDirLabel(),
+		SkillsDir:  r.cfg.skillsDirLabel(),
 		AgentCount: len(r.registry.List()),
 		Status:     "ok",
 	}
@@ -68,7 +68,7 @@ func (r *Runner) Doctor(ctx context.Context) (result.DoctorResult, error) {
 		})
 	}
 
-	skills, skillErr := skill.DiscoverAll(dr.SkillsDir)
+	skills, skillErr := skill.DiscoverAll(r.skillsFS)
 	dr.SkillCount = len(skills)
 	if skillErr != nil {
 		dr.Checks = append(dr.Checks, result.DoctorCheck{

@@ -55,6 +55,7 @@ Requires Ollama running with llama3.1:8b (or pass --model). Use --mock only for 
 				}
 			}
 
+
 			opts := benchmark.RunOptions{
 				Mock:          mock,
 				MockPerCallMS: mockDelay,

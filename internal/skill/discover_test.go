@@ -13,7 +13,7 @@ func TestDiscoverAll_realSkillsDir(t *testing.T) {
 	if _, err := os.Stat(root); err != nil {
 		t.Skip("skills directory not found")
 	}
-	skills, err := skill.DiscoverAll(root)
+	skills, err := skill.DiscoverAll(os.DirFS(root))
 	if err != nil {
 		t.Fatalf("DiscoverAll: %v", err)
 	}

@@ -4,8 +4,7 @@ package skill
 import (
 	"bytes"
 	"fmt"
-	"os"
-	"path/filepath"
+	"io/fs"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -23,37 +22,35 @@ type Skill struct {
 
 	// Body is the Markdown body of SKILL.md after the frontmatter block.
 	Body string `yaml:"-"`
-	// Dir is the skill directory path (useful for loading references/scripts).
+	// Dir is the skill name (subdirectory name). For local installs callers may
+	// combine this with a base path to locate reference/script files.
+	// For remote FS the value is the skill name only (no absolute path).
 	Dir string `yaml:"-"`
 }
 
-// ParseFile reads a SKILL.md file and returns a Skill.
-func ParseFile(skillMDPath string) (*Skill, error) {
-	data, err := os.ReadFile(skillMDPath)
+// LoadDir resolves a skill by name from the given skills FS.
+// It expects <name>/SKILL.md to exist within fsys.
+func LoadDir(fsys fs.FS, name string) (*Skill, error) {
+	skillPath := name + "/SKILL.md"
+	data, err := fs.ReadFile(fsys, skillPath)
 	if err != nil {
-		return nil, fmt.Errorf("reading skill file %s: %w", skillMDPath, err)
+		return nil, fmt.Errorf("reading skill file %s: %w", skillPath, err)
 	}
-	sk, err := parse(data, skillMDPath)
+	sk, err := parse(data, skillPath)
 	if err != nil {
 		return nil, err
 	}
-	sk.Dir = filepath.Dir(skillMDPath)
+	sk.Dir = name
 	return sk, nil
 }
 
-// LoadDir resolves a skill by name from the skills root directory.
-// It expects skills/<name>/SKILL.md to exist.
-func LoadDir(skillsRoot, name string) (*Skill, error) {
-	return ParseFile(filepath.Join(skillsRoot, name, "SKILL.md"))
-}
-
-// LoadMany loads all named skills from skillsRoot and returns a map keyed by
-// skill name. All errors are collected so callers see every missing skill at once.
-func LoadMany(skillsRoot string, names []string) (map[string]*Skill, error) {
+// LoadMany loads all named skills from fsys and returns a map keyed by skill name.
+// All errors are collected so callers see every missing skill at once.
+func LoadMany(fsys fs.FS, names []string) (map[string]*Skill, error) {
 	out := make(map[string]*Skill, len(names))
 	var errs []string
 	for _, name := range names {
-		sk, err := LoadDir(skillsRoot, name)
+		sk, err := LoadDir(fsys, name)
 		if err != nil {
 			errs = append(errs, fmt.Sprintf("skill %q: %s", name, err))
 			continue
@@ -87,12 +84,13 @@ func (s *Skill) MetadataSummary() string {
 }
 
 // ReferenceContent reads references/REFERENCE.md for the skill if present.
+// fsys must be the skills root FS (the same one passed to LoadDir/LoadMany).
 // Returns an empty string without error when the file does not exist.
-func (s *Skill) ReferenceContent() (string, error) {
-	path := filepath.Join(s.Dir, "references", "REFERENCE.md")
-	data, err := os.ReadFile(path)
+func (s *Skill) ReferenceContent(fsys fs.FS) (string, error) {
+	path := s.Dir + "/references/REFERENCE.md"
+	data, err := fs.ReadFile(fsys, path)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if isNotExist(err) {
 			return "", nil
 		}
 		return "", fmt.Errorf("reading skill reference %s: %w", path, err)
@@ -100,10 +98,12 @@ func (s *Skill) ReferenceContent() (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
-// CollectScriptPath returns the expected path to scripts/collect.sh.
-// It does not guarantee the file exists.
-func (s *Skill) CollectScriptPath() string {
-	return filepath.Join(s.Dir, "scripts", "collect.sh")
+// CollectScriptPath returns the expected path to scripts/collect.sh within
+// the given skills FS root. It does not guarantee the file exists.
+func (s *Skill) CollectScriptPath(skillsRoot string) string {
+	// For local installations, skillsRoot is the local path; this method
+	// retains the same local-path contract for collect.sh execution.
+	return skillsRoot + "/" + s.Dir + "/scripts/collect.sh"
 }
 
 // ---------------------------------------------------------------------------
@@ -151,11 +151,44 @@ func parse(data []byte, sourcePath string) (*Skill, error) {
 			sourcePath, len(sk.Description))
 	}
 
-	dirName := filepath.Base(filepath.Dir(sourcePath))
+	// Validate skill name matches directory name.
+	dirName := dirFromPath(sourcePath)
 	if dirName != "." && dirName != sk.Name {
 		return nil, fmt.Errorf("%s: skill name %q does not match directory name %q",
 			sourcePath, sk.Name, dirName)
 	}
 
 	return sk, nil
+}
+
+// dirFromPath returns the parent directory name from a path like "gh-pr-triage/SKILL.md".
+func dirFromPath(path string) string {
+	// Remove trailing component.
+	if i := strings.LastIndex(path, "/"); i >= 0 {
+		path = path[:i]
+		// Get the last segment.
+		if j := strings.LastIndex(path, "/"); j >= 0 {
+			return path[j+1:]
+		}
+		return path
+	}
+	return "."
+}
+
+// isNotExist reports whether err is a "not found" error from an fs.FS.
+func isNotExist(err error) bool {
+	return strings.Contains(err.Error(), "does not exist") ||
+		strings.Contains(err.Error(), "no such file") ||
+		err.Error() == fs.ErrNotExist.Error()
+}
+
+func joinStrings(parts []string) string {
+	if len(parts) == 0 {
+		return ""
+	}
+	out := parts[0]
+	for i := 1; i < len(parts); i++ {
+		out += "; " + parts[i]
+	}
+	return out
 }

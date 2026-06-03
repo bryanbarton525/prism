@@ -3,6 +3,7 @@ package benchmark
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -269,7 +270,7 @@ func RunPrismDelegated(ctx context.Context, root string, scenario *Scenario, rat
 }
 
 func loadAllSkillBodies(root string) (string, error) {
-	skills, err := skill.DiscoverAll(filepath.Join(root, "skills"))
+	skills, err := skill.DiscoverAll(os.DirFS(filepath.Join(root, "skills")))
 	if err != nil {
 		return "", err
 	}
@@ -282,7 +283,7 @@ func loadAllSkillBodies(root string) (string, error) {
 }
 
 func loadAllConstitutions(root string) (string, error) {
-	reg := agent.NewRegistry(filepath.Join(root, "agents"))
+	reg := agent.NewRegistry(os.DirFS(filepath.Join(root, "agents")))
 	if err := reg.Load(); err != nil {
 		return "", err
 	}
@@ -292,7 +293,7 @@ func loadAllConstitutions(root string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		text, _, err := spec.ResolveConstitution(root)
+		text, _, err := spec.ResolveConstitution(os.DirFS(root))
 		if err != nil {
 			return "", err
 		}

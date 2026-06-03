@@ -50,6 +50,23 @@ Use the full path to your `prism` binary:
 }
 ```
 
+`--root` also accepts a github.com URL — Prism reads files directly via the GitHub Contents API (set `PRISM_GITHUB_TOKEN`, `PRISM_GH_TOKEN`, `GITHUB_TOKEN`, or `GH_TOKEN` to avoid rate limits for public repos; required for private repos). It falls back to `git clone` if the API is inaccessible:
+
+```json
+{
+  "mcpServers": {
+    "prism": {
+      "command": "/absolute/path/to/prism",
+      "args": ["mcp", "serve", "--root", "https://github.com/bryanbarton525/prism"],
+      "env": {
+        "PRISM_OLLAMA_HOST": "http://127.0.0.1:11434",
+        "GITHUB_TOKEN": "ghp_yourtokenhere"
+      }
+    }
+  }
+}
+```
+
 Reload MCP servers in your editor, then call `**run_agent**` with `agent_id`, `task`, and `skill_names`.
 
 For local Gemini MCP setup, review and run `scripts/install_mcp.py` from the repo root.
@@ -185,8 +202,15 @@ More scenarios: **[docs/benchmark-scale.md](docs/benchmark-scale.md)**
 ## Develop
 
 ```bash
-go test ./...
+bash scripts/ci-check.sh
 go build -o prism ./cmd/prism
+```
+
+`scripts/ci-check.sh` is the deterministic release gate: module verification, normal tests, mock benchmark coverage, `go vet`, and CLI build. Live Ollama benchmarks are opt-in:
+
+```bash
+go test -tags live ./internal/benchmark -run TestHomelabReleaseIncident -count=1 -timeout=20m
+go test -tags docsgen ./internal/benchmark -run TestWriteShowcaseDocs -count=1
 ```
 
 ### Prevent direct pushes to main
@@ -204,7 +228,7 @@ Run all commit-stage hooks manually:
 pre-commit run --all-files
 ```
 
-Commit hooks include `go test ./...`, `go build ./cmd/prism`, and basic file checks. The pre-push hook in `.pre-commit-config.yaml` runs `scripts/hooks/pre-push-block-main.sh` to block direct pushes to `main`.
+Commit hooks include `scripts/ci-check.sh` and basic file checks. The pre-push hook in `.pre-commit-config.yaml` runs `scripts/hooks/pre-push-block-main.sh` to block direct pushes to `main`.
 
 If you need an emergency one-off bypass:
 

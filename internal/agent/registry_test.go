@@ -22,7 +22,7 @@ func TestRegistry_Load_And_Get(t *testing.T) {
 		"github-cli.md": validSpec,
 		"README.md":     "ignored",
 	})
-	reg := NewRegistry(dir)
+	reg := NewRegistry(os.DirFS(dir))
 	if err := reg.Load(); err != nil {
 		t.Fatalf("Load(): %v", err)
 	}
@@ -37,7 +37,7 @@ func TestRegistry_Load_And_Get(t *testing.T) {
 }
 
 func TestRegistry_Get_NotFound(t *testing.T) {
-	reg := NewRegistry(makeAgentDir(t, map[string]string{}))
+	reg := NewRegistry(os.DirFS(makeAgentDir(t, map[string]string{})))
 	if err := reg.Load(); err != nil {
 		t.Fatalf("Load(): %v", err)
 	}
@@ -61,7 +61,7 @@ latency_budget_ms: 1
 body`,
 		"github-cli.md": validSpec,
 	})
-	reg := NewRegistry(dir)
+	reg := NewRegistry(os.DirFS(dir))
 	if err := reg.Load(); err != nil {
 		t.Fatalf("Load(): %v", err)
 	}
@@ -78,7 +78,7 @@ func TestRegistry_Load_InvalidSpec(t *testing.T) {
 	dir := makeAgentDir(t, map[string]string{
 		"bad.md": "---\nid: bad\n---\nbody",
 	})
-	reg := NewRegistry(dir)
+	reg := NewRegistry(os.DirFS(dir))
 	err := reg.Load()
 	if err == nil {
 		t.Fatal("expected error for invalid spec")
@@ -86,7 +86,7 @@ func TestRegistry_Load_InvalidSpec(t *testing.T) {
 }
 
 func TestRegistry_Load_MissingDir(t *testing.T) {
-	reg := NewRegistry("/tmp/nonexistent-prism-test-dir")
+	reg := NewRegistry(os.DirFS("/tmp/nonexistent-prism-test-dir"))
 	if err := reg.Load(); err == nil {
 		t.Fatal("expected error for missing directory")
 	}
@@ -94,7 +94,7 @@ func TestRegistry_Load_MissingDir(t *testing.T) {
 
 func TestRegistry_Load_RealAgents(t *testing.T) {
 	// Integration test against the real agents/ directory.
-	reg := NewRegistry("../../agents")
+	reg := NewRegistry(os.DirFS("../../agents"))
 	if err := reg.Load(); err != nil {
 		t.Fatalf("loading real agents: %v", err)
 	}
