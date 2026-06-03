@@ -122,8 +122,11 @@ timeouts, and model/runtime errors. CLI calls tag `source: cli`; MCP calls tag
 
 - `Manifest` defines a signed registry document for agent/skill bundles.
 - `VerifySignature` checks the Ed25519 signature over the manifest payload.
+- `VerifyCompat` checks the manifest's Prism version bounds.
+- `VerifyManifest` runs signature, compatibility, and file integrity checks together.
 - `VerifyFiles` checks SHA-256 digests for bundle files under a source root.
-- `Install` copies verified files into a destination root with path-safety checks.
+- `Install` is the safe install entrypoint: it verifies signature, compatibility,
+  and file hashes before copying files into the destination root with path-safety checks.
 
 This is useful for controlled distribution of approved `agents/` and `skills/`
 content while still relying on Prism's existing `--agent-dir` and `--skills-dir`

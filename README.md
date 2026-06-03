@@ -103,7 +103,7 @@ Add your own under `agents/` and `skills/`. See [agents/README.md](agents/README
 Prism also exposes a few OSS packages for repo-local integrations and wrappers:
 
 - `pkg/observe` — stable run-event contract plus a sink interface for capturing agent invocation metadata
-- `pkg/registry` — signed agent/skill bundle manifest verification and deterministic install helpers
+- `pkg/registry` — signed agent/skill bundle verification plus fail-closed install helpers that enforce signature, Prism-version compatibility, and file integrity
 - `pkg/report` — benchmark projection exports in JSON, Markdown, or structured Go types
 
 These packages are intended for external tooling that wants to build around Prism without scraping CLI output or reimplementing core verification logic.

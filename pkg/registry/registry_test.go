@@ -43,10 +43,16 @@ func TestVerifySignatureFilesAndInstall(t *testing.T) {
 	if err := VerifySignature(manifest, pub); err != nil {
 		t.Fatalf("VerifySignature(): %v", err)
 	}
+	if err := VerifyCompat("0.1.0", manifest.Compat); err != nil {
+		t.Fatalf("VerifyCompat(): %v", err)
+	}
 	if err := VerifyFiles(source, manifest); err != nil {
 		t.Fatalf("VerifyFiles(): %v", err)
 	}
-	if err := Install(source, dest, manifest); err != nil {
+	if err := VerifyManifest(source, manifest, pub, "0.1.0"); err != nil {
+		t.Fatalf("VerifyManifest(): %v", err)
+	}
+	if err := Install(source, dest, manifest, pub, "0.1.0"); err != nil {
 		t.Fatalf("Install(): %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dest, "skills", "kubectl-triage", "SKILL.md"))
@@ -93,6 +99,54 @@ func TestRegistryRejectsBadSignatureChecksumAndTraversal(t *testing.T) {
 	traversal.Bundles[0].Files[0].Path = "../outside"
 	if err := VerifyFiles(source, traversal); err == nil {
 		t.Fatal("expected traversal rejection")
+	}
+}
+
+func TestVerifyCompatRejectsIncompatibleVersions(t *testing.T) {
+	compat := Compat{
+		MinPrismVersion: "0.2.0",
+		MaxPrismVersion: "1.0.0",
+	}
+	if err := VerifyCompat("0.1.9", compat); err == nil {
+		t.Fatal("expected min version rejection")
+	}
+	if err := VerifyCompat("1.0.1", compat); err == nil {
+		t.Fatal("expected max version rejection")
+	}
+	if err := VerifyCompat("v0.2.0", compat); err != nil {
+		t.Fatalf("expected v-prefix version to pass: %v", err)
+	}
+}
+
+func TestInstallRejectsBadSignatureAndCompat(t *testing.T) {
+	source := t.TempDir()
+	dest := t.TempDir()
+	writeRegistryFile(t, filepath.Join(source, "skills", "x", "SKILL.md"), "body")
+
+	manifest := Manifest{
+		RegistryID:  "r",
+		Version:     "1",
+		GeneratedAt: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		Compat:      Compat{MinPrismVersion: "0.2.0"},
+		Bundles: []Bundle{{ID: "b", Version: "1", Files: []BundleFile{{
+			Kind:   "skill",
+			Path:   "skills/x/SKILL.md",
+			SHA256: sha256File(t, filepath.Join(source, "skills", "x", "SKILL.md")),
+		}}}},
+	}
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest.Signature = signManifest(t, manifest, priv)
+
+	tampered := cloneManifest(manifest)
+	tampered.Signature = ""
+	if err := Install(source, dest, tampered, pub, "0.2.0"); err == nil {
+		t.Fatal("expected install to reject bad signature")
+	}
+	if err := Install(source, dest, manifest, pub, "0.1.0"); err == nil {
+		t.Fatal("expected install to reject incompatible Prism version")
 	}
 }
 
