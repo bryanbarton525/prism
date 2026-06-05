@@ -144,7 +144,7 @@ func renderPrompt(id string, vars map[string]string) (title, prompt string, err 
 		task := get("task", "Summarize PR #42 merge blockers and failing checks.")
 		title = "Run agent tool call (JSON)"
 		prompt = fmt.Sprintf(
-			"Call Prism MCP tool `run_agent` with JSON:\n\n{\n  \"agent_id\": %q,\n  \"skill_names\": [%s],\n  \"task\": %q,\n  \"format\": \"json\"\n}\n\nRules:\n- `skill_names` must be allowed by the target agent.\n- Provide bounded, evidence-oriented tasks.\n- Keep orchestration and final judgment in the parent model.",
+			"Call Prism MCP tool `run_agent` with JSON:\n\n{\n  \"agent_id\": %q,\n  \"skill_names\": [%s],\n  \"task\": %q,\n  \"format\": \"json\"\n}\n\nRules:\n- `skill_names` must be allowed by the target agent.\n- Optionally include `bundle_id` and `bundle_version` when attributing a run to an installed, policy-approved bundle.\n- Provide bounded, evidence-oriented tasks.\n- Keep orchestration and final judgment in the parent model.",
 			agentID, quoteCSV(skillsCSV), task,
 		)
 		return title, prompt, nil
@@ -295,9 +295,12 @@ Required fields:
 
 Optional:
 - format: "json" (default) or "markdown"
+- bundle_id: installed bundle ID for policy and observability attribution
+- bundle_version: bundle version to record with the run
 
 Rules:
 - skill_names must be allowed by the selected agent.
+- bundle_id is checked by policy when policy config declares allowed bundles.
 - Keep task bounded and evidence-oriented.
 - Delegate narrow subtasks; synthesize in the parent orchestrator.
 - If required identifiers/evidence are missing, return status "insufficient_evidence" with callback fields needed from parent.`,

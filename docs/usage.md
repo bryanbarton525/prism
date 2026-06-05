@@ -73,12 +73,25 @@ EOF
 
 # Piped stdin (no --stdin flag needed)
 echo "Check sync health" | prism run argo --skills argo-sync-health
+
+# Attribute a run to an installed bundle version for policy and reporting
+echo "Investigate deployment checkout-api in namespace staging" | \
+  prism --state-dir .prism run kubectl \
+    --skills kubectl-triage,k8s-rollout-diagnostics \
+    --bundle-id k8s-core-triage
 ```
 
 **Output formats**
 
 - `--format json` (default) — full `RunResult` envelope on stdout
 - `--format markdown` — human-readable report
+
+**Bundle attribution**
+
+- `--bundle-id` records the bundle on the run and lets policy check allowed bundles.
+- `--bundle-version` records an explicit version.
+- If `--bundle-id` is set without `--bundle-version`, Prism resolves the version from installed bundle state under `--state-dir`.
+- If the bundle is not installed and no version is supplied, the CLI fails closed instead of recording ambiguous provenance.
 
 **Validation**
 
@@ -327,12 +340,15 @@ No parameters. Same information as `prism config doctor` (JSON).
   "agent_id": "github-cli",
   "task": "Describe what to investigate.",
   "skill_names": ["gh-pr-triage"],
-  "format": "json"
+  "format": "json",
+  "bundle_id": "team-github-triage",
+  "bundle_version": "0.1.0"
 }
 ```
 
 - `skill_names` is required (at least one entry).
 - `format` is optional (`json` or `markdown`).
+- `bundle_id` and `bundle_version` are optional; use them when attributing a run to an installed, policy-approved bundle.
 
 Response is a `RunResult` object (see README).
 

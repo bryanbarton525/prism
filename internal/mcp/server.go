@@ -126,10 +126,12 @@ func listAgentsHandler(runner app.AgentRunner) func(context.Context, *mcpsdk.Cal
 }
 
 type RunAgentInput struct {
-	AgentID    string   `json:"agent_id"`
-	Task       string   `json:"task"`
-	SkillNames []string `json:"skill_names"`
-	Format     string   `json:"format"`
+	AgentID       string   `json:"agent_id"`
+	Task          string   `json:"task"`
+	SkillNames    []string `json:"skill_names"`
+	Format        string   `json:"format,omitempty"`
+	BundleID      string   `json:"bundle_id,omitempty"`
+	BundleVersion string   `json:"bundle_version,omitempty"`
 }
 
 func runAgentHandler(runner app.AgentRunner) func(context.Context, *mcpsdk.CallToolRequest, RunAgentInput) (*mcpsdk.CallToolResult, result.RunResult, error) {
@@ -148,11 +150,13 @@ func runAgentHandler(runner app.AgentRunner) func(context.Context, *mcpsdk.CallT
 			format = "json"
 		}
 		res, err := runner.Run(ctx, app.RunRequest{
-			AgentID:    input.AgentID,
-			Task:       input.Task,
-			SkillNames: input.SkillNames,
-			Format:     format,
-			Metadata:   observe.Metadata{Source: "mcp"},
+			AgentID:       input.AgentID,
+			Task:          input.Task,
+			SkillNames:    input.SkillNames,
+			Format:        format,
+			Metadata:      observe.Metadata{Source: "mcp"},
+			BundleID:      input.BundleID,
+			BundleVersion: input.BundleVersion,
 		})
 		if err != nil {
 			return nil, result.RunResult{}, err

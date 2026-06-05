@@ -105,6 +105,8 @@ Typical flow: paste a **short brief** → delegate evidence-heavy subtasks to sp
 
 When an agent declares `tools:` in its spec, Prism resolves those names through its runtime plugin registry before the local model runs. Built-in v1 plugins are read-only and bounded: `kubernetes`, `github` (repo-local `.github` metadata), `localdocs`, `filesystem`, and `goproject`. The Kubernetes agent declares `kubernetes`, so Prism collects bounded read-only cluster evidence with the native Kubernetes client and returns it as `runtime-plugin:kubernetes` plus structured `evidence-pack:*` artifacts for the specialist to analyze.
 
+Runs can also be attributed to signed installed bundles. Pass `--bundle-id` on `prism run` (and optionally `--bundle-version`) or include `bundle_id`/`bundle_version` in MCP `run_agent` calls; policy can check the bundle ID and the event store records the bundle version for dashboard and report summaries.
+
 Full setup, flags, troubleshooting: **[docs/usage.md](docs/usage.md)**
 
 ## Built-in agents
