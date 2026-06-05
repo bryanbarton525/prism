@@ -43,12 +43,20 @@ Optional control-plane features are enabled explicitly:
 ```bash
 prism --policy-file testdata/policies/k8s-readonly.yaml policy validate testdata/policies/k8s-readonly.yaml
 prism policy test testdata/policies/k8s-readonly.yaml testdata/policies/k8s-readonly-cases.yaml
-prism bundle verify testdata/bundles/k8s-core-triage/registry.json \
-  --source-root . \
+prism registry source add local .
+prism bundle verify --source local testdata/bundles/k8s-core-triage/registry.json \
+  --public-key testdata/bundles/k8s-core-triage/public_key.txt
+prism --state-dir .prism bundle install --source local testdata/bundles/k8s-core-triage/registry.json \
+  --dest-root . \
   --public-key testdata/bundles/k8s-core-triage/public_key.txt
 prism --event-store .prism/events.db events list
-prism dashboard serve --addr 127.0.0.1:8765
+prism --event-store .prism/events.db dashboard serve --addr 127.0.0.1:8765
 ```
+
+The dashboard reads the configured SQLite event store, so run at least one
+`prism run` or `prism graph run` with `--event-store` before expecting usage
+data. For the full registry, bundle, policy, event-store, dashboard, and MCP
+setup path, see [docs/usage.md](docs/usage.md#full-local-control-plane-setup).
 
 For a deterministic local control-plane smoke test:
 

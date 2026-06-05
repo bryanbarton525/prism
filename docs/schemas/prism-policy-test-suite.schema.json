@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bryanbarton525/prism/schemas/prism-policy-test-suite.schema.json",
+  "title": "Prism Policy Test Suite",
+  "type": "object",
+  "required": ["cases"],
+  "additionalProperties": false,
+  "properties": {
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "request", "want_decision"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "request": {
+            "$ref": "#/$defs/request"
+          },
+          "want_decision": {
+            "type": "string",
+            "enum": ["allow", "deny", "warn", "require_approval"]
+          },
+          "want_reason": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "agent_id": {
+          "type": "string"
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "plugins": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source": {
+          "type": "string"
+        },
+        "workspace_id": {
+          "type": "string"
+        },
+        "bundle_id": {
+          "type": "string"
+        },
+        "graph_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "graph_depth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evidence_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "raw_prompt_capture_requested": {
+          "type": "boolean"
+        },
+        "remote_model_requested": {
+          "type": "boolean"
+        },
+        "write_requested": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

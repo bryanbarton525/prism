@@ -4,7 +4,11 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,34 +28,36 @@ type InstallOptions struct {
 }
 
 func VerifyRegistryManifest(opts InstallOptions) (registry.Manifest, error) {
-	manifest, publicKey, err := loadRegistryInputs(opts)
+	inputs, err := loadRegistryInputs(opts)
 	if err != nil {
 		return registry.Manifest{}, err
 	}
-	if err := registry.VerifyManifest(sourceRoot(opts), manifest, publicKey, prismVersion(opts)); err != nil {
+	defer inputs.cleanup()
+	if err := registry.VerifyManifest(inputs.sourceRoot, inputs.manifest, inputs.publicKey, prismVersion(opts)); err != nil {
 		return registry.Manifest{}, err
 	}
-	return manifest, nil
+	return inputs.manifest, nil
 }
 
 func InstallVerified(opts InstallOptions) (registry.Manifest, error) {
-	manifest, publicKey, err := loadRegistryInputs(opts)
+	inputs, err := loadRegistryInputs(opts)
 	if err != nil {
 		return registry.Manifest{}, err
 	}
+	defer inputs.cleanup()
 	if strings.TrimSpace(opts.DestRoot) == "" {
 		return registry.Manifest{}, fmt.Errorf("dest root is required")
 	}
 	if strings.TrimSpace(opts.StatePath) == "" {
 		return registry.Manifest{}, fmt.Errorf("state path is required")
 	}
-	if err := registry.Install(sourceRoot(opts), opts.DestRoot, manifest, publicKey, prismVersion(opts)); err != nil {
+	if err := registry.Install(inputs.sourceRoot, opts.DestRoot, inputs.manifest, inputs.publicKey, prismVersion(opts)); err != nil {
 		return registry.Manifest{}, err
 	}
-	if err := RecordRegistryInstall(opts.StatePath, manifest); err != nil {
+	if err := RecordRegistryInstall(opts.StatePath, inputs.manifest); err != nil {
 		return registry.Manifest{}, err
 	}
-	return manifest, nil
+	return inputs.manifest, nil
 }
 
 func RecordRegistryInstall(path string, manifest registry.Manifest) error {
@@ -84,19 +90,153 @@ func RecordRegistryInstall(path string, manifest registry.Manifest) error {
 	return Save(path, state)
 }
 
-func loadRegistryInputs(opts InstallOptions) (registry.Manifest, ed25519.PublicKey, error) {
+type registryInputs struct {
+	manifest   registry.Manifest
+	publicKey  ed25519.PublicKey
+	sourceRoot string
+	cleanup    func()
+}
+
+func loadRegistryInputs(opts InstallOptions) (registryInputs, error) {
 	if strings.TrimSpace(opts.ManifestPath) == "" {
-		return registry.Manifest{}, nil, fmt.Errorf("manifest path is required")
+		return registryInputs{}, fmt.Errorf("manifest path is required")
 	}
-	manifest, err := registry.LoadManifest(opts.ManifestPath)
+	manifest, sourceRoot, cleanup, err := loadManifestAndSource(opts)
 	if err != nil {
-		return registry.Manifest{}, nil, err
+		return registryInputs{}, err
 	}
 	publicKey, err := parsePublicKey(opts.PublicKey)
 	if err != nil {
-		return registry.Manifest{}, nil, err
+		cleanup()
+		return registryInputs{}, err
 	}
-	return manifest, publicKey, nil
+	return registryInputs{
+		manifest:   manifest,
+		publicKey:  publicKey,
+		sourceRoot: sourceRoot,
+		cleanup:    cleanup,
+	}, nil
+}
+
+func loadManifestAndSource(opts InstallOptions) (registry.Manifest, string, func(), error) {
+	cleanup := func() {}
+	if !isHTTPURL(opts.ManifestPath) {
+		manifest, err := registry.LoadManifest(opts.ManifestPath)
+		return manifest, sourceRoot(opts), cleanup, err
+	}
+
+	manifest, err := loadRemoteManifest(opts.ManifestPath)
+	if err != nil {
+		return registry.Manifest{}, "", cleanup, err
+	}
+	tmp, err := os.MkdirTemp("", "prism-registry-*")
+	if err != nil {
+		return registry.Manifest{}, "", cleanup, err
+	}
+	cleanup = func() { _ = os.RemoveAll(tmp) }
+	base := remoteSourceBase(opts)
+	for _, bundle := range manifest.Bundles {
+		for _, file := range bundle.Files {
+			if err := validateRegistryPath(file.Path); err != nil {
+				cleanup()
+				return registry.Manifest{}, "", cleanup, fmt.Errorf("%s: %w", file.Path, err)
+			}
+			fileURL, err := joinRegistryURL(base, file.Path)
+			if err != nil {
+				cleanup()
+				return registry.Manifest{}, "", cleanup, err
+			}
+			dst := filepath.Join(tmp, filepath.FromSlash(filepath.Clean(file.Path)))
+			if err := downloadFile(fileURL, dst); err != nil {
+				cleanup()
+				return registry.Manifest{}, "", cleanup, fmt.Errorf("%s: %w", file.Path, err)
+			}
+		}
+	}
+	return manifest, tmp, cleanup, nil
+}
+
+func loadRemoteManifest(rawURL string) (registry.Manifest, error) {
+	body, err := fetchURL(rawURL)
+	if err != nil {
+		return registry.Manifest{}, err
+	}
+	var manifest registry.Manifest
+	if err := json.Unmarshal(body, &manifest); err != nil {
+		return registry.Manifest{}, fmt.Errorf("parsing remote registry manifest: %w", err)
+	}
+	return manifest, nil
+}
+
+func remoteSourceBase(opts InstallOptions) string {
+	if isHTTPURL(opts.SourceRoot) {
+		return opts.SourceRoot
+	}
+	u, err := url.Parse(opts.ManifestPath)
+	if err != nil {
+		return opts.ManifestPath
+	}
+	u.Path = strings.TrimSuffix(u.Path, "/")
+	if idx := strings.LastIndex(u.Path, "/"); idx >= 0 {
+		u.Path = u.Path[:idx]
+	}
+	return u.String()
+}
+
+func joinRegistryURL(base, rel string) (string, error) {
+	u, err := url.Parse(base)
+	if err != nil {
+		return "", err
+	}
+	u.Path = strings.TrimSuffix(u.Path, "/")
+	for _, part := range strings.Split(filepath.ToSlash(filepath.Clean(rel)), "/") {
+		u.Path += "/" + url.PathEscape(part)
+	}
+	return u.String(), nil
+}
+
+func downloadFile(rawURL, dst string) error {
+	body, err := fetchURL(rawURL)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(dst, body, 0o644)
+}
+
+func fetchURL(rawURL string) ([]byte, error) {
+	resp, err := http.Get(rawURL)
+	if err != nil {
+		return nil, fmt.Errorf("fetching %s: %w", rawURL, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		data, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return nil, fmt.Errorf("fetching %s: HTTP %d: %s", rawURL, resp.StatusCode, strings.TrimSpace(string(data)))
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func isHTTPURL(value string) bool {
+	u, err := url.Parse(strings.TrimSpace(value))
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
+}
+
+func validateRegistryPath(path string) error {
+	if filepath.IsAbs(path) {
+		return fmt.Errorf("absolute paths are not allowed")
+	}
+	clean := filepath.ToSlash(filepath.Clean(path))
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
+		return fmt.Errorf("path escapes registry root")
+	}
+	return nil
 }
 
 func parsePublicKey(value string) (ed25519.PublicKey, error) {

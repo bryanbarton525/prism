@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../docs/schemas/prism-policy-test-suite.schema.json
 cases:
   - name: allow readonly kubernetes cli request
     request:

@@ -7,6 +7,8 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,6 +52,38 @@ func TestInstallVerifiedCopiesFilesAndRecordsState(t *testing.T) {
 	}
 	if len(state.Bundles) != 1 || state.Bundles[0].ID != "k8s-core-triage" {
 		t.Fatalf("state = %#v", state)
+	}
+}
+
+func TestInstallVerifiedFromRemoteManifest(t *testing.T) {
+	source := t.TempDir()
+	dest := t.TempDir()
+	statePath := filepath.Join(t.TempDir(), "bundles.yaml")
+	writeBundleFile(t, filepath.Join(source, "skills", "k8s", "SKILL.md"), "remote skill")
+	manifest, pub, _ := signedRegistry(t, source)
+	writeRegistryManifest(t, source, manifest)
+	server := httptest.NewServer(http.FileServer(http.Dir(source)))
+	defer server.Close()
+
+	installed, err := InstallVerified(InstallOptions{
+		ManifestPath: server.URL + "/registry.json",
+		DestRoot:     dest,
+		StatePath:    statePath,
+		PublicKey:    base64.StdEncoding.EncodeToString(pub),
+		PrismVersion: "0.1.0",
+	})
+	if err != nil {
+		t.Fatalf("InstallVerified(): %v", err)
+	}
+	if installed.RegistryID != "platform-sre" {
+		t.Fatalf("installed manifest = %#v", installed)
+	}
+	data, err := os.ReadFile(filepath.Join(dest, "skills", "k8s", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "remote skill" {
+		t.Fatalf("installed remote file = %q", data)
 	}
 }
 

@@ -41,6 +41,109 @@ prism --root ~/src/prism agent list
 prism --root ~/src/prism config doctor
 ```
 
+## Full local control-plane setup
+
+Use this path when you want the OSS control-plane features enabled together:
+signed bundle verification, policy enforcement, durable events, reports, and the
+local dashboard.
+
+```bash
+# 1. Build/install the binary and verify local runtime dependencies.
+go install ./cmd/prism
+ollama pull qwen3.5:9b
+prism --root "$(pwd)" config doctor
+
+# 2. Pick one local state directory for registry sources, installed bundles,
+#    and the default dashboard/event-store path.
+export PRISM_STATE_DIR=.prism
+mkdir -p "$PRISM_STATE_DIR"
+
+# 3. Register a local registry source root. Sources may be local paths or
+#    http(s) URLs. Manifest paths passed with --source are resolved under it.
+prism registry source add local .
+prism registry source list
+prism registry sync
+
+# 4. Verify and install a signed registry manifest.
+prism bundle verify --source local testdata/bundles/k8s-core-triage/registry.json \
+  --public-key testdata/bundles/k8s-core-triage/public_key.txt
+prism bundle install --source local testdata/bundles/k8s-core-triage/registry.json \
+  --dest-root . \
+  --public-key testdata/bundles/k8s-core-triage/public_key.txt
+prism bundle list
+
+# 5. Validate policy before enforcing it on runs or MCP.
+prism policy validate testdata/policies/k8s-readonly.yaml
+prism policy test testdata/policies/k8s-readonly.yaml testdata/policies/k8s-readonly-cases.yaml
+
+# 6. Run with event storage, policy, and bundle provenance.
+echo "Investigate deployment checkout-api in namespace staging" | \
+  prism --policy-file testdata/policies/k8s-readonly.yaml \
+    --event-store "$PRISM_STATE_DIR/events.db" \
+    run kubectl \
+    --skills kubectl-triage,k8s-rollout-diagnostics \
+    --bundle-id k8s-core-triage
+
+# 7. Inspect events, reports, and dashboard.
+prism --event-store "$PRISM_STATE_DIR/events.db" events summarize
+prism --event-store "$PRISM_STATE_DIR/events.db" report usage
+prism --event-store "$PRISM_STATE_DIR/events.db" dashboard serve --addr 127.0.0.1:8765
+```
+
+Open `http://127.0.0.1:8765` for the dashboard. The dashboard reads the same
+SQLite event store as `events` and `report`; it will be empty until at least one
+run or graph has been executed with `--event-store` or `PRISM_EVENT_STORE`.
+
+### Creating a registry today
+
+Prism's registry install path consumes a signed registry manifest. A registry
+source is a named local path or `http(s)` URL saved with `prism registry source
+add`; `prism bundle verify --source <name>` and `prism bundle install --source
+<name>` resolve the manifest path under that source.
+
+A signed registry manifest must include:
+
+- registry metadata: `registry_id`, `version`, `generated_at`, and optional `compat`
+- one or more bundles with `id`, `version`, `channel`, `owner`, `risk_level`,
+  `agents`, `skills`, `required_plugins`, and `files`
+- file entries with path-safe `path` values and SHA-256 hashes
+- an Ed25519 `signature` over the manifest payload
+- a matching public key supplied to `prism bundle verify` or `prism bundle install`
+
+The fixture at `testdata/bundles/k8s-core-triage/registry.json` is the canonical
+working example.
+
+Local configured source:
+
+```bash
+prism registry source add local .
+prism bundle install --source local testdata/bundles/k8s-core-triage/registry.json \
+  --dest-root . \
+  --public-key testdata/bundles/k8s-core-triage/public_key.txt
+```
+
+Remote configured source:
+
+```bash
+prism registry source add platform https://registry.example.com/prism
+prism bundle install --source platform k8s-core-triage/registry.json \
+  --dest-root . \
+  --public-key ./platform-registry-public-key.txt
+```
+
+Direct remote manifest URL:
+
+```bash
+prism bundle verify https://registry.example.com/prism/k8s-core-triage/registry.json \
+  --public-key ./platform-registry-public-key.txt
+```
+
+For remote manifests, Prism downloads the manifest's declared files into a
+temporary verification root, then runs the same Ed25519 signature, Prism-version
+compatibility, SHA-256 checksum, and path-safety checks before installing. The
+v1 CLI verifies and installs signed manifests; `bundle build`, `bundle sign`,
+and remote publishing are planned lifecycle commands and are not implemented yet.
+
 ## CLI workflows
 
 ### Inspect agents
@@ -132,15 +235,13 @@ prism skill lint
 prism skill test k8s-rollout-diagnostics
 prism skill benchmark --max-chars 24000
 
-prism registry source add local ./testdata/bundles
+prism registry source add local .
 prism registry source list
 prism registry sync
 
-prism bundle verify testdata/bundles/k8s-core-triage/registry.json \
-  --source-root . \
+prism bundle verify --source local testdata/bundles/k8s-core-triage/registry.json \
   --public-key testdata/bundles/k8s-core-triage/public_key.txt
-prism --state-dir .prism bundle install testdata/bundles/k8s-core-triage/registry.json \
-  --source-root . \
+prism --state-dir .prism bundle install --source local testdata/bundles/k8s-core-triage/registry.json \
   --dest-root . \
   --public-key testdata/bundles/k8s-core-triage/public_key.txt
 prism bundle list
