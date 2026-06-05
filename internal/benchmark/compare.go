@@ -8,18 +8,18 @@ import (
 
 // ComparisonReport is the full benchmark output comparing both modes.
 type ComparisonReport struct {
-	ScenarioID            string      `json:"scenario_id"`
-	ScenarioTitle         string      `json:"scenario_title"`
-	Baseline              string      `json:"baseline"`
-	Delegated             string      `json:"delegated"`
-	OrchestratorOnly      ModeResult  `json:"orchestrator_only"`
-	PrismDelegated        ModeResult  `json:"prism_delegated"`
-	TokenReductionPercent float64     `json:"token_reduction_percent"`
-	NetCostSavingsUSD     float64     `json:"net_cost_savings_usd"`
-	WallClockDeltaMS      int64       `json:"wall_clock_delta_ms"`
-	PassRate              map[string]float64 `json:"pass_rate"`
-	LatencyBudgetCompliance float64   `json:"latency_budget_compliance"`
-	Markdown              string      `json:"-"`
+	ScenarioID              string             `json:"scenario_id"`
+	ScenarioTitle           string             `json:"scenario_title"`
+	Baseline                string             `json:"baseline"`
+	Delegated               string             `json:"delegated"`
+	OrchestratorOnly        ModeResult         `json:"orchestrator_only"`
+	PrismDelegated          ModeResult         `json:"prism_delegated"`
+	TokenReductionPercent   float64            `json:"token_reduction_percent"`
+	NetCostSavingsUSD       float64            `json:"net_cost_savings_usd"`
+	WallClockDeltaMS        int64              `json:"wall_clock_delta_ms"`
+	PassRate                map[string]float64 `json:"pass_rate"`
+	LatencyBudgetCompliance float64            `json:"latency_budget_compliance"`
+	Markdown                string             `json:"-"`
 }
 
 // Compare runs orchestrator-only and prism-delegated modes for one scenario.
@@ -43,10 +43,10 @@ func Compare(ctx context.Context, root, scenarioID string, opts RunOptions) (Com
 	}
 
 	cr := ComparisonReport{
-		ScenarioID:    scenario.ID,
-		ScenarioTitle: scenario.Title,
-		Baseline:      string(ModeOrchestratorOnly),
-		Delegated:     string(ModePrismDelegated),
+		ScenarioID:       scenario.ID,
+		ScenarioTitle:    scenario.Title,
+		Baseline:         string(ModeOrchestratorOnly),
+		Delegated:        string(ModePrismDelegated),
 		OrchestratorOnly: orch,
 		PrismDelegated:   del,
 	}

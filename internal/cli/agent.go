@@ -11,7 +11,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bryanbarton525/prism/internal/app"
+	"github.com/bryanbarton525/prism/internal/events"
+	internalpolicy "github.com/bryanbarton525/prism/internal/policy"
 	"github.com/bryanbarton525/prism/internal/rootresolver"
+	"github.com/bryanbarton525/prism/pkg/observe"
 )
 
 func newAgentCmd() *cobra.Command {
@@ -180,22 +183,67 @@ func agentConstitution(ctx context.Context, agentID string, jsonOut bool) error 
 // GitHubToken is read from config and passed to rootresolver so the GitHub
 // Contents API is used when available; git clone is the fallback.
 func newRunner(ctx context.Context) (*app.Runner, func(), error) {
+	sink, closeEventSink, err := configuredEventSink()
+	if err != nil {
+		return nil, func() {}, err
+	}
+	policyEngine, err := configuredPolicyEngine()
+	if err != nil {
+		closeEventSink()
+		return nil, func() {}, err
+	}
+	runner, cleanup, err := newRunnerWithControls(ctx, sink, policyEngine)
+	if err != nil {
+		closeEventSink()
+		return nil, func() {}, err
+	}
+	return runner, func() {
+		cleanup()
+		closeEventSink()
+	}, nil
+}
+
+func newRunnerWithControls(ctx context.Context, sink observe.Sink, policyEngine *internalpolicy.Engine) (*app.Runner, func(), error) {
 	rootFS, cleanup, err := rootresolver.Resolve(ctx, gf.rootDir, cfg.GitHubToken)
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("resolving root %q: %w", gf.rootDir, err)
 	}
 	runner, err := app.New(app.Config{
-		RootFS:     rootFS,
-		RootLabel:  gf.rootDir,
-		AgentDir:   gf.agentDir,
-		SkillsDir:  gf.skillsDir,
-		OllamaHost: gf.ollamaHost,
+		RootFS:       rootFS,
+		RootLabel:    gf.rootDir,
+		AgentDir:     gf.agentDir,
+		SkillsDir:    gf.skillsDir,
+		OllamaHost:   gf.ollamaHost,
+		EventSink:    sink,
+		PolicyEngine: policyEngine,
 	})
 	if err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}
 	return runner, cleanup, nil
+}
+
+func configuredEventSink() (observe.Sink, func(), error) {
+	if gf.eventStore == "" {
+		return nil, func() {}, nil
+	}
+	store, err := events.Open(gf.eventStore)
+	if err != nil {
+		return nil, func() {}, fmt.Errorf("opening event store: %w", err)
+	}
+	return store, func() { _ = store.Close() }, nil
+}
+
+func configuredPolicyEngine() (*internalpolicy.Engine, error) {
+	if gf.policyFile == "" {
+		return nil, nil
+	}
+	policyEngine, err := internalpolicy.Load(gf.policyFile)
+	if err != nil {
+		return nil, fmt.Errorf("loading policy: %w", err)
+	}
+	return policyEngine, nil
 }
 
 func resolvedAgentDir() string {

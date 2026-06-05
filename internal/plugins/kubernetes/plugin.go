@@ -2,12 +2,14 @@ package kubernetes
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/bryanbarton525/prism/internal/plugins"
+	"github.com/bryanbarton525/prism/pkg/evidence"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
@@ -58,6 +60,8 @@ func (p *Plugin) Tools() []plugins.ToolSpec {
 		Name:        ToolCollectDiagnostics,
 		Description: "Collect read-only Kubernetes namespace/workload diagnostics.",
 		ReadOnly:    true,
+		Mode:        "read_only",
+		MaxBytes:    outputLimit,
 	}}
 }
 
@@ -266,10 +270,45 @@ func collectDiagnostics(ctx context.Context, client Client, args map[string]stri
 		})
 	}
 
-	return plugins.ToolResult{
-		Label:   "runtime-plugin:kubernetes",
-		Content: truncate(strings.TrimSpace(b.String()), outputLimit),
+	content := truncate(strings.TrimSpace(b.String()), outputLimit)
+	pack := evidence.Pack{
+		Kind:           "kubernetes.diagnostics",
+		Source:         namespace,
+		Plugin:         "kubernetes",
+		CollectionTime: time.Now().UTC(),
+		Limits: evidence.Limits{
+			MaxBytes:  outputLimit,
+			MaxEvents: 100,
+		},
+		Summary: map[string]any{
+			"namespace": namespace,
+			"bounded":   true,
+		},
+		Artifacts: []evidence.Artifact{{
+			Type:    "diagnostics_text",
+			Name:    "kubectl-equivalent-summary",
+			Content: content,
+		}},
 	}
+	if namespace == "" {
+		pack.Errors = append(pack.Errors, "namespace not inferred; collected cluster-level evidence only")
+	}
+	return plugins.ToolResult{
+		Label:        "runtime-plugin:kubernetes",
+		Content:      content,
+		EvidencePack: &pack,
+	}
+}
+
+func marshalEvidencePack(pack *evidence.Pack) string {
+	if pack == nil {
+		return ""
+	}
+	data, err := json.MarshalIndent(pack, "", "  ")
+	if err != nil {
+		return ""
+	}
+	return string(data)
 }
 
 func writeSection(b *strings.Builder, title string, fn func() string) {

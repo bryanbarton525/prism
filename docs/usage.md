@@ -28,6 +28,9 @@ Prism resolves paths relative to `**--root**` (default: current working director
 | Agent specs  | `--agent-dir`   | `PRISM_AGENT_DIR`    |
 | Skills       | `--skills-dir`  | `PRISM_SKILLS_DIR`   |
 | Ollama URL   | `--ollama-host` | `PRISM_OLLAMA_HOST`  |
+| Local state  | `--state-dir`   | `PRISM_STATE_DIR`    |
+| Event store  | `--event-store` | `PRISM_EVENT_STORE`  |
+| Policy file  | `--policy-file` | `PRISM_POLICY_FILE`  |
 | GitHub token | —               | `PRISM_GITHUB_TOKEN`, `PRISM_GH_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN` |
 
 
@@ -85,6 +88,68 @@ If the assembled prompt exceeds `context_budget`, the runtime truncates the syst
 
 If the run exceeds `latency_budget_ms`, the context deadline may return `status: timeout`.
 
+### Control-plane commands
+
+Policy is optional and preserves existing behavior when unset:
+
+```bash
+prism policy validate testdata/policies/k8s-readonly.yaml
+prism policy explain testdata/policies/k8s-readonly.yaml kubectl \
+  --skills k8s-rollout-diagnostics \
+  --plugins kubernetes
+prism policy test testdata/policies/k8s-readonly.yaml testdata/policies/k8s-readonly-cases.yaml
+
+echo "Investigate deployment checkout-api in namespace staging" | \
+  prism route suggest
+```
+
+Durable event storage is opt-in for runs with `--event-store` or `PRISM_EVENT_STORE`:
+
+```bash
+prism --event-store .prism/events.db run github-cli --skills gh-pr-triage --stdin
+prism events list --limit 20
+prism events export --format csv
+prism events summarize
+```
+
+Skill, bundle, registry, graph, dashboard, and report commands:
+
+```bash
+prism skill lint
+prism skill test k8s-rollout-diagnostics
+prism skill benchmark --max-chars 24000
+
+prism registry source add local ./testdata/bundles
+prism registry source list
+prism registry sync
+
+prism bundle verify testdata/bundles/k8s-core-triage/registry.json \
+  --source-root . \
+  --public-key testdata/bundles/k8s-core-triage/public_key.txt
+prism --state-dir .prism bundle install testdata/bundles/k8s-core-triage/registry.json \
+  --source-root . \
+  --dest-root . \
+  --public-key testdata/bundles/k8s-core-triage/public_key.txt
+prism bundle list
+
+prism graph validate testdata/graphs/k8s-rollout-investigation.yaml
+prism graph run testdata/graphs/k8s-rollout-investigation.yaml
+
+prism dashboard serve
+prism report usage
+prism report savings --format json
+prism report adoption
+prism report bundles
+```
+
+The local event store records run and graph metadata, not raw prompts, raw logs, or raw evidence.
+
+For a deterministic local control-plane smoke test that avoids live model calls:
+
+```bash
+scripts/local-acceptance.sh
+```
+
 ### Diagnostics
 
 ```bash
@@ -127,6 +192,10 @@ timeouts, and model/runtime errors. CLI calls tag `source: cli`; MCP calls tag
 - `VerifyFiles` checks SHA-256 digests for bundle files under a source root.
 - `Install` is the safe install entrypoint: it verifies signature, compatibility,
   and file hashes before copying files into the destination root with path-safety checks.
+
+The CLI `prism bundle install` uses this same fail-closed path for signed registry
+manifests. Local installed-bundle state is recorded only after verification and
+copying both succeed.
 
 This is useful for controlled distribution of approved `agents/` and `skills/`
 content while still relying on Prism's existing `--agent-dir` and `--skills-dir`
@@ -174,7 +243,7 @@ Example for Cursor (`~/.cursor/mcp.json`). Other MCP-compatible editors use equi
 ```
 
 After saving, reload MCP servers in your editor settings. The **prism** server should list:
-- Core tools: `list_agents`, `run_agent`, `get_constitution`, `doctor`
+- Core tools: `list_agents`, `run_agent`, `get_constitution`, `doctor`, `suggest_route`, `run_graph`, `explain_policy`, `list_policies`
 - Compatibility tools: `list_prompts`, `get_prompt`, `list_resources`, `get_resource`
 
 For a local Gemini MCP config, this repository also includes a helper at `scripts/install_mcp.py`. Review the paths in the script first, then run it from the repo root with `python3 scripts/install_mcp.py`.
@@ -214,16 +283,24 @@ For a local Gemini MCP config, this repository also includes a helper at `script
 
 ### Runtime plugins
 
-Agent specs may declare a `tools:` allowlist. Prism resolves those names through the native runtime plugin registry, collects bounded read-only evidence before prompt assembly, and includes that evidence in both the specialist prompt and the returned artifacts.
+Agent specs may declare a `tools:` allowlist. Prism resolves those names through the native runtime plugin registry, collects bounded read-only evidence before prompt assembly, and includes that evidence in both the specialist prompt and the returned artifacts. If a policy sets `max_evidence_bytes`, oversized evidence is blocked before the prompt is assembled or the model is called.
 
-The first built-in plugin is `kubernetes`. The `kubectl` agent declares:
+Built-in v1 plugins:
+
+- `kubernetes` / alias `kubectl`: native client-go diagnostics for namespace, pod, deployment, service, event, EndpointSlice, HTTPRoute, and server-version evidence.
+- `github`: repo-local `.github` workflow/template metadata. This does not call the live GitHub API.
+- `localdocs` / alias `docs`: bounded search over `docs/`, README, and Markdown files.
+- `filesystem` / alias `fs`: bounded read-only search over common repo text files.
+- `goproject` / alias `go`: bounded Go project metadata from `go.mod` and package paths.
+
+The `kubectl` agent declares:
 
 ```yaml
 tools:
   - kubernetes
 ```
 
-That means Prism uses Kubernetes client-go APIs to collect namespace, pod, deployment, service, event, EndpointSlice, HTTPRoute, and server-version evidence. It does not shell out to `kubectl` for this runtime evidence. Results are labeled `runtime-plugin:kubernetes`; `kubectl` remains accepted as a compatibility alias for older agent specs.
+That means Prism uses Kubernetes client-go APIs and does not shell out to `kubectl` for runtime evidence. Results are labeled `runtime-plugin:kubernetes`; structured evidence packs are returned as `evidence-pack:*` artifacts.
 
 ### Tool reference
 
@@ -258,6 +335,54 @@ No parameters. Same information as `prism config doctor` (JSON).
 - `format` is optional (`json` or `markdown`).
 
 Response is a `RunResult` object (see README).
+
+#### `suggest_route`
+
+```json
+{
+  "task": "Investigate deployment checkout-api in namespace staging",
+  "source": "mcp"
+}
+```
+
+Returns a deterministic recommendation with `agent_id`, `skill_names`, reason, risk, and policy-shaped decision metadata.
+
+#### `run_graph`
+
+```json
+{
+  "graph": {
+    "id": "k8s-rollout-investigation",
+    "version": 1,
+    "nodes": {
+      "analyze": {
+        "agent": "kubectl",
+        "skills": ["k8s-rollout-diagnostics"],
+        "task": "Investigate deployment checkout-api in namespace staging."
+      }
+    }
+  }
+}
+```
+
+Runs a bounded graph through the same shared runner as CLI and `run_agent`. When a policy file is configured, Prism prechecks graph size/depth plus each node's agent, skills, and plugins before execution. V1 graph execution is sequential; `max_parallel` must be `0` or `1`, retries are not yet implemented, and node artifacts are returned in the graph result as bounded typed artifacts.
+
+#### `explain_policy`
+
+```json
+{
+  "agent_id": "kubectl",
+  "skills": ["k8s-rollout-diagnostics"],
+  "plugins": ["kubernetes"],
+  "source": "mcp"
+}
+```
+
+Returns the configured policy decision. If no policy file is configured, the decision is `allow` with reason `no policy configured`.
+
+#### `list_policies`
+
+No parameters. Reports whether the MCP server started with a configured policy.
 
 #### `list_prompts` / `get_prompt`
 

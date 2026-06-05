@@ -1,0 +1,44 @@
+cases:
+  - name: allow readonly kubernetes cli request
+    request:
+      agent_id: kubectl
+      skills:
+        - k8s-rollout-diagnostics
+      plugins:
+        - kubernetes
+      source: cli
+      evidence_bytes: 1024
+    want_decision: allow
+
+  - name: deny write action
+    request:
+      write_requested: true
+      source: cli
+    want_decision: deny
+    want_reason: write actions are disabled
+
+  - name: deny oversized evidence
+    request:
+      agent_id: kubectl
+      skills:
+        - k8s-rollout-diagnostics
+      plugins:
+        - kubernetes
+      source: cli
+      evidence_bytes: 500001
+    want_decision: deny
+    want_reason: max_evidence_bytes
+
+  - name: deny raw prompt capture
+    request:
+      raw_prompt_capture_requested: true
+      source: cli
+    want_decision: deny
+    want_reason: raw prompt capture is disabled
+
+  - name: deny remote model runtime
+    request:
+      remote_model_requested: true
+      source: cli
+    want_decision: deny
+    want_reason: remote model runtimes are disabled

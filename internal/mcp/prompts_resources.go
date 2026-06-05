@@ -365,7 +365,9 @@ Prism enforces allowed_skills per agent; parent model must choose valid skill ID
 			URI:      uri,
 			Name:     "agents index",
 			MimeType: "application/json",
-			Content:  marshalJSON(struct{ Agents []agent.Summary `json:"agents"` }{Agents: agents}),
+			Content: marshalJSON(struct {
+				Agents []agent.Summary `json:"agents"`
+			}{Agents: agents}),
 		}, nil
 	default:
 		const prefix = "prism://resource/agent/"

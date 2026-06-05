@@ -48,10 +48,10 @@ type ScaleProfiles struct {
 
 // ShowcaseConfig drives the headline with-vs-without orchestrator cost matrix.
 type ShowcaseConfig struct {
-	Scenario        string `yaml:"scenario"`
-	TasksPerDay     int    `yaml:"tasks_per_day"`
-	TasksPerMonth   int    `yaml:"tasks_per_month"`
-	TasksPerYear    int    `yaml:"tasks_per_year"`
+	Scenario      string `yaml:"scenario"`
+	TasksPerDay   int    `yaml:"tasks_per_day"`
+	TasksPerMonth int    `yaml:"tasks_per_month"`
+	TasksPerYear  int    `yaml:"tasks_per_year"`
 }
 
 // UsageProfile describes monthly task volume for one team shape.

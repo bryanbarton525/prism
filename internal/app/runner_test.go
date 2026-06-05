@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/bryanbarton525/prism/internal/plugins"
+	internalpolicy "github.com/bryanbarton525/prism/internal/policy"
 	"github.com/bryanbarton525/prism/internal/result"
 	"github.com/bryanbarton525/prism/pkg/observe"
+	policypkg "github.com/bryanbarton525/prism/pkg/policy"
 )
 
 // ---------------------------------------------------------------------------
@@ -701,6 +703,59 @@ temperature: 0.1
 	}
 	if !sink.events[0].ContextBudgetExceeded {
 		t.Fatalf("event should capture ContextBudgetExceeded: %#v", sink.events[0])
+	}
+}
+
+func TestRunner_Run_BlocksOversizedEvidenceBeforeModel(t *testing.T) {
+	root := makeTestRoot(t,
+		map[string]string{"kubectl.md": kubectlSpec()},
+		map[string]string{"kubectl-triage": kubectlTriageSkill()},
+	)
+	chatCalls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/chat" {
+			chatCalls++
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	sink := &captureSink{}
+	policy := internalpolicy.New(policypkg.Policy{
+		Version:  1,
+		Defaults: policypkg.Defaults{MaxEvidenceBytes: 10},
+		Agents: map[string]policypkg.Agent{
+			"kubectl": {Allowed: true, Skills: []string{"kubectl-triage"}, Plugins: map[string]policypkg.Plugin{"kubernetes": {Mode: "read_only"}}},
+		},
+	})
+	runner, err := New(Config{
+		RootDir:        root,
+		OllamaHost:     srv.URL,
+		EventSink:      sink,
+		PolicyEngine:   policy,
+		RuntimePlugins: plugins.NewRegistry(fakeRuntimePlugin{name: "kubernetes", content: strings.Repeat("x", 100)}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := runner.Run(context.Background(), RunRequest{
+		AgentID:    "kubectl",
+		Task:       "namespace staging",
+		SkillNames: []string{"kubectl-triage"},
+		Metadata:   observe.Metadata{Source: "cli"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Status != result.StatusValidationFail || res.PolicyDecision != policypkg.DecisionDeny {
+		t.Fatalf("result = %#v", res)
+	}
+	if chatCalls != 0 {
+		t.Fatalf("model should not be called after evidence policy denial, calls=%d", chatCalls)
+	}
+	if len(sink.events) != 1 || sink.events[0].PolicyDecision != policypkg.DecisionDeny {
+		t.Fatalf("event = %#v", sink.events)
 	}
 }
 

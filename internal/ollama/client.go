@@ -92,7 +92,7 @@ type ChatRequest struct {
 
 // Message is one turn in an Ollama conversation.
 type Message struct {
-	Role    string `json:"role"`    // system | user | assistant
+	Role    string `json:"role"` // system | user | assistant
 	Content string `json:"content"`
 }
 

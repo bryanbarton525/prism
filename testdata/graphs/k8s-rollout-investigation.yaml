@@ -1,0 +1,24 @@
+id: k8s-rollout-investigation
+version: 1
+
+limits:
+  max_nodes: 3
+  max_depth: 3
+  max_parallel: 1
+  timeout_seconds: 120
+
+nodes:
+  collect-and-analyze:
+    agent: kubectl
+    skills:
+      - k8s-rollout-diagnostics
+    task: Investigate deployment checkout-api in namespace staging and summarize likely rollout failure causes.
+
+  summarize:
+    depends_on:
+      - collect-and-analyze
+    agent: kubectl
+    skills:
+      - kubectl-triage
+    task: Produce concise incident findings and safe next diagnostic steps.
+

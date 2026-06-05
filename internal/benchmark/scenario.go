@@ -21,11 +21,11 @@ type Scenario struct {
 	OrchestratorLoadFullLibrary *bool `yaml:"orchestrator_load_full_library"`
 	// OrchestratorContextFiles are appended to the orchestrator-only prompt only
 	// (simulates Cursor rules, chat history, runbooks — not sent to local agents).
-	OrchestratorContextFiles []string `yaml:"orchestrator_context_files"`
-	Delegations []Delegation `yaml:"delegations"`
-	Assertions  Assertions   `yaml:"assertions"`
-	Synthesis   Synthesis    `yaml:"synthesis"`
-	dir         string
+	OrchestratorContextFiles []string     `yaml:"orchestrator_context_files"`
+	Delegations              []Delegation `yaml:"delegations"`
+	Assertions               Assertions   `yaml:"assertions"`
+	Synthesis                Synthesis    `yaml:"synthesis"`
+	dir                      string
 }
 
 // Delegation is one Prism agent invocation in the delegated benchmark path.
@@ -46,7 +46,7 @@ type Assertions struct {
 // Synthesis holds prompt templates for final report assembly.
 type Synthesis struct {
 	OrchestratorPromptFile string `yaml:"orchestrator_prompt_file"`
-	DelegatedPromptFile      string `yaml:"delegated_prompt_file"`
+	DelegatedPromptFile    string `yaml:"delegated_prompt_file"`
 }
 
 // LoadScenario reads scenario.yaml from testdata/benchmarks/scenarios/<id>/.

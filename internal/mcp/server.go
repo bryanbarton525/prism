@@ -11,8 +11,13 @@ import (
 
 	"github.com/bryanbarton525/prism/internal/agent"
 	"github.com/bryanbarton525/prism/internal/app"
+	internalgraph "github.com/bryanbarton525/prism/internal/graph"
+	internalpolicy "github.com/bryanbarton525/prism/internal/policy"
 	"github.com/bryanbarton525/prism/internal/result"
+	"github.com/bryanbarton525/prism/internal/router"
+	graphpkg "github.com/bryanbarton525/prism/pkg/graph"
 	"github.com/bryanbarton525/prism/pkg/observe"
+	policypkg "github.com/bryanbarton525/prism/pkg/policy"
 )
 
 const (
@@ -22,15 +27,24 @@ const (
 
 // Serve starts the MCP server over stdio until the client disconnects.
 func Serve(ctx context.Context, runner app.AgentRunner) error {
+	return ServeWithConfig(ctx, runner, Config{})
+}
+
+type Config struct {
+	Policy    *internalpolicy.Engine
+	EventSink observe.Sink
+}
+
+func ServeWithConfig(ctx context.Context, runner app.AgentRunner, cfg Config) error {
 	srv := mcpsdk.NewServer(&mcpsdk.Implementation{
 		Name:    serverName,
 		Version: serverVersion,
 	}, nil)
-	registerTools(srv, runner)
+	registerTools(srv, runner, cfg)
 	return srv.Run(ctx, &mcpsdk.StdioTransport{})
 }
 
-func registerTools(srv *mcpsdk.Server, runner app.AgentRunner) {
+func registerTools(srv *mcpsdk.Server, runner app.AgentRunner, cfg Config) {
 	mcpsdk.AddTool(srv, &mcpsdk.Tool{
 		Name:        "list_agents",
 		Description: "List registered Prism agents with model hints and allowed skills.",
@@ -50,6 +64,26 @@ func registerTools(srv *mcpsdk.Server, runner app.AgentRunner) {
 		Name:        "doctor",
 		Description: "Report Ollama connectivity, models, and agent/skill registry health.",
 	}, doctorHandler(runner))
+
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "suggest_route",
+		Description: "Suggest a deterministic Prism agent and skill route for a bounded task.",
+	}, suggestRouteHandler(runner, cfg.Policy))
+
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "run_graph",
+		Description: "Run a bounded Prism graph definition.",
+	}, runGraphHandler(runner, cfg))
+
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "explain_policy",
+		Description: "Explain the configured Prism policy decision for an agent request.",
+	}, explainPolicyHandler(cfg.Policy))
+
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "list_policies",
+		Description: "List configured Prism policy sources visible to this MCP server.",
+	}, listPoliciesHandler(cfg.Policy))
 
 	// Compatibility tools for MCP hosts that do not yet support native prompts/resources.
 	mcpsdk.AddTool(srv, &mcpsdk.Tool{
@@ -153,6 +187,88 @@ func doctorHandler(runner app.AgentRunner) func(context.Context, *mcpsdk.CallToo
 			return nil, result.DoctorResult{}, err
 		}
 		return textResult(marshalJSON(dr)), dr, nil
+	}
+}
+
+type SuggestRouteInput struct {
+	Task   string `json:"task"`
+	Source string `json:"source"`
+}
+
+func suggestRouteHandler(runner app.AgentRunner, policy *internalpolicy.Engine) func(context.Context, *mcpsdk.CallToolRequest, SuggestRouteInput) (*mcpsdk.CallToolResult, router.Result, error) {
+	return func(ctx context.Context, _ *mcpsdk.CallToolRequest, input SuggestRouteInput) (*mcpsdk.CallToolResult, router.Result, error) {
+		if input.Task == "" {
+			return nil, router.Result{}, fmt.Errorf("suggest_route: task is required")
+		}
+		if input.Source == "" {
+			input.Source = "mcp"
+		}
+		res, err := router.New(runner, policy).Suggest(ctx, router.Request{Task: input.Task, Source: input.Source})
+		if err != nil {
+			return nil, router.Result{}, err
+		}
+		return textResult(marshalJSON(res)), res, nil
+	}
+}
+
+type RunGraphInput struct {
+	Graph graphpkg.Definition `json:"graph"`
+}
+
+func runGraphHandler(runner app.AgentRunner, cfg Config) func(context.Context, *mcpsdk.CallToolRequest, RunGraphInput) (*mcpsdk.CallToolResult, graphpkg.RunResult, error) {
+	return func(ctx context.Context, _ *mcpsdk.CallToolRequest, input RunGraphInput) (*mcpsdk.CallToolResult, graphpkg.RunResult, error) {
+		if input.Graph.ID == "" {
+			return nil, graphpkg.RunResult{}, fmt.Errorf("run_graph: graph.id is required")
+		}
+		res, err := internalgraph.RunWithOptions(ctx, runner, input.Graph, internalgraph.RunOptions{Source: "mcp", Policy: cfg.Policy, EventSink: cfg.EventSink})
+		if err != nil {
+			return nil, graphpkg.RunResult{}, err
+		}
+		return textResult(marshalJSON(res)), res, nil
+	}
+}
+
+type ExplainPolicyInput struct {
+	AgentID string   `json:"agent_id"`
+	Skills  []string `json:"skills"`
+	Plugins []string `json:"plugins"`
+	Source  string   `json:"source"`
+}
+
+type ListPoliciesInput struct{}
+
+type ListPoliciesOutput struct {
+	Configured bool   `json:"configured"`
+	Reason     string `json:"reason"`
+}
+
+func explainPolicyHandler(policy *internalpolicy.Engine) func(context.Context, *mcpsdk.CallToolRequest, ExplainPolicyInput) (*mcpsdk.CallToolResult, policypkg.Decision, error) {
+	return func(_ context.Context, _ *mcpsdk.CallToolRequest, input ExplainPolicyInput) (*mcpsdk.CallToolResult, policypkg.Decision, error) {
+		if input.Source == "" {
+			input.Source = "mcp"
+		}
+		decision := policypkg.Allow("no policy configured")
+		if policy != nil {
+			decision = policy.Explain(policypkg.Request{
+				AgentID: input.AgentID,
+				Skills:  input.Skills,
+				Plugins: input.Plugins,
+				Source:  input.Source,
+			})
+		}
+		return textResult(marshalJSON(decision)), decision, nil
+	}
+}
+
+func listPoliciesHandler(policy *internalpolicy.Engine) func(context.Context, *mcpsdk.CallToolRequest, ListPoliciesInput) (*mcpsdk.CallToolResult, ListPoliciesOutput, error) {
+	return func(_ context.Context, _ *mcpsdk.CallToolRequest, _ ListPoliciesInput) (*mcpsdk.CallToolResult, ListPoliciesOutput, error) {
+		out := ListPoliciesOutput{Configured: policy != nil}
+		if policy == nil {
+			out.Reason = "no policy configured"
+		} else {
+			out.Reason = "policy configured for this MCP server"
+		}
+		return textResult(marshalJSON(out)), out, nil
 	}
 }
 

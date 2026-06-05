@@ -9,6 +9,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/fs"
+	"net"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -16,10 +18,16 @@ import (
 	"github.com/bryanbarton525/prism/internal/agent"
 	"github.com/bryanbarton525/prism/internal/ollama"
 	"github.com/bryanbarton525/prism/internal/plugins"
+	"github.com/bryanbarton525/prism/internal/plugins/filesystem"
+	"github.com/bryanbarton525/prism/internal/plugins/githublocal"
+	"github.com/bryanbarton525/prism/internal/plugins/goproject"
 	kubeplugin "github.com/bryanbarton525/prism/internal/plugins/kubernetes"
+	"github.com/bryanbarton525/prism/internal/plugins/localdocs"
+	internalpolicy "github.com/bryanbarton525/prism/internal/policy"
 	"github.com/bryanbarton525/prism/internal/result"
 	"github.com/bryanbarton525/prism/internal/skill"
 	"github.com/bryanbarton525/prism/pkg/observe"
+	policypkg "github.com/bryanbarton525/prism/pkg/policy"
 )
 
 // AgentRunner is the service interface consumed by both the CLI and MCP adapters.
@@ -76,6 +84,9 @@ type Config struct {
 	// EventSink receives one stable RunEvent after each Run call. Defaults to a
 	// no-op sink so OSS behavior is unchanged when observability is not enabled.
 	EventSink observe.Sink
+	// PolicyEngine is optional. When set, requests are checked before evidence
+	// collection and model execution.
+	PolicyEngine *internalpolicy.Engine
 }
 
 // rootFS returns the effective root FS: RootFS if set, else os.DirFS(RootDir).
@@ -149,6 +160,11 @@ type RunRequest struct {
 	Format string
 	// Metadata is optional caller context used by team dashboards and reports.
 	Metadata observe.Metadata
+	// Optional provenance fields for observability.
+	BundleID      string
+	BundleVersion string
+	GraphID       string
+	GraphNodeID   string
 }
 
 // Runner implements AgentRunner using a local Ollama server.
@@ -160,6 +176,7 @@ type Runner struct {
 	plugins  *plugins.Registry
 	ollama   *ollama.Client
 	events   observe.Sink
+	policy   *internalpolicy.Engine
 }
 
 // Ensure Runner satisfies the AgentRunner interface at compile time.
@@ -175,7 +192,7 @@ func New(cfg Config) (*Runner, error) {
 	}
 	pluginRegistry := cfg.RuntimePlugins
 	if pluginRegistry == nil {
-		pluginRegistry = defaultRuntimePlugins()
+		pluginRegistry = defaultRuntimePlugins(cfg.rootFS())
 	}
 	eventSink := cfg.EventSink
 	if eventSink == nil {
@@ -190,12 +207,22 @@ func New(cfg Config) (*Runner, error) {
 		plugins:  pluginRegistry,
 		ollama:   oc,
 		events:   eventSink,
+		policy:   cfg.PolicyEngine,
 	}, nil
 }
 
-func defaultRuntimePlugins() *plugins.Registry {
-	reg := plugins.NewRegistry(kubeplugin.New())
+func defaultRuntimePlugins(root fs.FS) *plugins.Registry {
+	reg := plugins.NewRegistry(
+		kubeplugin.New(),
+		githublocal.New(root),
+		localdocs.New(root),
+		filesystem.New(root),
+		goproject.New(root),
+	)
 	reg.Alias("kubectl", "kubernetes")
+	reg.Alias("docs", "localdocs")
+	reg.Alias("fs", "filesystem")
+	reg.Alias("go", "goproject")
 	return reg
 }
 
@@ -253,7 +280,7 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 	start := time.Now()
 	runID := newRunID()
 	emit := func(res result.RunResult) result.RunResult {
-		_ = r.events.ObserveRun(context.WithoutCancel(ctx), runEventFromResult(runID, req.Metadata, res))
+		_ = r.events.ObserveRun(context.WithoutCancel(ctx), runEventFromResult(runID, req, res))
 		return res
 	}
 
@@ -279,6 +306,29 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 					name, req.AgentID, strings.Join(spec.AllowedSkills, ", ")))
 			res.SkillsUsed = append([]string{}, req.SkillNames...)
 			res.ContextBudget = spec.ContextBudget
+			return emit(res), nil
+		}
+	}
+
+	policyDecision := policypkg.Allow("no policy configured")
+	if r.policy != nil {
+		policyDecision = r.policy.Explain(policypkg.Request{
+			AgentID:              req.AgentID,
+			Skills:               append([]string{}, req.SkillNames...),
+			Plugins:              append([]string{}, spec.Tools...),
+			Source:               req.Metadata.Source,
+			WorkspaceID:          req.Metadata.WorkspaceID,
+			BundleID:             req.BundleID,
+			RemoteModelRequested: isRemoteModelRuntime(r.cfg.OllamaHost),
+		})
+		if internalpolicy.IsBlocking(policyDecision) {
+			res := r.validationFail(req.AgentID, spec.Model, start, policyDecision.Reason)
+			res.SkillsUsed = append([]string{}, req.SkillNames...)
+			res.ContextBudget = spec.ContextBudget
+			res.PolicyDecision = policyDecision.Decision
+			res.PolicyReason = policyDecision.Reason
+			res.BundleID = req.BundleID
+			res.BundleVersion = req.BundleVersion
 			return emit(res), nil
 		}
 	}
@@ -315,6 +365,29 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 
 	// ── 7. Collect bounded runtime evidence for declared tools ────────────
 	evidence := collectRuntimeEvidence(ctx, r.plugins, spec, req.Task)
+	if r.policy != nil {
+		policyDecision = r.policy.Explain(policypkg.Request{
+			AgentID:              req.AgentID,
+			Skills:               append([]string{}, req.SkillNames...),
+			Plugins:              append([]string{}, spec.Tools...),
+			Source:               req.Metadata.Source,
+			WorkspaceID:          req.Metadata.WorkspaceID,
+			BundleID:             req.BundleID,
+			EvidenceBytes:        evidence.byteSize,
+			RemoteModelRequested: isRemoteModelRuntime(r.cfg.OllamaHost),
+		})
+		if internalpolicy.IsBlocking(policyDecision) {
+			res := r.validationFail(req.AgentID, spec.Model, start, policyDecision.Reason)
+			res.SkillsUsed = append([]string{}, req.SkillNames...)
+			res.Artifacts = append([]result.Artifact{}, evidence.artifacts...)
+			res.ContextBudget = spec.ContextBudget
+			res.PolicyDecision = policyDecision.Decision
+			res.PolicyReason = policyDecision.Reason
+			res.BundleID = req.BundleID
+			res.BundleVersion = req.BundleVersion
+			return emit(res), nil
+		}
+	}
 	task := req.Task
 	if evidence.promptBlock != "" {
 		task += evidence.promptBlock
@@ -369,6 +442,10 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 			ContextBudget:         spec.ContextBudget,
 			PromptSizeEstimate:    promptSize,
 			ContextBudgetExceeded: budgetExceeded,
+			PolicyDecision:        policyDecision.Decision,
+			PolicyReason:          policyDecision.Reason,
+			BundleID:              req.BundleID,
+			BundleVersion:         req.BundleVersion,
 			Usage:                 result.Usage{DurationMS: elapsed.Milliseconds()},
 		}), nil
 	}
@@ -397,6 +474,10 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 		ContextBudget:         spec.ContextBudget,
 		PromptSizeEstimate:    promptSize,
 		ContextBudgetExceeded: budgetExceeded,
+		PolicyDecision:        policyDecision.Decision,
+		PolicyReason:          policyDecision.Reason,
+		BundleID:              req.BundleID,
+		BundleVersion:         req.BundleVersion,
 	}), nil
 }
 
@@ -413,11 +494,14 @@ func (r *Runner) validationFail(agentID, model string, start time.Time, msg stri
 	}
 }
 
-func runEventFromResult(runID string, meta observe.Metadata, res result.RunResult) observe.RunEvent {
+func runEventFromResult(runID string, req RunRequest, res result.RunResult) observe.RunEvent {
 	event := observe.RunEvent{
 		Timestamp:                time.Now().UTC(),
 		RunID:                    runID,
-		Metadata:                 meta,
+		GraphID:                  req.GraphID,
+		GraphNodeID:              req.GraphNodeID,
+		EventKind:                eventKind(req.GraphID, req.GraphNodeID),
+		Metadata:                 req.Metadata,
 		AgentID:                  res.AgentID,
 		Model:                    res.Model,
 		Status:                   res.Status,
@@ -428,8 +512,13 @@ func runEventFromResult(runID string, meta observe.Metadata, res result.RunResul
 		ContextBudget:            res.ContextBudget,
 		PromptSizeEstimate:       res.PromptSizeEstimate,
 		ContextBudgetExceeded:    res.ContextBudgetExceeded,
+		PolicyDecision:           res.PolicyDecision,
+		PolicyReason:             res.PolicyReason,
+		BundleID:                 res.BundleID,
+		BundleVersion:            res.BundleVersion,
 		ValidationError:          res.ValidationError,
 	}
+	event.Plugins = pluginLabels(res.Artifacts)
 	if res.Status == result.StatusError || res.Status == result.StatusTimeout {
 		event.Error = res.Summary
 	}
@@ -439,10 +528,47 @@ func runEventFromResult(runID string, meta observe.Metadata, res result.RunResul
 	return event
 }
 
+func eventKind(graphID, graphNodeID string) string {
+	if graphID != "" && graphNodeID != "" {
+		return "graph_node"
+	}
+	return "run"
+}
+
+func pluginLabels(artifacts []result.Artifact) []string {
+	var out []string
+	for _, artifact := range artifacts {
+		if strings.HasPrefix(artifact.Label, "runtime-plugin:") {
+			out = append(out, strings.TrimPrefix(artifact.Label, "runtime-plugin:"))
+		}
+	}
+	return out
+}
+
 func newRunID() string {
 	var b [16]byte
 	if _, err := rand.Read(b[:]); err != nil {
 		return fmt.Sprintf("run-%d", time.Now().UnixNano())
 	}
 	return hex.EncodeToString(b[:])
+}
+
+func isRemoteModelRuntime(host string) bool {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return false
+	}
+	u, err := url.Parse(host)
+	if err != nil || u.Hostname() == "" {
+		return false
+	}
+	name := strings.ToLower(u.Hostname())
+	if name == "localhost" || name == "::1" {
+		return false
+	}
+	ip := net.ParseIP(name)
+	if ip != nil {
+		return !(ip.IsLoopback() || ip.IsUnspecified())
+	}
+	return true
 }

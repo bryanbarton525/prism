@@ -37,7 +37,16 @@ Example Cursor mcp.json:
     }
   }`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			runner, cleanup, err := newRunner(cmd.Context())
+			policyEngine, err := configuredPolicyEngine()
+			if err != nil {
+				return err
+			}
+			eventSink, closeEventSink, err := configuredEventSink()
+			if err != nil {
+				return err
+			}
+			defer closeEventSink()
+			runner, cleanup, err := newRunnerWithControls(cmd.Context(), eventSink, policyEngine)
 			if err != nil {
 				return fmt.Errorf("initializing runtime: %w", err)
 			}
@@ -48,9 +57,9 @@ Example Cursor mcp.json:
 			logger.Printf("ollama: %s", gf.ollamaHost)
 			logger.Printf("root: %s", gf.rootDir)
 			logger.Printf("agents: %s", resolvedAgentDir())
-			logger.Println("tools: list_agents, run_agent, get_constitution, doctor")
+			logger.Println("tools: list_agents, run_agent, get_constitution, doctor, suggest_route, run_graph, explain_policy, list_policies")
 
-			if err := mcp.Serve(context.Background(), runner); err != nil {
+			if err := mcp.ServeWithConfig(context.Background(), runner, mcp.Config{Policy: policyEngine, EventSink: eventSink}); err != nil {
 				return fmt.Errorf("mcp server: %w", err)
 			}
 			return nil

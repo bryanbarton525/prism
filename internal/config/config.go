@@ -18,6 +18,9 @@ type Settings struct {
 	SkillsDir   string
 	OllamaHost  string
 	GitHubToken string
+	EventStore  string
+	PolicyFile  string
+	StateDir    string
 }
 
 // Load reads configuration from defaults, an optional .env file in the current
@@ -39,6 +42,7 @@ func newViper() *viper.Viper {
 	v.AutomaticEnv()
 
 	v.SetDefault("ollama_host", DefaultOllamaHost)
+	v.SetDefault("state_dir", defaultStateDir())
 
 	_ = v.BindEnv("github_token", "PRISM_GITHUB_TOKEN", "PRISM_GH_TOKEN", "GITHUB_TOKEN", "GH_TOKEN")
 	return v
@@ -49,12 +53,16 @@ func settingsFrom(v *viper.Viper) Settings {
 	if rootDir == "" {
 		rootDir = defaultRoot()
 	}
+	stateDir := firstNonEmpty(v.GetString("PRISM_STATE_DIR"), v.GetString("state_dir"))
 	return Settings{
 		RootDir:     rootDir,
 		AgentDir:    firstNonEmpty(v.GetString("agent_dir"), v.GetString("PRISM_AGENT_DIR")),
 		SkillsDir:   firstNonEmpty(v.GetString("skills_dir"), v.GetString("PRISM_SKILLS_DIR")),
 		OllamaHost:  firstNonEmpty(v.GetString("PRISM_OLLAMA_HOST"), v.GetString("ollama_host")),
 		GitHubToken: firstNonEmpty(v.GetString("github_token"), v.GetString("PRISM_GITHUB_TOKEN"), v.GetString("PRISM_GH_TOKEN"), v.GetString("GITHUB_TOKEN"), v.GetString("GH_TOKEN")),
+		EventStore:  firstNonEmpty(v.GetString("PRISM_EVENT_STORE"), v.GetString("event_store")),
+		PolicyFile:  firstNonEmpty(v.GetString("PRISM_POLICY_FILE"), v.GetString("policy_file")),
+		StateDir:    stateDir,
 	}
 }
 
@@ -72,6 +80,13 @@ func defaultRoot() string {
 		return cwd
 	}
 	return "."
+}
+
+func defaultStateDir() string {
+	if home, err := os.UserHomeDir(); err == nil {
+		return home + "/.prism"
+	}
+	return ".prism"
 }
 
 func isConfigNotFound(err error) bool {

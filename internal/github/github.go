@@ -73,7 +73,7 @@ func IsURL(rawURL string) bool {
 // contentEntry is the JSON shape returned by the GitHub Contents API for a
 // single file or one element in a directory listing.
 type contentEntry struct {
-	Type     string `json:"type"`     // "file" or "dir"
+	Type     string `json:"type"` // "file" or "dir"
 	Name     string `json:"name"`
 	Path     string `json:"path"`
 	Size     int64  `json:"size"`
@@ -299,7 +299,9 @@ type ghDir struct {
 
 func (d *ghDir) Stat() (fs.FileInfo, error) { return d.info, nil }
 func (d *ghDir) Close() error               { return nil }
-func (d *ghDir) Read([]byte) (int, error)   { return 0, &fs.PathError{Op: "read", Path: d.info.name, Err: fmt.Errorf("is a directory")} }
+func (d *ghDir) Read([]byte) (int, error) {
+	return 0, &fs.PathError{Op: "read", Path: d.info.name, Err: fmt.Errorf("is a directory")}
+}
 func (d *ghDir) ReadDir(n int) ([]fs.DirEntry, error) {
 	if n <= 0 {
 		all := d.entries[d.offset:]

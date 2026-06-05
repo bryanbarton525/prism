@@ -39,7 +39,7 @@ type Finding struct {
 
 // Artifact is an inline data artifact returned by the model.
 type Artifact struct {
-	Type    string `json:"type,omitempty"`  // snippet | url | file | command_output
+	Type    string `json:"type,omitempty"` // snippet | url | file | command_output
 	Label   string `json:"label,omitempty"`
 	Content string `json:"content"`
 }
@@ -72,7 +72,11 @@ type RunResult struct {
 	PromptSizeEstimate int `json:"prompt_size_estimate,omitempty"`
 	// ContextBudgetExceeded is true when the assembled prompt exceeded the
 	// agent's declared context_budget (using ~4 chars/token heuristic).
-	ContextBudgetExceeded bool `json:"context_budget_exceeded,omitempty"`
+	ContextBudgetExceeded bool   `json:"context_budget_exceeded,omitempty"`
+	PolicyDecision        string `json:"policy_decision,omitempty"`
+	PolicyReason          string `json:"policy_reason,omitempty"`
+	BundleID              string `json:"bundle_id,omitempty"`
+	BundleVersion         string `json:"bundle_version,omitempty"`
 
 	// RawOutput stores the unmodified model response for debugging.
 	RawOutput string `json:"raw_output,omitempty"`
