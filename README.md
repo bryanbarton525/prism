@@ -4,7 +4,7 @@
 
 **Keep your AI editor or MCP host as the orchestrator. Offload narrow, governed work to local Ollama specialists.**
 
-Prism is an open-source, local-first AI offload control plane. It runs tool-specific agents on [Ollama](https://ollama.com/) — GitHub CI, Kubernetes, Argo, docs lookup, Go codegen — and returns compact JSON summaries. Your paid model sees a short brief, not every skill, constitution, runbook, and evidence dump.
+Prism is an open-source, local-first AI offload control plane. It runs tool-specific agents on [Ollama](https://ollama.com/) — GitHub CI, Kubernetes, Argo, Linear issue workflows, docs lookup, Go codegen — and returns compact JSON summaries. Your paid model sees a short brief, not every skill, constitution, runbook, and evidence dump.
 
 ## Why use it
 
@@ -107,11 +107,14 @@ Available tools include:
 
 - core: `list_agents`, `run_agent`, `get_constitution`, `doctor`
 - control plane: `suggest_route`, `run_graph`, `explain_policy`, `list_policies`
+- downstream MCP: `list_mcp_servers`, `list_mcp_server_tools`, `call_mcp_tool`
 - prompt/resource compatibility: `list_prompts`, `get_prompt`, `list_resources`, `get_resource`
 
 Typical flow: paste a **short brief** → delegate evidence-heavy subtasks to specialists → synthesize their compact summaries. Do not paste all skills and evidence into chat.
 
-When an agent declares `tools:` in its spec, Prism resolves those names through its runtime plugin registry before the local model runs. Built-in v1 plugins are read-only and bounded: `kubernetes`, `github` (repo-local `.github` metadata), `localdocs`, `filesystem`, and `goproject`. The Kubernetes agent declares `kubernetes`, so Prism collects bounded read-only cluster evidence with the native Kubernetes client and returns it as `runtime-plugin:kubernetes` plus structured `evidence-pack:*` artifacts for the specialist to analyze.
+When an agent declares `tools:` in its spec, Prism resolves those names through its runtime plugin registry before the local model runs. Built-in v1 plugins are read-only and bounded: `kubernetes`, `github` (repo-local `.github` metadata), `localdocs`, `filesystem`, `goproject`, `linear` (Linear MCP setup context), and `mcp` (configured downstream MCP inventory). The Kubernetes agent declares `kubernetes`, so Prism collects bounded read-only cluster evidence with the native Kubernetes client and returns it as `runtime-plugin:kubernetes` plus structured `evidence-pack:*` artifacts for the specialist to analyze.
+
+Prism can also act as a bounded MCP client to downstream servers. Configure one under `prism mcp server ...`, then use Prism MCP tools `list_mcp_servers`, `list_mcp_server_tools`, and `call_mcp_tool`. Agents that declare `tools: [mcp]` can also let a tool-capable local model call that bridge during the run, so the specialist owns bulky downstream tool surfaces without loading every downstream schema into the parent model.
 
 Runs can also be attributed to signed installed bundles. Pass `--bundle-id` on `prism run` (and optionally `--bundle-version`) or include `bundle_id`/`bundle_version` in MCP `run_agent` calls; policy can check the bundle ID and the event store records the bundle version for dashboard and report summaries.
 
@@ -124,6 +127,7 @@ Full setup, flags, troubleshooting: **[docs/usage.md](docs/usage.md)**
 | ------------------ | ------------------------------------------------ |
 | `github-cli`       | PR triage, GitHub Actions failures               |
 | `kubectl`          | Kubernetes pod/rollout diagnostics via native plugin |
+| `linear`           | Linear issue/project/cycle workflows via MCP offload |
 | `argo`             | Argo CD sync, workflow debug                     |
 | `web-docs-search`  | Docs harvest, release notes                      |
 | `go-helper`        | Small Go helpers and utilities                   |

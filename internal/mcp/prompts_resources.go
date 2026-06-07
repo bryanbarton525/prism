@@ -298,6 +298,11 @@ Optional:
 - bundle_id: installed bundle ID for policy and observability attribution
 - bundle_version: bundle version to record with the run
 
+Related downstream MCP tools:
+- list_mcp_servers: see MCP servers Prism can call on behalf of specialists
+- list_mcp_server_tools: inspect compact downstream tool inventory
+- call_mcp_tool: execute one bounded downstream tool call through Prism
+
 Rules:
 - skill_names must be allowed by the selected agent.
 - bundle_id is checked by policy when policy config declares allowed bundles.
@@ -318,6 +323,7 @@ Keep parent-model context small by delegating evidence-heavy subtasks to Prism s
 ## When to delegate
 - Task includes large evidence blobs (CI logs, cluster state, runbooks, docs, chat exports).
 - Task is domain-specific (GitHub, Kubernetes, Argo, docs lookup, Go codegen/scaffold).
+- Task depends on a bulky downstream MCP server surface that a Prism specialist can own.
 - Work can be split into parallel, bounded subtasks.
 
 ## First-party source policy
@@ -336,8 +342,10 @@ Keep parent-model context small by delegating evidence-heavy subtasks to Prism s
    - prism://resource/tooling/orchestration-guide
    - prism://resource/agent/<agent_id>/constitution (for chosen agent)
 3. Optional: list_prompts and get_prompt to generate valid run_agent payloads.
-4. run_agent with bounded tasks and explicit skill_names.
-5. Synthesize specialist outputs in the parent model.
+4. Optional for MCP-heavy domains: list_mcp_servers and list_mcp_server_tools to expose compact downstream inventory.
+5. run_agent with bounded tasks and explicit skill_names.
+6. Optional after approval: call_mcp_tool for one bounded downstream action.
+7. Synthesize specialist outputs in the parent model.
 
 ## Fail-closed rule
 - Do not emit placeholder or fabricated evidence.

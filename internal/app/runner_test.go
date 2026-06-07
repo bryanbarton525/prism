@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bryanbarton525/prism/internal/downstreammcp"
+	"github.com/bryanbarton525/prism/internal/ollama"
 	"github.com/bryanbarton525/prism/internal/plugins"
 	internalpolicy "github.com/bryanbarton525/prism/internal/policy"
 	"github.com/bryanbarton525/prism/internal/result"
@@ -159,6 +161,35 @@ Use read-only kubectl evidence.
 `
 }
 
+func linearSpec() string {
+	return `---
+id: linear
+name: Linear
+description: Manage Linear issue workflows.
+model: llama3.1:8b
+context_budget: 8192
+allowed_skills:
+  - linear-issue-management
+latency_budget_ms: 30000
+temperature: 0.1
+tools:
+  - mcp
+---
+
+# Linear agent
+`
+}
+
+func linearSkill() string {
+	return `---
+name: linear-issue-management
+description: Manage Linear issues.
+---
+
+Use downstream MCP tools for Linear reads and writes.
+`
+}
+
 type fakeRuntimePlugin struct {
 	name    string
 	content string
@@ -186,6 +217,23 @@ type captureSink struct {
 func (c *captureSink) ObserveRun(_ context.Context, event observe.RunEvent) error {
 	c.events = append(c.events, event)
 	return nil
+}
+
+type fakeDownstreamMCP struct {
+	calls []string
+}
+
+func (f *fakeDownstreamMCP) Servers() []downstreammcp.Server {
+	return []downstreammcp.Server{{Name: "linear", Transport: downstreammcp.TransportCommand, Command: "linear-mcp"}}
+}
+
+func (f *fakeDownstreamMCP) ListTools(context.Context, string, downstreammcp.ListToolsOptions) ([]downstreammcp.ToolSummary, error) {
+	return []downstreammcp.ToolSummary{{Name: "create_issue", Description: "Create a Linear issue"}}, nil
+}
+
+func (f *fakeDownstreamMCP) CallTool(_ context.Context, server, tool string, _ map[string]any) (downstreammcp.CallResult, error) {
+	f.calls = append(f.calls, server+"."+tool)
+	return downstreammcp.CallResult{Server: server, Tool: tool, Content: `{"issue":"ENG-123","title":"Rollout follow-up"}`}, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -572,6 +620,116 @@ func TestRunner_Run_KubectlToolCollectsEvidence(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected runtime-plugin:kubernetes artifact, got %#v", res.Artifacts)
+	}
+}
+
+func TestRunner_Run_MCPToolLoopExecutesDownstreamCall(t *testing.T) {
+	root := makeTestRoot(t,
+		map[string]string{"linear.md": linearSpec()},
+		map[string]string{"linear-issue-management": linearSkill()},
+	)
+	downstream := &fakeDownstreamMCP{}
+	var requests []ollama.ChatRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/version", "/api/tags":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+		case "/api/chat":
+			var req ollama.ChatRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode chat request: %v", err)
+			}
+			requests = append(requests, req)
+			w.Header().Set("Content-Type", "application/json")
+			if len(requests) == 1 {
+				if len(req.Tools) == 0 {
+					t.Fatal("expected Prism MCP bridge tools in first request")
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"model": "llama3.1:8b",
+					"message": map[string]any{
+						"role":    "assistant",
+						"content": "",
+						"tool_calls": []map[string]any{{
+							"function": map[string]any{
+								"name": "call_mcp_tool",
+								"arguments": map[string]any{
+									"server": "linear",
+									"tool":   "create_issue",
+									"arguments": map[string]any{
+										"title": "Rollout follow-up",
+									},
+								},
+							},
+						}},
+					},
+					"done":              true,
+					"prompt_eval_count": 100,
+					"eval_count":        5,
+				})
+				return
+			}
+			var sawToolResult bool
+			for _, msg := range req.Messages {
+				if msg.Role == "tool" && msg.ToolName == "call_mcp_tool" && strings.Contains(msg.Content, "ENG-123") {
+					sawToolResult = true
+				}
+			}
+			if !sawToolResult {
+				t.Fatal("second request did not include downstream tool result")
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"model": "llama3.1:8b",
+				"message": map[string]any{
+					"role":    "assistant",
+					"content": `{"summary":"created Linear issue ENG-123","findings":["tool result used"],"confidence":"high"}`,
+				},
+				"done":              true,
+				"prompt_eval_count": 120,
+				"eval_count":        12,
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	runner, err := New(Config{RootDir: root, OllamaHost: srv.URL, DownstreamMCP: downstream})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+	res, err := runner.Run(context.Background(), RunRequest{
+		AgentID:    "linear",
+		Task:       "Create a Linear issue for rollout follow-up.",
+		SkillNames: []string{"linear-issue-management"},
+	})
+	if err != nil {
+		t.Fatalf("Run(): %v", err)
+	}
+	if res.Status != result.StatusOK {
+		t.Fatalf("status = %s summary=%s", res.Status, res.Summary)
+	}
+	if len(downstream.calls) != 1 || downstream.calls[0] != "linear.create_issue" {
+		t.Fatalf("downstream calls = %#v", downstream.calls)
+	}
+	var found bool
+	for _, artifact := range res.Artifacts {
+		if artifact.Label == "mcp-tool:linear.create_issue" {
+			found = true
+			if !strings.Contains(artifact.Content, "ENG-123") {
+				t.Fatalf("tool artifact missing result: %s", artifact.Content)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected mcp tool artifact, got %#v", res.Artifacts)
+	}
+	if len(requests) != 2 {
+		t.Fatalf("chat request count = %d, want 2", len(requests))
+	}
+	if res.Usage.PromptTokensEstimate != 220 || res.Usage.CompletionTokensEstimate != 17 {
+		t.Fatalf("usage = %#v", res.Usage)
 	}
 }
 

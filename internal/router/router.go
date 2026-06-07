@@ -90,6 +90,14 @@ type candidate struct {
 
 func candidateRules(task string) []candidate {
 	var out []candidate
+	if containsAny(task, "linear", "linear issue", "linear ticket", "linear project", "linear cycle", "linear roadmap") {
+		out = append(out, candidate{
+			AgentID:    "linear",
+			SkillNames: []string{"linear-issue-management"},
+			Reason:     "The task references Linear issue, project, cycle, or roadmap workflows.",
+			Risk:       "requires_write_approval",
+		})
+	}
 	if containsAny(task, "kubernetes", "kubectl", "pod", "deployment", "rollout", "namespace", "crashloop", "imagepullbackoff") {
 		out = append(out, candidate{
 			AgentID:    "kubectl",

@@ -1,0 +1,11 @@
+version: 1
+skill: frontend-localstorage
+cases:
+  - name: persist todo state
+    prompt: "Add localStorage persistence to a vanilla todo app and describe the state keys used."
+    expected:
+      includes:
+        - localStorage
+        - state
+        - persistence
+        - code

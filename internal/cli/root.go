@@ -108,3 +108,7 @@ func installedBundlesPath() string {
 func registrySourcesPath() string {
 	return filepath.Join(gf.stateDir, "registry-sources.yaml")
 }
+
+func mcpServersPath() string {
+	return filepath.Join(gf.stateDir, "mcp-servers.yaml")
+}

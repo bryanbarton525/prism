@@ -1,0 +1,11 @@
+version: 1
+skill: frontend-readme
+cases:
+  - name: frontend usage notes
+    prompt: "Write concise README usage notes for running and testing a vanilla frontend app locally."
+    expected:
+      includes:
+        - README
+        - run
+        - test
+        - local

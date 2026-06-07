@@ -11,6 +11,7 @@ import (
 
 	"github.com/bryanbarton525/prism/internal/agent"
 	"github.com/bryanbarton525/prism/internal/app"
+	"github.com/bryanbarton525/prism/internal/downstreammcp"
 	internalgraph "github.com/bryanbarton525/prism/internal/graph"
 	internalpolicy "github.com/bryanbarton525/prism/internal/policy"
 	"github.com/bryanbarton525/prism/internal/result"
@@ -31,8 +32,9 @@ func Serve(ctx context.Context, runner app.AgentRunner) error {
 }
 
 type Config struct {
-	Policy    *internalpolicy.Engine
-	EventSink observe.Sink
+	Policy        *internalpolicy.Engine
+	EventSink     observe.Sink
+	DownstreamMCP *downstreammcp.Client
 }
 
 func ServeWithConfig(ctx context.Context, runner app.AgentRunner, cfg Config) error {
@@ -84,6 +86,21 @@ func registerTools(srv *mcpsdk.Server, runner app.AgentRunner, cfg Config) {
 		Name:        "list_policies",
 		Description: "List configured Prism policy sources visible to this MCP server.",
 	}, listPoliciesHandler(cfg.Policy))
+
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "list_mcp_servers",
+		Description: "List downstream MCP servers configured for Prism to call.",
+	}, listMCPServersHandler(cfg.DownstreamMCP))
+
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "list_mcp_server_tools",
+		Description: "List compact tool inventory for a downstream MCP server.",
+	}, listMCPServerToolsHandler(cfg.DownstreamMCP))
+
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "call_mcp_tool",
+		Description: "Call one tool on a configured downstream MCP server and return a bounded result.",
+	}, callMCPToolHandler(cfg.DownstreamMCP))
 
 	// Compatibility tools for MCP hosts that do not yet support native prompts/resources.
 	mcpsdk.AddTool(srv, &mcpsdk.Tool{
@@ -273,6 +290,81 @@ func listPoliciesHandler(policy *internalpolicy.Engine) func(context.Context, *m
 			out.Reason = "policy configured for this MCP server"
 		}
 		return textResult(marshalJSON(out)), out, nil
+	}
+}
+
+type ListMCPServersInput struct{}
+
+type ListMCPServersOutput struct {
+	Configured bool                   `json:"configured"`
+	Servers    []downstreammcp.Server `json:"servers"`
+}
+
+func listMCPServersHandler(client *downstreammcp.Client) func(context.Context, *mcpsdk.CallToolRequest, ListMCPServersInput) (*mcpsdk.CallToolResult, ListMCPServersOutput, error) {
+	return func(_ context.Context, _ *mcpsdk.CallToolRequest, _ ListMCPServersInput) (*mcpsdk.CallToolResult, ListMCPServersOutput, error) {
+		out := ListMCPServersOutput{}
+		if client != nil {
+			out.Servers = client.Servers()
+			out.Configured = len(out.Servers) > 0
+		}
+		return textResult(marshalJSON(out)), out, nil
+	}
+}
+
+type ListMCPServerToolsInput struct {
+	Server        string `json:"server"`
+	IncludeSchema bool   `json:"include_schema,omitempty"`
+	MaxTools      int    `json:"max_tools,omitempty"`
+}
+
+type ListMCPServerToolsOutput struct {
+	Server string                      `json:"server"`
+	Tools  []downstreammcp.ToolSummary `json:"tools"`
+	Count  int                         `json:"count"`
+}
+
+func listMCPServerToolsHandler(client *downstreammcp.Client) func(context.Context, *mcpsdk.CallToolRequest, ListMCPServerToolsInput) (*mcpsdk.CallToolResult, ListMCPServerToolsOutput, error) {
+	return func(ctx context.Context, _ *mcpsdk.CallToolRequest, input ListMCPServerToolsInput) (*mcpsdk.CallToolResult, ListMCPServerToolsOutput, error) {
+		if client == nil {
+			return nil, ListMCPServerToolsOutput{}, fmt.Errorf("downstream MCP client is not configured")
+		}
+		if input.Server == "" {
+			return nil, ListMCPServerToolsOutput{}, fmt.Errorf("list_mcp_server_tools: server is required")
+		}
+		tools, err := client.ListTools(ctx, input.Server, downstreammcp.ListToolsOptions{IncludeSchema: input.IncludeSchema, MaxTools: input.MaxTools})
+		if err != nil {
+			return nil, ListMCPServerToolsOutput{}, err
+		}
+		out := ListMCPServerToolsOutput{Server: input.Server, Tools: tools, Count: len(tools)}
+		return textResult(marshalJSON(out)), out, nil
+	}
+}
+
+type CallMCPToolInput struct {
+	Server    string         `json:"server"`
+	Tool      string         `json:"tool"`
+	Arguments map[string]any `json:"arguments,omitempty"`
+}
+
+func callMCPToolHandler(client *downstreammcp.Client) func(context.Context, *mcpsdk.CallToolRequest, CallMCPToolInput) (*mcpsdk.CallToolResult, downstreammcp.CallResult, error) {
+	return func(ctx context.Context, _ *mcpsdk.CallToolRequest, input CallMCPToolInput) (*mcpsdk.CallToolResult, downstreammcp.CallResult, error) {
+		if client == nil {
+			return nil, downstreammcp.CallResult{}, fmt.Errorf("downstream MCP client is not configured")
+		}
+		if input.Server == "" {
+			return nil, downstreammcp.CallResult{}, fmt.Errorf("call_mcp_tool: server is required")
+		}
+		if input.Tool == "" {
+			return nil, downstreammcp.CallResult{}, fmt.Errorf("call_mcp_tool: tool is required")
+		}
+		if input.Arguments == nil {
+			input.Arguments = map[string]any{}
+		}
+		res, err := client.CallTool(ctx, input.Server, input.Tool, input.Arguments)
+		if err != nil {
+			return nil, downstreammcp.CallResult{}, err
+		}
+		return textResult(marshalJSON(res)), res, nil
 	}
 }
 

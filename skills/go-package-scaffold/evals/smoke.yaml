@@ -1,0 +1,11 @@
+version: 1
+skill: go-package-scaffold
+cases:
+  - name: package scaffold
+    prompt: "Scaffold a Go package for parsing route suggestions with a small public API and test outline."
+    expected:
+      includes:
+        - package
+        - API
+        - tests
+        - files

@@ -46,3 +46,20 @@ func TestSuggestKubernetes(t *testing.T) {
 		t.Fatalf("skills = %#v", res.SkillNames)
 	}
 }
+
+func TestSuggestLinear(t *testing.T) {
+	r := New(fakeLister{{ID: "linear", AllowedSkills: []string{"linear-issue-management"}}}, nil)
+	res, err := r.Suggest(context.Background(), Request{Task: "Create a Linear issue for checkout-api rollout follow-up", Source: "cli"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.AgentID != "linear" {
+		t.Fatalf("agent = %q, want linear", res.AgentID)
+	}
+	if len(res.SkillNames) != 1 || res.SkillNames[0] != "linear-issue-management" {
+		t.Fatalf("skills = %#v", res.SkillNames)
+	}
+	if res.Risk != "requires_write_approval" {
+		t.Fatalf("risk = %q", res.Risk)
+	}
+}

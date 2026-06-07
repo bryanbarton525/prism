@@ -1,0 +1,11 @@
+version: 1
+skill: argo-sync-health
+cases:
+  - name: argo app degraded
+    prompt: "Argo CD app checkout-api is degraded and out of sync in namespace argocd. Summarize safe sync-health checks."
+    expected:
+      includes:
+        - argo
+        - sync
+        - health
+        - evidence

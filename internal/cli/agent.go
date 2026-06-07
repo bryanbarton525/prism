@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bryanbarton525/prism/internal/app"
+	"github.com/bryanbarton525/prism/internal/downstreammcp"
 	"github.com/bryanbarton525/prism/internal/events"
 	internalpolicy "github.com/bryanbarton525/prism/internal/policy"
 	"github.com/bryanbarton525/prism/internal/rootresolver"
@@ -208,14 +209,20 @@ func newRunnerWithControls(ctx context.Context, sink observe.Sink, policyEngine 
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("resolving root %q: %w", gf.rootDir, err)
 	}
+	mcpState, err := downstreammcp.Load(mcpServersPath())
+	if err != nil {
+		cleanup()
+		return nil, func() {}, fmt.Errorf("loading downstream MCP servers: %w", err)
+	}
 	runner, err := app.New(app.Config{
-		RootFS:       rootFS,
-		RootLabel:    gf.rootDir,
-		AgentDir:     gf.agentDir,
-		SkillsDir:    gf.skillsDir,
-		OllamaHost:   gf.ollamaHost,
-		EventSink:    sink,
-		PolicyEngine: policyEngine,
+		RootFS:        rootFS,
+		RootLabel:     gf.rootDir,
+		AgentDir:      gf.agentDir,
+		SkillsDir:     gf.skillsDir,
+		OllamaHost:    gf.ollamaHost,
+		EventSink:     sink,
+		PolicyEngine:  policyEngine,
+		DownstreamMCP: downstreammcp.New(mcpState),
 	})
 	if err != nil {
 		cleanup()

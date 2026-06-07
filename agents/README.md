@@ -57,6 +57,7 @@ All agents are live and loaded at startup:
 
 - `agents/github-cli.md` — PR triage, GitHub Actions failures
 - `agents/kubectl.md` — Kubernetes pod/rollout diagnostics via native plugin
+- `agents/linear.md` — Linear issue/project/cycle workflows via MCP offload
 - `agents/argo.md` — Argo CD sync, workflow debug
 - `agents/web-docs-search.md` — docs harvest, release notes
 - `agents/go-helper.md` — small Go helpers and pure utilities

@@ -1,0 +1,11 @@
+version: 1
+skill: kubectl-triage
+cases:
+  - name: pod crash triage
+    prompt: "Triage CrashLoopBackOff pods in namespace payments and separate events, logs, and workload state."
+    expected:
+      includes:
+        - pods
+        - events
+        - logs
+        - namespace

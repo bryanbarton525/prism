@@ -50,6 +50,13 @@ func newSkillTestCmd() *cobra.Command {
 				if !fileExists(filepath.Join(gf.skillsDirOrDefault(), results[i].Name, "references")) {
 					results[i].Warnings = append(results[i].Warnings, "no references directory")
 				}
+				count, err := skill.ValidateEvals(os.DirFS(gf.skillsDirOrDefault()), results[i].Name)
+				if err != nil {
+					results[i].OK = false
+					results[i].Errors = append(results[i].Errors, err.Error())
+					continue
+				}
+				results[i].Evals = count
 			}
 			return printSkillResults(results)
 		},
@@ -83,6 +90,7 @@ type skillResult struct {
 	Chars    int      `json:"chars"`
 	Errors   []string `json:"errors,omitempty"`
 	Warnings []string `json:"warnings,omitempty"`
+	Evals    int      `json:"evals,omitempty"`
 }
 
 func lintSkills(args []string) []skillResult {
@@ -117,6 +125,10 @@ func lintSkills(args []string) []skillResult {
 			res.OK = false
 			res.Errors = append(res.Errors, err.Error())
 		}
+		if err := skill.ValidateStructure(fsys, name); err != nil {
+			res.OK = false
+			res.Errors = append(res.Errors, err.Error())
+		}
 		if !strings.Contains(string(data), "##") {
 			res.Warnings = append(res.Warnings, "no markdown section headings")
 		}
@@ -138,7 +150,11 @@ func printSkillResults(results []skillResult) error {
 			status = "fail"
 			ok = false
 		}
-		fmt.Printf("%s\t%s\t%d chars\n", status, res.Name, res.Chars)
+		if res.Evals > 0 {
+			fmt.Printf("%s\t%s\t%d chars\t%d eval(s)\n", status, res.Name, res.Chars, res.Evals)
+		} else {
+			fmt.Printf("%s\t%s\t%d chars\n", status, res.Name, res.Chars)
+		}
 		for _, err := range res.Errors {
 			fmt.Printf("  error: %s\n", err)
 		}

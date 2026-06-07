@@ -39,25 +39,44 @@ Each skill is a directory with a required `SKILL.md` file:
 skills/
 |-- gh-pr-triage/
 |   |-- SKILL.md
+|   |-- evals/
 |   |-- references/
 |   `-- scripts/
 `-- README.md
 ```
 
-Prism requirement: every skill directory must include both `references/` and
-`scripts/` so the runtime can pass focused documentation, helper CLIs, and
-deterministic data-collection logic to the local agent. `assets/` remains
-optional.
+Prism requirement: every skill directory must include `evals/`, `references/`,
+and `scripts/` so the runtime can pass focused documentation, helper CLIs, and
+deterministic data-collection logic to the local agent while keeping skill
+quality testable. `assets/` remains optional.
 
 ## Required per-skill structure
 
 Every `skills/<name>/` directory must contain:
 
 - `SKILL.md`
+- `evals/*.yaml` with at least one realistic evaluation case
 - `references/REFERENCE.md` (or equivalent focused docs)
 - `scripts/` with one or more executable helpers for repeatable data gathering
 
 This is a hard project rule for Prism, not just a recommendation.
+
+Eval files use a small deterministic YAML shape:
+
+```yaml
+version: 1
+skill: gh-pr-triage
+cases:
+  - name: blocked pull request
+    prompt: "Triage PR #42 for merge readiness."
+    expected:
+      includes:
+        - checks
+        - reviews
+```
+
+`prism skill test` validates that each skill has at least one eval YAML file and
+that every case has a prompt plus expected include/exclude markers.
 
 ## Authoring baseline
 

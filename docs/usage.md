@@ -32,6 +32,7 @@ Prism resolves paths relative to `**--root**` (default: current working director
 | Event store  | `--event-store` | `PRISM_EVENT_STORE`  |
 | Policy file  | `--policy-file` | `PRISM_POLICY_FILE`  |
 | GitHub token | —               | `PRISM_GITHUB_TOKEN`, `PRISM_GH_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN` |
+| Linear MCP URL | —            | `PRISM_LINEAR_MCP_URL` |
 
 
 Example running from another directory:
@@ -357,7 +358,7 @@ Example for Cursor (`~/.cursor/mcp.json`). Other MCP-compatible editors use equi
 ```
 
 After saving, reload MCP servers in your editor settings. The **prism** server should list:
-- Core tools: `list_agents`, `run_agent`, `get_constitution`, `doctor`, `suggest_route`, `run_graph`, `explain_policy`, `list_policies`
+- Core tools: `list_agents`, `run_agent`, `get_constitution`, `doctor`, `suggest_route`, `run_graph`, `explain_policy`, `list_policies`, `list_mcp_servers`, `list_mcp_server_tools`, `call_mcp_tool`
 - Compatibility tools: `list_prompts`, `get_prompt`, `list_resources`, `get_resource`
 
 For a local Gemini MCP config, this repository also includes a helper at `scripts/install_mcp.py`. Review the paths in the script first, then run it from the repo root with `python3 scripts/install_mcp.py`.
@@ -406,6 +407,8 @@ Built-in v1 plugins:
 - `localdocs` / alias `docs`: bounded search over `docs/`, README, and Markdown files.
 - `filesystem` / alias `fs`: bounded read-only search over common repo text files.
 - `goproject` / alias `go`: bounded Go project metadata from `go.mod` and package paths.
+- `linear`: Linear MCP setup context, issue-key extraction, and operation hints. This plugin does not execute Linear writes.
+- `mcp`: compact inventory for configured downstream MCP servers. This lets a local specialist inspect downstream tool names without loading every downstream tool schema into the parent orchestrator.
 
 The `kubectl` agent declares:
 
@@ -415,6 +418,47 @@ tools:
 ```
 
 That means Prism uses Kubernetes client-go APIs and does not shell out to `kubectl` for runtime evidence. Results are labeled `runtime-plugin:kubernetes`; structured evidence packs are returned as `evidence-pack:*` artifacts.
+
+The `linear` agent declares:
+
+```yaml
+tools:
+  - linear
+```
+
+That means Prism adds bounded Linear MCP context before the local specialist runs. Configure an authenticated Linear MCP server in the parent MCP host for live searches and mutations. Prism's native plugin returns proposed create/edit/comment/archive actions and evidence artifacts; it does not create or edit Linear issues itself.
+
+### Downstream MCP clients
+
+Prism can also act as a bounded MCP client to downstream MCP servers. This is useful when a specialist should own a bulky tool surface, such as Linear issues/projects/comments, without forcing the parent model to carry all downstream tool schemas.
+
+Configuration is stored in `mcp-servers.yaml` under `--state-dir`.
+
+For Linear, use command transport through `mcp-remote` until Prism's Go SDK path supports Streamable HTTP directly:
+
+```bash
+prism mcp server add-command linear npx -y mcp-remote https://mcp.linear.app/mcp
+prism mcp server list
+prism mcp server tools linear
+```
+
+The Linear OAuth/token flow is handled by the downstream MCP command or its auth cache. Prism does not store Linear API tokens.
+
+Call one downstream tool through Prism:
+
+```bash
+prism mcp server call linear search_issues --args-json '{"query":"checkout rollout"}'
+```
+
+The same bridge is exposed over Prism MCP:
+
+- `list_mcp_servers`
+- `list_mcp_server_tools`
+- `call_mcp_tool`
+
+Use `call_mcp_tool` only after policy and user approval for write-oriented downstream actions.
+
+When an agent declares `tools: [mcp]`, Prism also exposes these bridge functions to the local Ollama chat request as tool definitions. Tool-capable local models may call `list_mcp_servers`, `list_mcp_server_tools`, and `call_mcp_tool` during the specialist run; Prism executes bounded downstream calls, appends the tool result, and asks the model for the final compact result envelope.
 
 ### Tool reference
 
@@ -558,10 +602,11 @@ Suggested order:
 
 1. Create `skills/<name>/` with:
   - `SKILL.md` (frontmatter `name` must match directory name)
+  - `evals/smoke.yaml`
   - `references/REFERENCE.md`
   - `scripts/collect.sh`
 2. Add `<name>` to an agent’s `allowed_skills`.
-3. Verify: `go test ./internal/benchmark/...`
+3. Verify: `prism skill test <name>` and `go test ./internal/benchmark/...`
 
 ### Publish/install via skills.sh CLI
 

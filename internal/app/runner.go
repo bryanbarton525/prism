@@ -16,13 +16,16 @@ import (
 	"time"
 
 	"github.com/bryanbarton525/prism/internal/agent"
+	"github.com/bryanbarton525/prism/internal/downstreammcp"
 	"github.com/bryanbarton525/prism/internal/ollama"
 	"github.com/bryanbarton525/prism/internal/plugins"
 	"github.com/bryanbarton525/prism/internal/plugins/filesystem"
 	"github.com/bryanbarton525/prism/internal/plugins/githublocal"
 	"github.com/bryanbarton525/prism/internal/plugins/goproject"
 	kubeplugin "github.com/bryanbarton525/prism/internal/plugins/kubernetes"
+	"github.com/bryanbarton525/prism/internal/plugins/linear"
 	"github.com/bryanbarton525/prism/internal/plugins/localdocs"
+	"github.com/bryanbarton525/prism/internal/plugins/mcpbridge"
 	internalpolicy "github.com/bryanbarton525/prism/internal/policy"
 	"github.com/bryanbarton525/prism/internal/result"
 	"github.com/bryanbarton525/prism/internal/skill"
@@ -81,6 +84,9 @@ type Config struct {
 	// RuntimePlugins is the optional registry of native plugins exposed to agents.
 	// Defaults to the built-in registry.
 	RuntimePlugins *plugins.Registry
+	// DownstreamMCP is an optional client for configured MCP servers that
+	// specialists can inspect and call through bounded Prism bridge tools.
+	DownstreamMCP DownstreamMCPClient
 	// EventSink receives one stable RunEvent after each Run call. Defaults to a
 	// no-op sink so OSS behavior is unchanged when observability is not enabled.
 	EventSink observe.Sink
@@ -175,8 +181,15 @@ type Runner struct {
 	registry *agent.Registry
 	plugins  *plugins.Registry
 	ollama   *ollama.Client
+	downmcp  DownstreamMCPClient
 	events   observe.Sink
 	policy   *internalpolicy.Engine
+}
+
+type DownstreamMCPClient interface {
+	Servers() []downstreammcp.Server
+	ListTools(context.Context, string, downstreammcp.ListToolsOptions) ([]downstreammcp.ToolSummary, error)
+	CallTool(context.Context, string, string, map[string]any) (downstreammcp.CallResult, error)
 }
 
 // Ensure Runner satisfies the AgentRunner interface at compile time.
@@ -192,7 +205,7 @@ func New(cfg Config) (*Runner, error) {
 	}
 	pluginRegistry := cfg.RuntimePlugins
 	if pluginRegistry == nil {
-		pluginRegistry = defaultRuntimePlugins(cfg.rootFS())
+		pluginRegistry = defaultRuntimePlugins(cfg.rootFS(), cfg.DownstreamMCP)
 	}
 	eventSink := cfg.EventSink
 	if eventSink == nil {
@@ -206,18 +219,21 @@ func New(cfg Config) (*Runner, error) {
 		registry: reg,
 		plugins:  pluginRegistry,
 		ollama:   oc,
+		downmcp:  cfg.DownstreamMCP,
 		events:   eventSink,
 		policy:   cfg.PolicyEngine,
 	}, nil
 }
 
-func defaultRuntimePlugins(root fs.FS) *plugins.Registry {
+func defaultRuntimePlugins(root fs.FS, downstream DownstreamMCPClient) *plugins.Registry {
 	reg := plugins.NewRegistry(
 		kubeplugin.New(),
 		githublocal.New(root),
 		localdocs.New(root),
 		filesystem.New(root),
 		goproject.New(root),
+		linear.New(),
+		mcpbridge.New(downstream),
 	)
 	reg.Alias("kubectl", "kubernetes")
 	reg.Alias("docs", "localdocs")
@@ -395,6 +411,9 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 
 	// ── 8. Assemble prompt with progressive disclosure ────────────────────
 	systemPrompt, userPrompt := assemblePrompt(constitutionText, skills, req.SkillNames, task)
+	if agentUsesMCP(spec) && r.downmcp != nil {
+		systemPrompt += mcpToolLoopInstructions()
+	}
 
 	// ── 9. Context budget enforcement ─────────────────────────────────────
 	promptSize := len(systemPrompt) + len(userPrompt)
@@ -423,7 +442,7 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 		},
 	}
 
-	chatResp, err := r.ollama.Chat(ctx, chatReq)
+	toolChat, err := r.chatWithTools(ctx, chatReq, spec)
 	elapsed := time.Since(start)
 	if err != nil {
 		status := result.StatusError
@@ -449,11 +468,13 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 			Usage:                 result.Usage{DurationMS: elapsed.Milliseconds()},
 		}), nil
 	}
+	chatResp := toolChat.response
 
 	// ── 11. Build normalized result ───────────────────────────────────────
 	rawText := chatResp.Message.Content
 	parsed := result.ParseAgentOutput(rawText, result.DefaultCompactMaxChars)
 	artifacts := append([]result.Artifact{}, evidence.artifacts...)
+	artifacts = append(artifacts, toolChat.artifacts...)
 	artifacts = append(artifacts, parsed.Artifacts...)
 	return emit(result.RunResult{
 		AgentID:    req.AgentID,
@@ -465,8 +486,8 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 		Artifacts:  artifacts,
 		Confidence: parsed.Confidence,
 		Usage: result.Usage{
-			PromptTokensEstimate:     chatResp.PromptEvalCount,
-			CompletionTokensEstimate: chatResp.EvalCount,
+			PromptTokensEstimate:     toolChat.promptTokens,
+			CompletionTokensEstimate: toolChat.completionTokens,
 			DurationMS:               elapsed.Milliseconds(),
 		},
 		SkillsUsed:            req.SkillNames,
