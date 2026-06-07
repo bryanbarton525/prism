@@ -21,4 +21,3 @@ nodes:
     skills:
       - kubectl-triage
     task: Produce concise incident findings and safe next diagnostic steps.
-
