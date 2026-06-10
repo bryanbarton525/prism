@@ -62,7 +62,7 @@ Example Cursor mcp.json:
 			logger.Printf("agents: %s", resolvedAgentDir())
 			logger.Println("tools: list_agents, run_agent, get_constitution, doctor, suggest_route, run_graph, explain_policy, list_policies, list_mcp_servers, list_mcp_server_tools, call_mcp_tool")
 
-			downstreamState, err := downstreammcp.Load(mcpServersPath())
+			downstreamState, err := configuredDownstreamMCPState()
 			if err != nil {
 				return fmt.Errorf("loading downstream MCP servers: %w", err)
 			}
@@ -164,7 +164,7 @@ func newMCPServerListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List configured downstream MCP servers",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			state, err := downstreammcp.Load(mcpServersPath())
+			state, err := configuredDownstreamMCPState()
 			if err != nil {
 				return err
 			}
@@ -182,7 +182,7 @@ func newMCPServerToolsCmd() *cobra.Command {
 		Short: "List tools exposed by a downstream MCP server",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			state, err := downstreammcp.Load(mcpServersPath())
+			state, err := configuredDownstreamMCPState()
 			if err != nil {
 				return err
 			}
@@ -206,7 +206,7 @@ func newMCPServerCallCmd() *cobra.Command {
 		Short: "Call one tool on a downstream MCP server",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			state, err := downstreammcp.Load(mcpServersPath())
+			state, err := configuredDownstreamMCPState()
 			if err != nil {
 				return err
 			}

@@ -1528,6 +1528,8 @@ Current implementation status:
 * Graph execution remains serial in v1, but graph validation rejects cycles and unsupported parallel execution, policy is checked before execution, prior node summaries/artifacts are passed forward in bounded form, and graph aggregate events are emitted when event storage is enabled.
 * Dashboard and reports summarize local event-store metadata, including graph executions, policy denials, plugin usage, bundle versions, validation failures, and token estimates.
 * CLI and MCP runs can carry explicit bundle provenance; CLI runs can resolve the installed bundle version from local state, and both policy and event storage receive the bundle ID/version.
+* Local Ollama specialists can access approved downstream MCP servers through Prism's translation layer: Prism exposes compact function tools to the model, executes MCP calls itself, and attaches bounded tool results as artifacts.
+* The Linear agent is the first MCP-backed specialist: it declares the `linear` and `mcp` runtime tools, and Prism can inject a downstream `linear` MCP server from `PRISM_LINEAR_MCP_URL` when no explicit state-file server is configured.
 * The `testdata/bundles/k8s-core-triage` fixture includes a signed registry manifest and public key for the Kubernetes incident proof path.
 
 ## 21. Constitution

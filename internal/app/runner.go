@@ -17,6 +17,7 @@ import (
 
 	"github.com/bryanbarton525/prism/internal/agent"
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
+	llmruntime "github.com/bryanbarton525/prism/internal/llm/runtime"
 	"github.com/bryanbarton525/prism/internal/ollama"
 	"github.com/bryanbarton525/prism/internal/plugins"
 	"github.com/bryanbarton525/prism/internal/plugins/filesystem"
@@ -87,6 +88,9 @@ type Config struct {
 	// DownstreamMCP is an optional client for configured MCP servers that
 	// specialists can inspect and call through bounded Prism bridge tools.
 	DownstreamMCP DownstreamMCPClient
+	// ModelRuntime is an optional provider-neutral runtime used by non-MCP
+	// specialist calls. When nil, Prism uses the existing Ollama client path.
+	ModelRuntime llmruntime.ModelRuntime
 	// EventSink receives one stable RunEvent after each Run call. Defaults to a
 	// no-op sink so OSS behavior is unchanged when observability is not enabled.
 	EventSink observe.Sink
@@ -181,6 +185,7 @@ type Runner struct {
 	registry *agent.Registry
 	plugins  *plugins.Registry
 	ollama   *ollama.Client
+	llm      llmruntime.ModelRuntime
 	downmcp  DownstreamMCPClient
 	events   observe.Sink
 	policy   *internalpolicy.Engine
@@ -219,6 +224,7 @@ func New(cfg Config) (*Runner, error) {
 		registry: reg,
 		plugins:  pluginRegistry,
 		ollama:   oc,
+		llm:      cfg.ModelRuntime,
 		downmcp:  cfg.DownstreamMCP,
 		events:   eventSink,
 		policy:   cfg.PolicyEngine,

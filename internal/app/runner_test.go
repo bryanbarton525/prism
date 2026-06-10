@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
+	llmruntime "github.com/bryanbarton525/prism/internal/llm/runtime"
 	"github.com/bryanbarton525/prism/internal/ollama"
 	"github.com/bryanbarton525/prism/internal/plugins"
 	internalpolicy "github.com/bryanbarton525/prism/internal/policy"
@@ -234,6 +235,32 @@ func (f *fakeDownstreamMCP) ListTools(context.Context, string, downstreammcp.Lis
 func (f *fakeDownstreamMCP) CallTool(_ context.Context, server, tool string, _ map[string]any) (downstreammcp.CallResult, error) {
 	f.calls = append(f.calls, server+"."+tool)
 	return downstreammcp.CallResult{Server: server, Tool: tool, Content: `{"issue":"ENG-123","title":"Rollout follow-up"}`}, nil
+}
+
+type fakeModelRuntime struct {
+	calls int
+}
+
+func (f *fakeModelRuntime) Engine() llmruntime.Engine { return llmruntime.EngineSGLang }
+func (f *fakeModelRuntime) Health(context.Context) (*llmruntime.HealthStatus, error) {
+	return &llmruntime.HealthStatus{Healthy: true, Engine: llmruntime.EngineSGLang}, nil
+}
+func (f *fakeModelRuntime) Chat(_ context.Context, req llmruntime.ChatRequest) (*llmruntime.ChatResponse, error) {
+	f.calls++
+	return &llmruntime.ChatResponse{
+		Model: req.Model,
+		Message: llmruntime.Message{
+			Role:    "assistant",
+			Content: `{"summary":"runtime used","findings":["injected model runtime handled chat"],"confidence":"high"}`,
+		},
+		Usage: llmruntime.Usage{PromptTokens: 4, CompletionTokens: 5, TotalTokens: 9},
+	}, nil
+}
+func (f *fakeModelRuntime) Stream(context.Context, llmruntime.ChatRequest) (<-chan llmruntime.StreamEvent, error) {
+	return nil, nil
+}
+func (f *fakeModelRuntime) GenerateStructured(context.Context, llmruntime.StructuredRequest) (*llmruntime.StructuredResponse, error) {
+	return nil, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -495,6 +522,35 @@ func TestRunner_Run_Success(t *testing.T) {
 	}
 	if res.RawOutput == "" {
 		t.Error("RawOutput should be non-empty")
+	}
+}
+
+func TestRunner_Run_UsesInjectedModelRuntime(t *testing.T) {
+	root := makeTestRoot(t,
+		map[string]string{"github-cli.md": githubCLISpec()},
+		map[string]string{"gh-pr-triage": ghPRTriageSkill()},
+	)
+	modelRuntime := &fakeModelRuntime{}
+	runner, err := New(Config{RootDir: root, ModelRuntime: modelRuntime})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+	res, err := runner.Run(context.Background(), RunRequest{
+		AgentID:    "github-cli",
+		Task:       "Summarize a PR.",
+		SkillNames: []string{"gh-pr-triage"},
+	})
+	if err != nil {
+		t.Fatalf("Run(): %v", err)
+	}
+	if modelRuntime.calls != 1 {
+		t.Fatalf("model runtime calls = %d, want 1", modelRuntime.calls)
+	}
+	if !strings.Contains(res.Summary, "runtime used") || !strings.Contains(res.Summary, "injected model runtime handled chat") {
+		t.Fatalf("summary = %q", res.Summary)
+	}
+	if res.Usage.PromptTokensEstimate != 4 || res.Usage.CompletionTokensEstimate != 5 {
+		t.Fatalf("usage = %#v", res.Usage)
 	}
 }
 

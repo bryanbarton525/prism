@@ -209,10 +209,15 @@ func newRunnerWithControls(ctx context.Context, sink observe.Sink, policyEngine 
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("resolving root %q: %w", gf.rootDir, err)
 	}
-	mcpState, err := downstreammcp.Load(mcpServersPath())
+	mcpState, err := configuredDownstreamMCPState()
 	if err != nil {
 		cleanup()
 		return nil, func() {}, fmt.Errorf("loading downstream MCP servers: %w", err)
+	}
+	modelRuntime, err := configuredModelRuntime()
+	if err != nil {
+		cleanup()
+		return nil, func() {}, err
 	}
 	runner, err := app.New(app.Config{
 		RootFS:        rootFS,
@@ -223,6 +228,7 @@ func newRunnerWithControls(ctx context.Context, sink observe.Sink, policyEngine 
 		EventSink:     sink,
 		PolicyEngine:  policyEngine,
 		DownstreamMCP: downstreammcp.New(mcpState),
+		ModelRuntime:  modelRuntime,
 	})
 	if err != nil {
 		cleanup()

@@ -434,7 +434,14 @@ Prism can also act as a bounded MCP client to downstream MCP servers. This is us
 
 Configuration is stored in `mcp-servers.yaml` under `--state-dir`.
 
-For Linear, use command transport through `mcp-remote` until Prism's Go SDK path supports Streamable HTTP directly:
+For Linear, set `PRISM_LINEAR_MCP_URL` to have Prism expose a `linear` downstream server automatically when no explicit `linear` server is saved in state:
+
+```bash
+export PRISM_LINEAR_MCP_URL=https://mcp.linear.app/mcp
+prism mcp server list
+```
+
+You can also save the server explicitly with command transport through `mcp-remote`:
 
 ```bash
 prism mcp server add-command linear npx -y mcp-remote https://mcp.linear.app/mcp

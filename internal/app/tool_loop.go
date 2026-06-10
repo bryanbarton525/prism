@@ -8,6 +8,7 @@ import (
 
 	"github.com/bryanbarton525/prism/internal/agent"
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
+	llmruntime "github.com/bryanbarton525/prism/internal/llm/runtime"
 	"github.com/bryanbarton525/prism/internal/ollama"
 	"github.com/bryanbarton525/prism/internal/result"
 )
@@ -23,6 +24,13 @@ type chatToolResult struct {
 
 func (r *Runner) chatWithTools(ctx context.Context, req ollama.ChatRequest, spec *agent.Spec) (*chatToolResult, error) {
 	if !agentUsesMCP(spec) || r.downmcp == nil {
+		if r.llm != nil {
+			resp, err := r.chatWithModelRuntime(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+			return resp, nil
+		}
 		resp, err := r.ollama.Chat(ctx, req)
 		if err != nil {
 			return nil, err
@@ -59,6 +67,46 @@ func (r *Runner) chatWithTools(ctx context.Context, req ollama.ChatRequest, spec
 		Content: fmt.Sprintf("stopped after %d downstream MCP tool round(s)", maxMCPToolRounds),
 	})
 	return &chatToolResult{response: last, artifacts: artifacts, promptTokens: promptTokens, completionTokens: completionTokens}, nil
+}
+
+func (r *Runner) chatWithModelRuntime(ctx context.Context, req ollama.ChatRequest) (*chatToolResult, error) {
+	messages := make([]llmruntime.Message, 0, len(req.Messages))
+	for _, msg := range req.Messages {
+		messages = append(messages, llmruntime.Message{Role: msg.Role, Content: msg.Content, ToolCallID: msg.ToolName})
+	}
+	maxTokens := 0
+	if req.Options != nil {
+		maxTokens = req.Options.NumPredict
+	}
+	chatResp, err := r.llm.Chat(ctx, llmruntime.ChatRequest{
+		Model:       req.Model,
+		Messages:    messages,
+		Temperature: temperaturePtr(req.Options),
+		MaxTokens:   maxTokens,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &chatToolResult{
+		response: &ollama.ChatResponse{
+			Model: chatResp.Model,
+			Message: ollama.Message{
+				Role:    chatResp.Message.Role,
+				Content: chatResp.Message.Content,
+			},
+			PromptEvalCount: chatResp.Usage.PromptTokens,
+			EvalCount:       chatResp.Usage.CompletionTokens,
+		},
+		promptTokens:     chatResp.Usage.PromptTokens,
+		completionTokens: chatResp.Usage.CompletionTokens,
+	}, nil
+}
+
+func temperaturePtr(opts *ollama.Options) *float64 {
+	if opts == nil {
+		return nil
+	}
+	return &opts.Temperature
 }
 
 func agentUsesMCP(spec *agent.Spec) bool {
