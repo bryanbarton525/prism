@@ -578,6 +578,11 @@ prism bundle rollback
 prism bundle deprecate
 ```
 
+Current OSS status: `skill lint`, `skill test`, `skill benchmark`, `bundle build`,
+`bundle sign`, `bundle install`, `bundle verify`, `bundle list`, `bundle promote`,
+and `bundle deprecate` are implemented. Remote publishing and full rollback
+snapshots remain lifecycle roadmap items.
+
 ### 9.8 Run Graph Engine
 
 The Run Graph Engine executes bounded DAG workflows.
@@ -595,6 +600,10 @@ It should support:
 * result aggregation;
 * policy checks before execution;
 * event emission per node and per graph.
+
+Current OSS status: graph validation, dependency ordering, bounded parallel
+execution, graph-level timeout, graph-level retries, dependency artifact passing,
+policy prechecks, CLI execution, and MCP execution are implemented.
 
 Example graph definition:
 

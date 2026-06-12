@@ -106,7 +106,7 @@ For local Gemini MCP setup, review and run `scripts/install_mcp.py` from the rep
 Available tools include:
 
 - core: `list_agents`, `run_agent`, `get_constitution`, `doctor`
-- control plane: `suggest_route`, `run_graph`, `explain_policy`, `list_policies`
+- control plane: `suggest_route`, `run_graph`, `explain_policy`, `list_policies`, `list_bundles`, `install_bundle`, `get_usage_summary`, `get_skill_health`
 - downstream MCP: `list_mcp_servers`, `list_mcp_server_tools`, `call_mcp_tool`
 - prompt/resource compatibility: `list_prompts`, `get_prompt`, `list_resources`, `get_resource`
 

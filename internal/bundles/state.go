@@ -46,13 +46,14 @@ func RecordInstall(path string, manifest bundlepkg.Manifest) error {
 		return err
 	}
 	installed := bundlepkg.Installed{
-		ID:              manifest.ID,
-		Version:         manifest.Version,
-		Channel:         manifest.Channel,
-		Owner:           manifest.Owner,
-		RiskLevel:       manifest.RiskLevel,
-		RequiredPlugins: manifest.RequiredPlugins,
-		InstalledAt:     time.Now().UTC().Format(time.RFC3339),
+		ID:                manifest.ID,
+		Version:           manifest.Version,
+		Channel:           manifest.Channel,
+		Owner:             manifest.Owner,
+		RiskLevel:         manifest.RiskLevel,
+		RequiredPlugins:   manifest.RequiredPlugins,
+		DeprecationStatus: manifest.DeprecationStatus,
+		InstalledAt:       time.Now().UTC().Format(time.RFC3339),
 	}
 	replaced := false
 	for i := range state.Bundles {
@@ -66,6 +67,46 @@ func RecordInstall(path string, manifest bundlepkg.Manifest) error {
 		state.Bundles = append(state.Bundles, installed)
 	}
 	return Save(path, state)
+}
+
+func Promote(path, bundleID, channel string) error {
+	if bundleID == "" {
+		return fmt.Errorf("bundle id is required")
+	}
+	if channel == "" {
+		return fmt.Errorf("channel is required")
+	}
+	state, err := Load(path)
+	if err != nil {
+		return err
+	}
+	for i := range state.Bundles {
+		if state.Bundles[i].ID == bundleID {
+			state.Bundles[i].Channel = channel
+			return Save(path, state)
+		}
+	}
+	return fmt.Errorf("bundle %q is not installed", bundleID)
+}
+
+func Deprecate(path, bundleID, status string) error {
+	if bundleID == "" {
+		return fmt.Errorf("bundle id is required")
+	}
+	if status == "" {
+		status = "deprecated"
+	}
+	state, err := Load(path)
+	if err != nil {
+		return err
+	}
+	for i := range state.Bundles {
+		if state.Bundles[i].ID == bundleID {
+			state.Bundles[i].DeprecationStatus = status
+			return Save(path, state)
+		}
+	}
+	return fmt.Errorf("bundle %q is not installed", bundleID)
 }
 
 func LoadManifest(path string) (bundlepkg.Manifest, error) {

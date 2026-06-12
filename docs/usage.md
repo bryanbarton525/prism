@@ -141,9 +141,29 @@ prism bundle verify https://registry.example.com/prism/k8s-core-triage/registry.
 
 For remote manifests, Prism downloads the manifest's declared files into a
 temporary verification root, then runs the same Ed25519 signature, Prism-version
-compatibility, SHA-256 checksum, and path-safety checks before installing. The
-v1 CLI verifies and installs signed manifests; `bundle build`, `bundle sign`,
-and remote publishing are planned lifecycle commands and are not implemented yet.
+compatibility, SHA-256 checksum, and path-safety checks before installing.
+
+To create a registry manifest from bundle metadata, then sign it:
+
+```bash
+prism bundle build testdata/bundles/k8s-core-triage/bundle.yaml \
+  --source-root . \
+  --output /tmp/k8s-core-triage.registry.unsigned.json
+
+prism bundle sign /tmp/k8s-core-triage.registry.unsigned.json \
+  --private-key ./registry-private-key.txt \
+  --output /tmp/k8s-core-triage.registry.json
+```
+
+Local bundle promotion and deprecation update installed bundle state:
+
+```bash
+prism bundle promote k8s-core-triage --channel stable
+prism bundle deprecate k8s-core-triage --status deprecated
+```
+
+Remote publishing and full rollback-to-prior-install snapshots are still planned
+lifecycle commands; signed local and remote verification/install paths are live.
 
 ## CLI workflows
 
@@ -242,12 +262,20 @@ prism registry sync
 
 prism bundle verify --source local testdata/bundles/k8s-core-triage/registry.json \
   --public-key testdata/bundles/k8s-core-triage/public_key.txt
+prism bundle build testdata/bundles/k8s-core-triage/bundle.yaml --source-root . \
+  --output /tmp/k8s-core-triage.registry.unsigned.json
+prism bundle sign /tmp/k8s-core-triage.registry.unsigned.json \
+  --private-key ./registry-private-key.txt \
+  --output /tmp/k8s-core-triage.registry.json
 prism --state-dir .prism bundle install --source local testdata/bundles/k8s-core-triage/registry.json \
   --dest-root . \
   --public-key testdata/bundles/k8s-core-triage/public_key.txt
 prism bundle list
+prism bundle promote k8s-core-triage --channel stable
+prism bundle deprecate k8s-core-triage --status deprecated
 
 prism graph validate testdata/graphs/k8s-rollout-investigation.yaml
+prism graph show testdata/graphs/k8s-rollout-investigation.yaml
 prism graph run testdata/graphs/k8s-rollout-investigation.yaml
 
 prism dashboard serve
@@ -255,6 +283,7 @@ prism report usage
 prism report savings --format json
 prism report adoption
 prism report bundles
+prism report skills
 ```
 
 The local event store records run and graph metadata, not raw prompts, raw logs, or raw evidence.

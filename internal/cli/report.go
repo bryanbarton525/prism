@@ -4,13 +4,17 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/bryanbarton525/prism/internal/bundles"
 	"github.com/bryanbarton525/prism/internal/events"
 	"github.com/bryanbarton525/prism/internal/reports"
+	"github.com/bryanbarton525/prism/internal/skill"
 )
 
 func newReportCmd() *cobra.Command {
@@ -22,6 +26,7 @@ func newReportCmd() *cobra.Command {
 	cmd.AddCommand(newReportEventsCmd("savings"))
 	cmd.AddCommand(newReportEventsCmd("adoption"))
 	cmd.AddCommand(newReportBundlesCmd())
+	cmd.AddCommand(newReportSkillsCmd())
 	return cmd
 }
 
@@ -83,9 +88,9 @@ func newReportBundlesCmd() *cobra.Command {
 			}
 			if format == "csv" {
 				cw := csv.NewWriter(os.Stdout)
-				_ = cw.Write([]string{"id", "version", "channel", "owner", "risk_level", "installed_at"})
+				_ = cw.Write([]string{"id", "version", "channel", "owner", "risk_level", "deprecation_status", "installed_at"})
 				for _, b := range state.Bundles {
-					_ = cw.Write([]string{b.ID, b.Version, b.Channel, b.Owner, b.RiskLevel, b.InstalledAt})
+					_ = cw.Write([]string{b.ID, b.Version, b.Channel, b.Owner, b.RiskLevel, b.DeprecationStatus, b.InstalledAt})
 				}
 				cw.Flush()
 				return cw.Error()
@@ -99,6 +104,102 @@ func newReportBundlesCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&format, "format", "markdown", "Format: markdown, json, or csv")
 	return cmd
+}
+
+func newReportSkillsCmd() *cobra.Command {
+	var format string
+	cmd := &cobra.Command{
+		Use:   "skills",
+		Short: "Generate skill health report",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			items := reportSkillHealth(gf.skillsDirOrDefault())
+			switch format {
+			case "json":
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(items)
+			case "csv":
+				cw := csv.NewWriter(os.Stdout)
+				_ = cw.Write([]string{"name", "ok", "chars", "evals", "errors", "warnings"})
+				for _, item := range items {
+					_ = cw.Write([]string{item.Name, fmt.Sprint(item.OK), fmt.Sprint(item.Chars), fmt.Sprint(item.Evals), strings.Join(item.Errors, "; "), strings.Join(item.Warnings, "; ")})
+				}
+				cw.Flush()
+				return cw.Error()
+			case "markdown":
+				fmt.Println("# Prism Skill Health Report")
+				fmt.Println()
+				fmt.Println("| Skill | Status | Chars | Evals | Notes |")
+				fmt.Println("| --- | --- | ---: | ---: | --- |")
+				for _, item := range items {
+					status := "ok"
+					if !item.OK {
+						status = "fail"
+					}
+					notes := strings.Join(append(item.Errors, item.Warnings...), "; ")
+					fmt.Printf("| %s | %s | %d | %d | %s |\n", item.Name, status, item.Chars, item.Evals, notes)
+				}
+				return nil
+			default:
+				return fmt.Errorf("--format must be markdown, json, or csv")
+			}
+		},
+	}
+	cmd.Flags().StringVar(&format, "format", "markdown", "Format: markdown, json, or csv")
+	return cmd
+}
+
+type reportSkill struct {
+	Name     string   `json:"name"`
+	OK       bool     `json:"ok"`
+	Chars    int      `json:"chars"`
+	Evals    int      `json:"evals,omitempty"`
+	Errors   []string `json:"errors,omitempty"`
+	Warnings []string `json:"warnings,omitempty"`
+}
+
+func reportSkillHealth(root string) []reportSkill {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return []reportSkill{{Name: root, OK: false, Errors: []string{err.Error()}}}
+	}
+	fsys := os.DirFS(root)
+	out := make([]reportSkill, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		item := reportSkill{Name: name, OK: true}
+		data, err := fs.ReadFile(fsys, filepath.ToSlash(filepath.Join(name, "SKILL.md")))
+		if err != nil {
+			item.OK = false
+			item.Errors = append(item.Errors, err.Error())
+			out = append(out, item)
+			continue
+		}
+		item.Chars = len(data)
+		if _, err := skill.LoadDir(fsys, name); err != nil {
+			item.OK = false
+			item.Errors = append(item.Errors, err.Error())
+		}
+		if err := skill.ValidateStructure(fsys, name); err != nil {
+			item.OK = false
+			item.Errors = append(item.Errors, err.Error())
+		}
+		count, err := skill.ValidateEvals(fsys, name)
+		if err != nil {
+			item.OK = false
+			item.Errors = append(item.Errors, err.Error())
+		} else {
+			item.Evals = count
+		}
+		if !strings.Contains(string(data), "##") {
+			item.Warnings = append(item.Warnings, "no markdown section headings")
+		}
+		out = append(out, item)
+	}
+	return out
 }
 
 func writeSummaryCSV(w *os.File, kind string, sum events.Summary) error {

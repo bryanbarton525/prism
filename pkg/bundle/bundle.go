@@ -30,11 +30,12 @@ type File struct {
 }
 
 type Installed struct {
-	ID              string   `json:"id" yaml:"id"`
-	Version         string   `json:"version" yaml:"version"`
-	Channel         string   `json:"channel,omitempty" yaml:"channel,omitempty"`
-	Owner           string   `json:"owner,omitempty" yaml:"owner,omitempty"`
-	RiskLevel       string   `json:"risk_level,omitempty" yaml:"risk_level,omitempty"`
-	RequiredPlugins []string `json:"required_plugins,omitempty" yaml:"required_plugins,omitempty"`
-	InstalledAt     string   `json:"installed_at" yaml:"installed_at"`
+	ID                string   `json:"id" yaml:"id"`
+	Version           string   `json:"version" yaml:"version"`
+	Channel           string   `json:"channel,omitempty" yaml:"channel,omitempty"`
+	Owner             string   `json:"owner,omitempty" yaml:"owner,omitempty"`
+	RiskLevel         string   `json:"risk_level,omitempty" yaml:"risk_level,omitempty"`
+	RequiredPlugins   []string `json:"required_plugins,omitempty" yaml:"required_plugins,omitempty"`
+	DeprecationStatus string   `json:"deprecation_status,omitempty" yaml:"deprecation_status,omitempty"`
+	InstalledAt       string   `json:"installed_at" yaml:"installed_at"`
 }

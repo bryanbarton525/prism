@@ -18,11 +18,77 @@ func newBundleCmd() *cobra.Command {
 		Use:   "bundle",
 		Short: "Manage installed Prism bundles",
 	}
+	cmd.AddCommand(newBundleBuildCmd())
+	cmd.AddCommand(newBundleSignCmd())
 	cmd.AddCommand(newBundleListCmd())
 	cmd.AddCommand(newBundleVerifyCmd())
 	cmd.AddCommand(newBundleInstallCmd())
+	cmd.AddCommand(newBundlePromoteCmd())
+	cmd.AddCommand(newBundleDeprecateCmd())
 	cmd.AddCommand(newBundleUpdateCmd())
 	cmd.AddCommand(newBundleRollbackCmd())
+	return cmd
+}
+
+func newBundleBuildCmd() *cobra.Command {
+	var sourceRoot, registryID, registryVersion, output string
+	cmd := &cobra.Command{
+		Use:   "build <bundle.yaml>",
+		Short: "Build an unsigned registry manifest from bundle metadata",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			manifest, err := bundles.BuildRegistryManifest(bundles.BuildOptions{
+				BundleManifestPath: args[0],
+				SourceRoot:         sourceRoot,
+				RegistryID:         registryID,
+				RegistryVersion:    registryVersion,
+				OutputPath:         output,
+			})
+			if err != nil {
+				return err
+			}
+			if output == "" {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(manifest)
+			}
+			fmt.Printf("built registry manifest %s@%s -> %s\n", manifest.RegistryID, manifest.Version, output)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&sourceRoot, "source-root", "", "Root containing files referenced by bundle manifest (default: manifest directory)")
+	cmd.Flags().StringVar(&registryID, "registry-id", "", "Registry ID for generated manifest (default: bundle owner or ID)")
+	cmd.Flags().StringVar(&registryVersion, "registry-version", "", "Registry version for generated manifest (default: bundle version)")
+	cmd.Flags().StringVar(&output, "output", "", "Write generated registry manifest to this path")
+	return cmd
+}
+
+func newBundleSignCmd() *cobra.Command {
+	var privateKey, output string
+	cmd := &cobra.Command{
+		Use:   "sign <registry-manifest.json>",
+		Short: "Sign a registry manifest with an Ed25519 private key",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			manifest, err := bundles.SignRegistryManifest(bundles.SignOptions{
+				ManifestPath: args[0],
+				PrivateKey:   privateKey,
+				OutputPath:   output,
+			})
+			if err != nil {
+				return err
+			}
+			target := output
+			if target == "" {
+				target = args[0]
+			}
+			fmt.Printf("signed registry manifest %s@%s -> %s\n", manifest.RegistryID, manifest.Version, target)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&privateKey, "private-key", "", "Required Ed25519 private key as base64, hex, or file path")
+	cmd.Flags().StringVar(&output, "output", "", "Write signed registry manifest to this path (default: overwrite input)")
+	_ = cmd.MarkFlagRequired("private-key")
 	return cmd
 }
 
@@ -128,6 +194,43 @@ func newBundleUpdateCmd() *cobra.Command {
 			return fmt.Errorf("bundle update is not implemented in v1; use bundle verify and bundle install with a signed registry manifest")
 		},
 	}
+}
+
+func newBundlePromoteCmd() *cobra.Command {
+	var channel string
+	cmd := &cobra.Command{
+		Use:   "promote <bundle-id>",
+		Short: "Promote an installed bundle to a local channel",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			if err := bundles.Promote(installedBundlesPath(), args[0], channel); err != nil {
+				return err
+			}
+			fmt.Printf("promoted bundle %s to channel %s\n", args[0], channel)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&channel, "channel", "", "Target channel, for example stable or canary")
+	_ = cmd.MarkFlagRequired("channel")
+	return cmd
+}
+
+func newBundleDeprecateCmd() *cobra.Command {
+	var status string
+	cmd := &cobra.Command{
+		Use:   "deprecate <bundle-id>",
+		Short: "Mark an installed bundle as deprecated in local state",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			if err := bundles.Deprecate(installedBundlesPath(), args[0], status); err != nil {
+				return err
+			}
+			fmt.Printf("marked bundle %s as %s\n", args[0], status)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&status, "status", "deprecated", "Deprecation status to record")
+	return cmd
 }
 
 func resolveRegistrySourceArg(sourceName, manifestArg, sourceRoot string) (string, string, error) {

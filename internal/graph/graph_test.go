@@ -3,6 +3,7 @@ package graph
 import (
 	"context"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/bryanbarton525/prism/internal/agent"
@@ -29,7 +30,7 @@ func TestValidateRejectsCycle(t *testing.T) {
 	}
 }
 
-func TestValidateRejectsUnsupportedParallelism(t *testing.T) {
+func TestValidateAllowsBoundedParallelism(t *testing.T) {
 	def := graphpkg.Definition{
 		ID:      "parallel",
 		Version: 1,
@@ -39,15 +40,14 @@ func TestValidateRejectsUnsupportedParallelism(t *testing.T) {
 		},
 	}
 	res := Validate(def)
-	if res.Valid {
-		t.Fatalf("expected max_parallel > 1 to be invalid")
+	if !res.Valid {
+		t.Fatalf("expected max_parallel > 1 to be valid: %#v", res.Errors)
 	}
 }
 
-func TestValidateRejectsMissingVersionTaskAndRetries(t *testing.T) {
+func TestValidateRejectsMissingVersionTask(t *testing.T) {
 	def := graphpkg.Definition{
-		ID:     "invalid",
-		Limits: graphpkg.Limits{MaxRetries: 1},
+		ID: "invalid",
 		Nodes: map[string]graphpkg.Node{
 			"a": {Agent: "go-helper", Skills: []string{"go-helper-fn"}},
 		},
@@ -57,7 +57,7 @@ func TestValidateRejectsMissingVersionTaskAndRetries(t *testing.T) {
 		t.Fatalf("expected invalid graph")
 	}
 	text := strings.Join(res.Errors, "; ")
-	for _, want := range []string{"version is required", "node \"a\" missing task", "node retries are not supported"} {
+	for _, want := range []string{"version is required", "node \"a\" missing task"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("errors %q missing %q", text, want)
 		}
@@ -116,9 +116,55 @@ func TestRunWithOptionsEmitsGraphEventAndPassesPriorArtifacts(t *testing.T) {
 	}
 }
 
+func TestRunWithOptionsRetriesFailedNode(t *testing.T) {
+	runner := &fakeGraphRunner{failFirstFor: "collect"}
+	def := graphDef()
+	def.Limits.MaxRetries = 1
+	res, err := RunWithOptions(context.Background(), runner, def, RunOptions{Source: "cli"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Status != result.StatusOK {
+		t.Fatalf("status = %s", res.Status)
+	}
+	if runner.callsFor("collect") != 2 {
+		t.Fatalf("collect calls = %d, want 2", runner.callsFor("collect"))
+	}
+}
+
+func TestRunWithOptionsRunsIndependentNodesInSameWave(t *testing.T) {
+	runner := &fakeGraphRunner{}
+	def := graphpkg.Definition{
+		ID:      "parallel",
+		Version: 1,
+		Limits:  graphpkg.Limits{MaxNodes: 3, MaxDepth: 2, MaxParallel: 2},
+		Nodes: map[string]graphpkg.Node{
+			"a": {Agent: "go-helper", Skills: []string{"go-helper-fn"}, Task: "a"},
+			"b": {Agent: "go-helper", Skills: []string{"go-helper-fn"}, Task: "b"},
+			"c": {DependsOn: []string{"a", "b"}, Agent: "go-helper", Skills: []string{"go-helper-fn"}, Task: "c"},
+		},
+	}
+	res, err := RunWithOptions(context.Background(), runner, def, RunOptions{Source: "cli"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Status != result.StatusOK {
+		t.Fatalf("status = %s", res.Status)
+	}
+	if runner.requestIndex("c") < runner.requestIndex("a") || runner.requestIndex("c") < runner.requestIndex("b") {
+		t.Fatalf("dependent node ran before dependencies: %#v", runner.requests)
+	}
+	if !strings.Contains(runner.requestByNode("c").Task, "summary for a") || !strings.Contains(runner.requestByNode("c").Task, "summary for b") {
+		t.Fatalf("dependent node missing dependency context: %s", runner.requestByNode("c").Task)
+	}
+}
+
 type fakeGraphRunner struct {
-	calls    int
-	requests []app.RunRequest
+	mu           sync.Mutex
+	calls        int
+	requests     []app.RunRequest
+	byNode       map[string]int
+	failFirstFor string
 }
 
 func (f *fakeGraphRunner) ListAgents(context.Context) ([]agent.Summary, error) {
@@ -126,8 +172,22 @@ func (f *fakeGraphRunner) ListAgents(context.Context) ([]agent.Summary, error) {
 }
 
 func (f *fakeGraphRunner) Run(_ context.Context, req app.RunRequest) (result.RunResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.byNode == nil {
+		f.byNode = map[string]int{}
+	}
 	f.calls++
+	f.byNode[req.GraphNodeID]++
 	f.requests = append(f.requests, req)
+	if req.GraphNodeID == f.failFirstFor && f.byNode[req.GraphNodeID] == 1 {
+		return result.RunResult{
+			AgentID:    req.AgentID,
+			Status:     result.StatusValidationFail,
+			Summary:    "temporary failure for " + req.GraphNodeID,
+			SkillsUsed: req.SkillNames,
+		}, nil
+	}
 	return result.RunResult{
 		AgentID: req.AgentID,
 		Status:  result.StatusOK,
@@ -139,6 +199,34 @@ func (f *fakeGraphRunner) Run(_ context.Context, req app.RunRequest) (result.Run
 		}},
 		SkillsUsed: req.SkillNames,
 	}, nil
+}
+
+func (f *fakeGraphRunner) callsFor(nodeID string) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.byNode[nodeID]
+}
+
+func (f *fakeGraphRunner) requestIndex(nodeID string) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i, req := range f.requests {
+		if req.GraphNodeID == nodeID {
+			return i
+		}
+	}
+	return -1
+}
+
+func (f *fakeGraphRunner) requestByNode(nodeID string) app.RunRequest {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, req := range f.requests {
+		if req.GraphNodeID == nodeID {
+			return req
+		}
+	}
+	return app.RunRequest{}
 }
 
 func (f *fakeGraphRunner) GetConstitution(context.Context, string) (app.Constitution, error) {

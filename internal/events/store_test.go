@@ -78,6 +78,39 @@ func TestSummaryIncludesDashboardAndReportFields(t *testing.T) {
 	}
 }
 
+func TestStoreIsAppendOnlyAndFiltersMetadata(t *testing.T) {
+	store, err := Open(filepath.Join(t.TempDir(), "events.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	event := observe.RunEvent{
+		Timestamp: time.Now().UTC(),
+		RunID:     "run-1",
+		Status:    "ok",
+		Metadata:  observe.Metadata{ActorID: "alice", WorkspaceID: "platform", Source: "cli"},
+		AgentID:   "kubectl",
+		Skills:    []string{"k8s-rollout-diagnostics"},
+	}
+	if err := store.Append(context.Background(), event); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Append(context.Background(), event); err == nil {
+		t.Fatal("expected duplicate run_id to fail instead of updating event history")
+	}
+	items, err := store.List(context.Background(), ListOptions{
+		Actor:     "alice",
+		Workspace: "platform",
+		Skill:     "k8s-rollout-diagnostics",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].RunID != "run-1" {
+		t.Fatalf("filtered items = %#v", items)
+	}
+}
+
 func TestOpenMigratesPriorSchema(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "events.db")
 	db, err := sql.Open("sqlite", path)

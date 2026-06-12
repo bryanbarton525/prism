@@ -8,6 +8,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bryanbarton525/prism/internal/agent"
@@ -36,6 +37,10 @@ func Load(path string) (graphpkg.Definition, error) {
 		return graphpkg.Definition{}, err
 	}
 	return def, nil
+}
+
+func Order(def graphpkg.Definition) []string {
+	return topologicalOrder(def)
 }
 
 func Validate(def graphpkg.Definition) graphpkg.ValidationResult {
@@ -79,17 +84,11 @@ func Validate(def graphpkg.Definition) graphpkg.ValidationResult {
 	if def.Limits.MaxParallel < 0 {
 		res.Errors = append(res.Errors, "max_parallel cannot be negative")
 	}
-	if def.Limits.MaxParallel > 1 {
-		res.Errors = append(res.Errors, "parallel graph execution is not supported in v1; set max_parallel to 1 or omit it")
-	}
 	if def.Limits.TimeoutSeconds < 0 {
 		res.Errors = append(res.Errors, "timeout_seconds cannot be negative")
 	}
 	if def.Limits.MaxRetries < 0 {
 		res.Errors = append(res.Errors, "max_retries cannot be negative")
-	}
-	if def.Limits.MaxRetries > 0 {
-		res.Errors = append(res.Errors, "node retries are not supported in v1; set max_retries to 0 or omit it")
 	}
 	res.Valid = len(res.Errors) == 0
 	return res
@@ -161,14 +160,92 @@ func RunWithOptions(ctx context.Context, runner app.AgentRunner, def graphpkg.De
 		NodeOrder:      order,
 		NodeResults:    make(map[string]any),
 	}
-	var summaries []string
-	var priorArtifacts []result.Artifact
-	for _, id := range order {
-		node := def.Nodes[id]
-		task := node.Task
-		if prior := priorContext(summaries, priorArtifacts); prior != "" {
-			task += "\n\nPrior graph context:\n" + prior
+	exec, err := executeGraph(ctx, runner, def, source, order)
+	if err != nil {
+		return out, err
+	}
+	out.NodeResults = exec.nodeResults
+	out.Artifacts = exec.artifacts
+	out.Status = exec.status
+	out.AggregateResult = strings.Join(exec.summaries, "\n")
+	emitGraph(out, policyDecision)
+	return out, nil
+}
+
+type graphExecution struct {
+	nodeResults map[string]any
+	artifacts   []graphpkg.Artifact
+	summaries   []string
+	status      string
+}
+
+type nodeExecution struct {
+	id  string
+	res result.RunResult
+	err error
+}
+
+func executeGraph(ctx context.Context, runner app.AgentRunner, def graphpkg.Definition, source string, order []string) (graphExecution, error) {
+	maxParallel := def.Limits.MaxParallel
+	if maxParallel <= 0 {
+		maxParallel = 1
+	}
+	maxRetries := def.Limits.MaxRetries
+	done := map[string]result.RunResult{}
+	failed := false
+	out := graphExecution{
+		nodeResults: make(map[string]any),
+		status:      result.StatusOK,
+	}
+	for len(done) < len(def.Nodes) && !failed {
+		ready := readyNodes(def, order, done)
+		if len(ready) == 0 {
+			return out, fmt.Errorf("graph execution stalled before all nodes completed")
 		}
+		if len(ready) > maxParallel {
+			ready = ready[:maxParallel]
+		}
+		results := runWave(ctx, runner, def, source, ready, done, maxRetries)
+		for _, nodeRes := range results {
+			if nodeRes.err != nil {
+				return out, nodeRes.err
+			}
+			done[nodeRes.id] = nodeRes.res
+			out.nodeResults[nodeRes.id] = nodeRes.res
+			out.summaries = append(out.summaries, fmt.Sprintf("- %s: %s", nodeRes.id, nodeRes.res.Summary))
+			out.artifacts = append(out.artifacts, graphArtifacts(nodeRes.id, nodeRes.res.Artifacts)...)
+			if nodeRes.res.Status != result.StatusOK {
+				out.status = nodeRes.res.Status
+				failed = true
+			}
+		}
+	}
+	return out, nil
+}
+
+func runWave(ctx context.Context, runner app.AgentRunner, def graphpkg.Definition, source string, ids []string, completed map[string]result.RunResult, maxRetries int) []nodeExecution {
+	results := make([]nodeExecution, len(ids))
+	var wg sync.WaitGroup
+	for i, id := range ids {
+		i, id := i, id
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			results[i] = runNodeWithRetries(ctx, runner, def, source, id, completed, maxRetries)
+		}()
+	}
+	wg.Wait()
+	return results
+}
+
+func runNodeWithRetries(ctx context.Context, runner app.AgentRunner, def graphpkg.Definition, source, id string, completed map[string]result.RunResult, maxRetries int) nodeExecution {
+	node := def.Nodes[id]
+	task := node.Task
+	if prior := dependencyContext(def, id, completed); prior != "" {
+		task += "\n\nPrior graph context:\n" + prior
+	}
+	var last result.RunResult
+	for attempt := 0; attempt <= maxRetries; attempt++ {
 		res, err := runner.Run(ctx, app.RunRequest{
 			AgentID:     node.Agent,
 			Task:        task,
@@ -179,20 +256,14 @@ func RunWithOptions(ctx context.Context, runner app.AgentRunner, def graphpkg.De
 			GraphNodeID: id,
 		})
 		if err != nil {
-			return out, err
+			return nodeExecution{id: id, err: err}
 		}
-		out.NodeResults[id] = res
-		summaries = append(summaries, fmt.Sprintf("- %s: %s", id, res.Summary))
-		priorArtifacts = append(priorArtifacts, res.Artifacts...)
-		out.Artifacts = append(out.Artifacts, graphArtifacts(id, res.Artifacts)...)
-		if res.Status != result.StatusOK {
-			out.Status = res.Status
-			break
+		last = res
+		if res.Status == result.StatusOK || attempt == maxRetries {
+			return nodeExecution{id: id, res: res}
 		}
 	}
-	out.AggregateResult = strings.Join(summaries, "\n")
-	emitGraph(out, policyDecision)
-	return out, nil
+	return nodeExecution{id: id, res: last}
 }
 
 func graphPolicyDecision(ctx context.Context, runner app.AgentRunner, def graphpkg.Definition, validation graphpkg.ValidationResult, policy *internalpolicy.Engine, source string) policypkg.Decision {
@@ -254,6 +325,23 @@ func priorContext(summaries []string, artifacts []result.Artifact) string {
 		}
 	}
 	return strings.TrimSpace(b.String())
+}
+
+func dependencyContext(def graphpkg.Definition, id string, completed map[string]result.RunResult) string {
+	node := def.Nodes[id]
+	var summaries []string
+	var artifacts []result.Artifact
+	deps := append([]string{}, node.DependsOn...)
+	sort.Strings(deps)
+	for _, dep := range deps {
+		res, ok := completed[dep]
+		if !ok {
+			continue
+		}
+		summaries = append(summaries, fmt.Sprintf("- %s: %s", dep, res.Summary))
+		artifacts = append(artifacts, res.Artifacts...)
+	}
+	return priorContext(summaries, artifacts)
 }
 
 func graphError(out graphpkg.RunResult) string {
@@ -335,6 +423,27 @@ func topologicalOrder(def graphpkg.Definition) []string {
 		visit(id)
 	}
 	return order
+}
+
+func readyNodes(def graphpkg.Definition, order []string, completed map[string]result.RunResult) []string {
+	var ready []string
+	for _, id := range order {
+		if _, ok := completed[id]; ok {
+			continue
+		}
+		node := def.Nodes[id]
+		blocked := false
+		for _, dep := range node.DependsOn {
+			if _, ok := completed[dep]; !ok {
+				blocked = true
+				break
+			}
+		}
+		if !blocked {
+			ready = append(ready, id)
+		}
+	}
+	return ready
 }
 
 func graphArtifacts(nodeID string, artifacts []result.Artifact) []graphpkg.Artifact {

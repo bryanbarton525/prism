@@ -5,17 +5,23 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"strings"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/bryanbarton525/prism/internal/agent"
 	"github.com/bryanbarton525/prism/internal/app"
+	"github.com/bryanbarton525/prism/internal/bundles"
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
+	"github.com/bryanbarton525/prism/internal/events"
 	internalgraph "github.com/bryanbarton525/prism/internal/graph"
 	internalpolicy "github.com/bryanbarton525/prism/internal/policy"
 	"github.com/bryanbarton525/prism/internal/result"
 	"github.com/bryanbarton525/prism/internal/router"
+	"github.com/bryanbarton525/prism/internal/skill"
 	graphpkg "github.com/bryanbarton525/prism/pkg/graph"
 	"github.com/bryanbarton525/prism/pkg/observe"
 	policypkg "github.com/bryanbarton525/prism/pkg/policy"
@@ -32,9 +38,13 @@ func Serve(ctx context.Context, runner app.AgentRunner) error {
 }
 
 type Config struct {
-	Policy        *internalpolicy.Engine
-	EventSink     observe.Sink
-	DownstreamMCP *downstreammcp.Client
+	Policy          *internalpolicy.Engine
+	EventSink       observe.Sink
+	DownstreamMCP   *downstreammcp.Client
+	BundleStatePath string
+	EventStorePath  string
+	RootDir         string
+	SkillsDir       string
 }
 
 func ServeWithConfig(ctx context.Context, runner app.AgentRunner, cfg Config) error {
@@ -86,6 +96,26 @@ func registerTools(srv *mcpsdk.Server, runner app.AgentRunner, cfg Config) {
 		Name:        "list_policies",
 		Description: "List configured Prism policy sources visible to this MCP server.",
 	}, listPoliciesHandler(cfg.Policy))
+
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "list_bundles",
+		Description: "List installed Prism bundles from local state.",
+	}, listBundlesHandler(cfg))
+
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "install_bundle",
+		Description: "Verify and install a signed Prism registry bundle manifest.",
+	}, installBundleHandler(cfg))
+
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "get_usage_summary",
+		Description: "Summarize local Prism usage from the event store.",
+	}, usageSummaryHandler(cfg))
+
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "get_skill_health",
+		Description: "Return structural health for local Prism skills.",
+	}, skillHealthHandler(cfg))
 
 	mcpsdk.AddTool(srv, &mcpsdk.Tool{
 		Name:        "list_mcp_servers",
@@ -261,6 +291,160 @@ type ListPoliciesInput struct{}
 type ListPoliciesOutput struct {
 	Configured bool   `json:"configured"`
 	Reason     string `json:"reason"`
+}
+
+type ListBundlesInput struct{}
+
+func listBundlesHandler(cfg Config) func(context.Context, *mcpsdk.CallToolRequest, ListBundlesInput) (*mcpsdk.CallToolResult, bundles.State, error) {
+	return func(_ context.Context, _ *mcpsdk.CallToolRequest, _ ListBundlesInput) (*mcpsdk.CallToolResult, bundles.State, error) {
+		if cfg.BundleStatePath == "" {
+			return nil, bundles.State{}, fmt.Errorf("bundle state path is not configured")
+		}
+		state, err := bundles.Load(cfg.BundleStatePath)
+		if err != nil {
+			return nil, bundles.State{}, err
+		}
+		return textResult(marshalJSON(state)), state, nil
+	}
+}
+
+type InstallBundleInput struct {
+	ManifestPath string `json:"manifest_path"`
+	SourceRoot   string `json:"source_root,omitempty"`
+	DestRoot     string `json:"dest_root,omitempty"`
+	PublicKey    string `json:"public_key"`
+	PrismVersion string `json:"prism_version,omitempty"`
+}
+
+func installBundleHandler(cfg Config) func(context.Context, *mcpsdk.CallToolRequest, InstallBundleInput) (*mcpsdk.CallToolResult, map[string]any, error) {
+	return func(_ context.Context, _ *mcpsdk.CallToolRequest, input InstallBundleInput) (*mcpsdk.CallToolResult, map[string]any, error) {
+		if cfg.BundleStatePath == "" {
+			return nil, nil, fmt.Errorf("bundle state path is not configured")
+		}
+		destRoot := input.DestRoot
+		if destRoot == "" {
+			destRoot = cfg.RootDir
+		}
+		manifest, err := bundles.InstallVerified(bundles.InstallOptions{
+			ManifestPath: input.ManifestPath,
+			SourceRoot:   input.SourceRoot,
+			DestRoot:     destRoot,
+			StatePath:    cfg.BundleStatePath,
+			PublicKey:    input.PublicKey,
+			PrismVersion: input.PrismVersion,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		out := map[string]any{"installed": true, "registry_id": manifest.RegistryID, "version": manifest.Version, "bundles": manifest.Bundles}
+		return textResult(marshalJSON(out)), out, nil
+	}
+}
+
+type UsageSummaryInput struct{}
+
+func usageSummaryHandler(cfg Config) func(context.Context, *mcpsdk.CallToolRequest, UsageSummaryInput) (*mcpsdk.CallToolResult, events.Summary, error) {
+	return func(ctx context.Context, _ *mcpsdk.CallToolRequest, _ UsageSummaryInput) (*mcpsdk.CallToolResult, events.Summary, error) {
+		if cfg.EventStorePath == "" {
+			return nil, events.Summary{}, fmt.Errorf("event store path is not configured")
+		}
+		store, err := events.Open(cfg.EventStorePath)
+		if err != nil {
+			return nil, events.Summary{}, err
+		}
+		defer store.Close()
+		sum, err := store.Summary(ctx)
+		if err != nil {
+			return nil, events.Summary{}, err
+		}
+		return textResult(marshalJSON(sum)), sum, nil
+	}
+}
+
+type SkillHealthInput struct {
+	SkillName string `json:"skill_name,omitempty"`
+}
+
+type SkillHealthOutput struct {
+	Skills []SkillHealth `json:"skills"`
+	Count  int           `json:"count"`
+}
+
+type SkillHealth struct {
+	Name     string   `json:"name"`
+	OK       bool     `json:"ok"`
+	Chars    int      `json:"chars"`
+	Evals    int      `json:"evals,omitempty"`
+	Errors   []string `json:"errors,omitempty"`
+	Warnings []string `json:"warnings,omitempty"`
+}
+
+func skillHealthHandler(cfg Config) func(context.Context, *mcpsdk.CallToolRequest, SkillHealthInput) (*mcpsdk.CallToolResult, SkillHealthOutput, error) {
+	return func(_ context.Context, _ *mcpsdk.CallToolRequest, input SkillHealthInput) (*mcpsdk.CallToolResult, SkillHealthOutput, error) {
+		root := cfg.SkillsDir
+		if root == "" && cfg.RootDir != "" {
+			root = filepath.Join(cfg.RootDir, "skills")
+		}
+		if root == "" {
+			return nil, SkillHealthOutput{}, fmt.Errorf("skills directory is not configured")
+		}
+		items, err := collectSkillHealth(root, input.SkillName)
+		if err != nil {
+			return nil, SkillHealthOutput{}, err
+		}
+		out := SkillHealthOutput{Skills: items, Count: len(items)}
+		return textResult(marshalJSON(out)), out, nil
+	}
+}
+
+func collectSkillHealth(root, only string) ([]SkillHealth, error) {
+	var names []string
+	if only != "" {
+		names = []string{only}
+	} else {
+		entries, err := os.ReadDir(root)
+		if err != nil {
+			return nil, err
+		}
+		for _, entry := range entries {
+			if entry.IsDir() {
+				names = append(names, entry.Name())
+			}
+		}
+	}
+	fsys := os.DirFS(root)
+	out := make([]SkillHealth, 0, len(names))
+	for _, name := range names {
+		item := SkillHealth{Name: name, OK: true}
+		data, err := fs.ReadFile(fsys, filepath.ToSlash(filepath.Join(name, "SKILL.md")))
+		if err != nil {
+			item.OK = false
+			item.Errors = append(item.Errors, err.Error())
+			out = append(out, item)
+			continue
+		}
+		item.Chars = len(data)
+		if _, err := skill.LoadDir(fsys, name); err != nil {
+			item.OK = false
+			item.Errors = append(item.Errors, err.Error())
+		}
+		if err := skill.ValidateStructure(fsys, name); err != nil {
+			item.OK = false
+			item.Errors = append(item.Errors, err.Error())
+		}
+		count, err := skill.ValidateEvals(fsys, name)
+		if err != nil {
+			item.OK = false
+			item.Errors = append(item.Errors, err.Error())
+		} else {
+			item.Evals = count
+		}
+		if !strings.Contains(string(data), "##") {
+			item.Warnings = append(item.Warnings, "no markdown section headings")
+		}
+		out = append(out, item)
+	}
+	return out, nil
 }
 
 func explainPolicyHandler(policy *internalpolicy.Engine) func(context.Context, *mcpsdk.CallToolRequest, ExplainPolicyInput) (*mcpsdk.CallToolResult, policypkg.Decision, error) {

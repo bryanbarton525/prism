@@ -16,6 +16,7 @@ func newGraphCmd() *cobra.Command {
 		Short: "Validate and run bounded Prism graphs",
 	}
 	cmd.AddCommand(newGraphValidateCmd())
+	cmd.AddCommand(newGraphShowCmd())
 	cmd.AddCommand(newGraphRunCmd())
 	return cmd
 }
@@ -40,6 +41,29 @@ func newGraphValidateCmd() *cobra.Command {
 				return fmt.Errorf("graph validation failed")
 			}
 			return nil
+		},
+	}
+}
+
+func newGraphShowCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "show <graph.yaml>",
+		Short: "Show graph validation, depth, and execution order",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			def, err := internalgraph.Load(args[0])
+			if err != nil {
+				return err
+			}
+			res := internalgraph.Validate(def)
+			out := map[string]any{
+				"graph":      def,
+				"validation": res,
+				"node_order": internalgraph.Order(def),
+			}
+			enc := json.NewEncoder(cmd.OutOrStdout())
+			enc.SetIndent("", "  ")
+			return enc.Encode(out)
 		},
 	}
 }

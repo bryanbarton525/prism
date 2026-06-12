@@ -157,6 +157,63 @@ func TestInstallVerifiedFailsClosedAndDoesNotRecordState(t *testing.T) {
 	}
 }
 
+func TestBuildAndSignRegistryManifest(t *testing.T) {
+	source := t.TempDir()
+	writeBundleFile(t, filepath.Join(source, "skills", "demo", "SKILL.md"), "demo skill")
+	bundlePath := filepath.Join(source, "bundle.yaml")
+	if err := os.WriteFile(bundlePath, []byte(`id: demo
+version: 1.2.3
+channel: stable
+owner: platform
+risk_level: read_only
+skills:
+  - demo
+compatibility:
+  min_prism_version: 0.1.0
+files:
+  - kind: skill
+    path: skills/demo/SKILL.md
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	unsignedPath := filepath.Join(source, "registry.unsigned.json")
+	manifest, err := BuildRegistryManifest(BuildOptions{
+		BundleManifestPath: bundlePath,
+		GeneratedAt:        time.Date(2026, 6, 11, 0, 0, 0, 0, time.UTC),
+		OutputPath:         unsignedPath,
+	})
+	if err != nil {
+		t.Fatalf("BuildRegistryManifest(): %v", err)
+	}
+	if manifest.RegistryID != "platform" || manifest.Bundles[0].Files[0].SHA256 == "" {
+		t.Fatalf("manifest = %#v", manifest)
+	}
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signedPath := filepath.Join(source, "registry.json")
+	signed, err := SignRegistryManifest(SignOptions{
+		ManifestPath: unsignedPath,
+		PrivateKey:   base64.StdEncoding.EncodeToString(priv),
+		OutputPath:   signedPath,
+	})
+	if err != nil {
+		t.Fatalf("SignRegistryManifest(): %v", err)
+	}
+	if signed.Signature == "" {
+		t.Fatalf("signature was not populated")
+	}
+	if _, err := VerifyRegistryManifest(InstallOptions{
+		ManifestPath: signedPath,
+		SourceRoot:   source,
+		PublicKey:    base64.StdEncoding.EncodeToString(pub),
+		PrismVersion: "0.1.0",
+	}); err != nil {
+		t.Fatalf("signed manifest should verify: %v", err)
+	}
+}
+
 func signedRegistry(t *testing.T, source string) (registry.Manifest, ed25519.PublicKey, ed25519.PrivateKey) {
 	t.Helper()
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)

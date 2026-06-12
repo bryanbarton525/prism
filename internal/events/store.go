@@ -139,11 +139,6 @@ INSERT INTO run_events (
   completion_tokens_estimate, context_budget, prompt_size_estimate, context_budget_exceeded,
   policy_decision, policy_reason, bundle_id, bundle_version, error, validation_error
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(run_id) DO UPDATE SET
-  timestamp=excluded.timestamp,
-  status=excluded.status,
-  error=excluded.error,
-  validation_error=excluded.validation_error
 `, event.RunID, event.Timestamp.Format(time.RFC3339Nano), event.GraphID, event.GraphNodeID, event.EventKind,
 		event.ActorID, event.WorkspaceID, event.Source, event.CorrelationID,
 		event.AgentID, event.Model, event.Status, string(skills), string(plugins),
@@ -155,10 +150,13 @@ ON CONFLICT(run_id) DO UPDATE SET
 }
 
 type ListOptions struct {
-	Limit  int
-	Status string
-	Agent  string
-	Source string
+	Limit     int
+	Status    string
+	Agent     string
+	Source    string
+	Actor     string
+	Workspace string
+	Skill     string
 }
 
 func (s *Store) List(ctx context.Context, opts ListOptions) ([]observe.RunEvent, error) {
@@ -182,6 +180,18 @@ policy_decision, policy_reason, bundle_id, bundle_version, error, validation_err
 	if opts.Source != "" {
 		where = append(where, "source = ?")
 		args = append(args, opts.Source)
+	}
+	if opts.Actor != "" {
+		where = append(where, "actor_id = ?")
+		args = append(args, opts.Actor)
+	}
+	if opts.Workspace != "" {
+		where = append(where, "workspace_id = ?")
+		args = append(args, opts.Workspace)
+	}
+	if opts.Skill != "" {
+		where = append(where, "skills_json LIKE ?")
+		args = append(args, "%\""+opts.Skill+"\"%")
 	}
 	if len(where) > 0 {
 		query += " WHERE " + strings.Join(where, " AND ")

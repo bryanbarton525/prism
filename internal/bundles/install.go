@@ -67,13 +67,14 @@ func RecordRegistryInstall(path string, manifest registry.Manifest) error {
 	}
 	for _, bundle := range manifest.Bundles {
 		installed := bundlepkg.Installed{
-			ID:              bundle.ID,
-			Version:         bundle.Version,
-			Channel:         bundle.Channel,
-			Owner:           bundle.Owner,
-			RiskLevel:       bundle.RiskLevel,
-			RequiredPlugins: append([]string{}, bundle.RequiredPlugins...),
-			InstalledAt:     time.Now().UTC().Format(time.RFC3339),
+			ID:                bundle.ID,
+			Version:           bundle.Version,
+			Channel:           bundle.Channel,
+			Owner:             bundle.Owner,
+			RiskLevel:         bundle.RiskLevel,
+			RequiredPlugins:   append([]string{}, bundle.RequiredPlugins...),
+			DeprecationStatus: bundle.DeprecationStatus,
+			InstalledAt:       time.Now().UTC().Format(time.RFC3339),
 		}
 		replaced := false
 		for i := range state.Bundles {
