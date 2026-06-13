@@ -19,7 +19,7 @@ if "mcpServers" not in data:
     data["mcpServers"] = {}
 
 data["mcpServers"]["prism"] = {
-    "command": "/Users/bbarton/go/modules/prism/prism",
+    "command": "/Users/bbarton/go/bin/prism",
     "args": [
         "mcp",
         "serve",
