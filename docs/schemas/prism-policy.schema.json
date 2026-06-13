@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bryanbarton525/prism/schemas/prism-policy.schema.json",
+  "title": "Prism Policy",
+  "type": "object",
+  "required": ["version"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["manual", "suggest", "auto"]
+        },
+        "raw_prompt_capture": {
+          "type": "boolean"
+        },
+        "max_graph_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_graph_depth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_parallel_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_runtime_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_evidence_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "remote_models_allowed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "agents": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/agent"
+      }
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/allowed"
+      }
+    },
+    "workspaces": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/allowed"
+      }
+    },
+    "bundles": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/allowed"
+      }
+    },
+    "write_actions": {
+      "$ref": "#/$defs/allowed"
+    }
+  },
+  "$defs": {
+    "allowed": {
+      "type": "object",
+      "required": ["allowed"],
+      "additionalProperties": false,
+      "properties": {
+        "allowed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "agent": {
+      "type": "object",
+      "required": ["allowed"],
+      "additionalProperties": false,
+      "properties": {
+        "allowed": {
+          "type": "boolean"
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "plugins": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": ["read_only"]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

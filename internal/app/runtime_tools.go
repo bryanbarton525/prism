@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -14,6 +15,7 @@ import (
 type runtimeEvidence struct {
 	promptBlock string
 	artifacts   []result.Artifact
+	byteSize    int
 }
 
 func collectRuntimeEvidence(ctx context.Context, registry *plugins.Registry, spec *agent.Spec, task string) runtimeEvidence {
@@ -44,7 +46,7 @@ func collectRuntimeEvidence(ctx context.Context, registry *plugins.Registry, spe
 		}
 		call := plugins.ToolCall{
 			Tool: toolName,
-			Args: kubernetesArgs(task),
+			Args: runtimeToolArgs(task),
 		}
 		toolResult, err := plugin.Call(ctx, call)
 		if err != nil {
@@ -54,11 +56,24 @@ func collectRuntimeEvidence(ctx context.Context, registry *plugins.Registry, spe
 			}
 		}
 		artifact := result.Artifact{
-			Type:    "command_output",
+			Type:    "runtime_evidence",
 			Label:   toolResult.Label,
 			Content: strings.TrimSpace(toolResult.Content),
 		}
 		out.artifacts = append(out.artifacts, artifact)
+		out.byteSize += len(artifact.Content)
+		if toolResult.EvidencePack != nil {
+			data, err := json.MarshalIndent(toolResult.EvidencePack, "", "  ")
+			if err == nil {
+				content := string(data)
+				out.artifacts = append(out.artifacts, result.Artifact{
+					Type:    "evidence_pack",
+					Label:   "evidence-pack:" + toolResult.EvidencePack.Kind,
+					Content: content,
+				})
+				out.byteSize += len(content)
+			}
+		}
 		if artifact.Content != "" {
 			out.promptBlock += "\n\n# Runtime Plugin Evidence: " + plugin.Name() + "\n\n```text\n" +
 				artifact.Content + "\n```"
@@ -67,17 +82,20 @@ func collectRuntimeEvidence(ctx context.Context, registry *plugins.Registry, spe
 	return out
 }
 
+func runtimeToolArgs(task string) map[string]string {
+	args := kubernetesArgs(task)
+	args["task"] = task
+	args["query"] = extractSearchQuery(task)
+	return args
+}
+
 func defaultPluginTool(plugin plugins.Plugin) (string, bool) {
 	for _, tool := range plugin.Tools() {
 		if tool.ReadOnly {
 			return tool.Name, true
 		}
 	}
-	tools := plugin.Tools()
-	if len(tools) == 0 {
-		return "", false
-	}
-	return tools[0].Name, true
+	return "", false
 }
 
 func kubernetesArgs(task string) map[string]string {
@@ -130,4 +148,16 @@ func firstRegexCapture(s string, patterns []*regexp.Regexp) string {
 		}
 	}
 	return ""
+}
+
+func extractSearchQuery(task string) string {
+	task = strings.TrimSpace(task)
+	if len(task) <= 80 {
+		return task
+	}
+	fields := strings.Fields(task)
+	if len(fields) > 12 {
+		fields = fields[:12]
+	}
+	return strings.Join(fields, " ")
 }

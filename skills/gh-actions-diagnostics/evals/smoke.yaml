@@ -1,0 +1,11 @@
+version: 1
+skill: gh-actions-diagnostics
+cases:
+  - name: failed action run
+    prompt: "Diagnose a failed GitHub Actions workflow run and identify commands needed for logs, jobs, and annotations."
+    expected:
+      includes:
+        - workflow
+        - logs
+        - jobs
+        - evidence

@@ -164,3 +164,52 @@ func TestLoadMany_RealSkills(t *testing.T) {
 		t.Errorf("want 2 skills, got %d", len(skills))
 	}
 }
+
+func TestValidateEvalsSuccess(t *testing.T) {
+	root := makeSkillDir(t, "gh-pr-triage", validSkillMD)
+	evalsDir := filepath.Join(root, "gh-pr-triage", "evals")
+	if err := os.MkdirAll(evalsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data := `version: 1
+skill: gh-pr-triage
+cases:
+  - name: smoke
+    prompt: "Triage PR #42."
+    expected:
+      includes:
+        - PR
+        - checks
+`
+	if err := os.WriteFile(filepath.Join(evalsDir, "smoke.yaml"), []byte(data), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	count, err := ValidateEvals(os.DirFS(root), "gh-pr-triage")
+	if err != nil {
+		t.Fatalf("ValidateEvals: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("count = %d, want 1", count)
+	}
+}
+
+func TestValidateEvalsRejectsMissingCases(t *testing.T) {
+	root := makeSkillDir(t, "gh-pr-triage", validSkillMD)
+	evalsDir := filepath.Join(root, "gh-pr-triage", "evals")
+	if err := os.MkdirAll(evalsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data := `version: 1
+skill: gh-pr-triage
+`
+	if err := os.WriteFile(filepath.Join(evalsDir, "smoke.yaml"), []byte(data), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := ValidateEvals(os.DirFS(root), "gh-pr-triage")
+	if err == nil {
+		t.Fatal("expected eval validation error")
+	}
+	if !strings.Contains(err.Error(), "cases") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

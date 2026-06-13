@@ -1,0 +1,11 @@
+version: 1
+skill: go-test-table
+cases:
+  - name: table tests
+    prompt: "Create table-driven Go tests for a policy decision helper with allow, deny, and warn cases."
+    expected:
+      includes:
+        - table-driven
+        - cases
+        - allow
+        - deny

@@ -1,0 +1,11 @@
+version: 1
+skill: gh-pr-triage
+cases:
+  - name: blocked pull request
+    prompt: "Triage PR #42 for merge readiness, including failing checks, review state, and risky changed files."
+    expected:
+      includes:
+        - PR
+        - checks
+        - reviews
+        - confidence

@@ -11,7 +11,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-
 // Spec holds the parsed YAML frontmatter and Markdown body of an agent file.
 type Spec struct {
 	// Required frontmatter fields.
@@ -107,7 +106,6 @@ func (s *Spec) ResolveConstitution(fsys fs.FS) (text, source string, err error) 
 	}
 	return strings.TrimSpace(string(data)), "legacy", nil
 }
-
 
 // Parse parses raw bytes that begin with a YAML frontmatter block delimited by
 // "---". The sourcePath is used only for error messages and id-stem validation.

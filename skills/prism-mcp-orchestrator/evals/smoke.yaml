@@ -1,0 +1,11 @@
+version: 1
+skill: prism-mcp-orchestrator
+cases:
+  - name: delegation decision
+    prompt: "Decide whether to delegate a Kubernetes rollout investigation through Prism MCP and provide the call sequence."
+    expected:
+      includes:
+        - list_agents
+        - get_resource
+        - run_agent
+        - synthesize

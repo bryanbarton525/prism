@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"sort"
+
+	"github.com/bryanbarton525/prism/pkg/evidence"
 )
 
 // Plugin is a bounded runtime capability provider exposed to Prism agents.
@@ -18,6 +20,8 @@ type ToolSpec struct {
 	Name        string
 	Description string
 	ReadOnly    bool
+	Mode        string
+	MaxBytes    int
 }
 
 // ToolCall is a structured request from Prism's runner into a Plugin.
@@ -28,8 +32,9 @@ type ToolCall struct {
 
 // ToolResult is the evidence returned by a Plugin call.
 type ToolResult struct {
-	Label   string
-	Content string
+	Label        string
+	Content      string
+	EvidencePack *evidence.Pack
 }
 
 // Registry maps agent-declared tool names to concrete runtime plugins.

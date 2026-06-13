@@ -1,0 +1,11 @@
+version: 1
+skill: linear-issue-management
+cases:
+  - name: proposed linear issue
+    prompt: "Draft a proposed Linear issue for checkout-api rollout follow-up without executing the write."
+    expected:
+      includes:
+        - Linear
+        - issue
+        - proposed
+        - approval

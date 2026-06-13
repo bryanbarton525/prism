@@ -1,0 +1,11 @@
+version: 1
+skill: frontend-vanilla-spa
+cases:
+  - name: vanilla spa task
+    prompt: "Build a small vanilla HTML CSS JS dashboard with tabs and empty/loading/error states."
+    expected:
+      includes:
+        - HTML
+        - CSS
+        - JavaScript
+        - states

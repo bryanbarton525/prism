@@ -33,9 +33,18 @@ type Compat struct {
 
 // Bundle is one installable group of agent and skill files.
 type Bundle struct {
-	ID      string       `json:"id" yaml:"id"`
-	Version string       `json:"version" yaml:"version"`
-	Files   []BundleFile `json:"files" yaml:"files"`
+	ID                string       `json:"id" yaml:"id"`
+	Version           string       `json:"version" yaml:"version"`
+	Channel           string       `json:"channel,omitempty" yaml:"channel,omitempty"`
+	Owner             string       `json:"owner,omitempty" yaml:"owner,omitempty"`
+	Description       string       `json:"description,omitempty" yaml:"description,omitempty"`
+	RiskLevel         string       `json:"risk_level,omitempty" yaml:"risk_level,omitempty"`
+	Agents            []string     `json:"agents,omitempty" yaml:"agents,omitempty"`
+	Skills            []string     `json:"skills,omitempty" yaml:"skills,omitempty"`
+	RequiredPlugins   []string     `json:"required_plugins,omitempty" yaml:"required_plugins,omitempty"`
+	EvaluationSuite   []string     `json:"evaluation_suite,omitempty" yaml:"evaluation_suite,omitempty"`
+	DeprecationStatus string       `json:"deprecation_status,omitempty" yaml:"deprecation_status,omitempty"`
+	Files             []BundleFile `json:"files" yaml:"files"`
 }
 
 // BundleFile is one file in a managed registry bundle.

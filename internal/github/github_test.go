@@ -175,7 +175,6 @@ func newTestFS(t *testing.T, srv *httptest.Server) *FS {
 	return f
 }
 
-
 // rewriteTransport rewrites every outbound request to hit the mock server
 // instead of api.github.com.
 type rewriteTransport struct {
@@ -194,7 +193,6 @@ func (rt *rewriteTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	newReq.Header = req.Header
 	return http.DefaultTransport.RoundTrip(newReq)
 }
-
 
 func TestFS_OpenFile(t *testing.T) {
 	srv := mockGitHub(t,
