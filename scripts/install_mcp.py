@@ -19,7 +19,7 @@ if "mcpServers" not in data:
     data["mcpServers"] = {}
 
 data["mcpServers"]["prism"] = {
-    "command": "/Users/bbarton/go/modules/prism/prism",
+    "command": "/Users/bbarton/go/bin/prism",
     "args": [
         "mcp",
         "serve",
@@ -27,7 +27,10 @@ data["mcpServers"]["prism"] = {
         "/Users/bbarton/go/modules/prism"
     ],
     "env": {
-        "PRISM_OLLAMA_HOST": "http://127.0.0.1:11434"
+        "PRISM_OLLAMA_HOST": "http://127.0.0.1:11434",
+        "PRISM_MODEL_RUNTIME_ENGINE": "sglang",
+        "PRISM_MODEL_RUNTIME_BASE_URL": "http://sglang.barton.local/v1",
+        "PRISM_MODEL_RUNTIME_MODEL": "openai/gpt-oss-20b"
     }
 }
 

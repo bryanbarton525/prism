@@ -6,10 +6,11 @@ import (
 	"io/fs"
 )
 
-// ValidateStructure ensures a skill directory has SKILL.md, references/, and scripts/.
+// ValidateStructure ensures a skill directory has SKILL.md, references/,
+// scripts/, and evals/.
 func ValidateStructure(fsys fs.FS, name string) error {
 	var missing []string
-	for _, sub := range []string{"SKILL.md", "references", "scripts"} {
+	for _, sub := range []string{"SKILL.md", "references", "scripts", "evals"} {
 		path := name + "/" + sub
 		if _, err := fs.Stat(fsys, path); err != nil {
 			if errors.Is(err, fs.ErrNotExist) {

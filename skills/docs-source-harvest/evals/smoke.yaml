@@ -1,0 +1,11 @@
+version: 1
+skill: docs-source-harvest
+cases:
+  - name: source backed docs lookup
+    prompt: "Find source-backed documentation for configuring a Kubernetes HTTPRoute timeout and return citations."
+    expected:
+      includes:
+        - source
+        - documentation
+        - citation
+        - confidence

@@ -1,0 +1,11 @@
+version: 1
+skill: release-notes-scan
+cases:
+  - name: release notes scan
+    prompt: "Scan release notes for a dependency upgrade and summarize breaking changes with source-backed findings."
+    expected:
+      includes:
+        - release notes
+        - breaking changes
+        - source
+        - confidence

@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../docs/schemas/prism-policy.schema.json
+version: 1
+
+defaults:
+  mode: suggest
+  raw_prompt_capture: false
+  max_graph_nodes: 6
+  max_graph_depth: 3
+  max_parallel_nodes: 2
+  max_runtime_seconds: 120
+  max_evidence_bytes: 500000
+
+agents:
+  kubectl:
+    allowed: true
+    plugins:
+      kubernetes:
+        mode: read_only
+    skills:
+      - kubectl-triage
+      - k8s-rollout-diagnostics
+  github-cli:
+    allowed: true
+    skills:
+      - gh-pr-triage
+      - gh-actions-diagnostics
+  go-helper:
+    allowed: true
+    skills:
+      - go-helper-fn
+      - go-test-table
+      - go-pure-util
+
+sources:
+  cli:
+    allowed: true
+  mcp:
+    allowed: true
+
+write_actions:
+  allowed: false

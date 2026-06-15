@@ -4,6 +4,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -16,6 +17,9 @@ type globalFlags struct {
 	agentDir   string
 	skillsDir  string
 	ollamaHost string
+	eventStore string
+	policyFile string
+	stateDir   string
 	verbose    bool
 	jsonOut    bool
 }
@@ -46,6 +50,7 @@ func init() {
 		loaded = config.Settings{
 			RootDir:    ".",
 			OllamaHost: config.DefaultOllamaHost,
+			StateDir:   ".prism",
 		}
 	}
 	cfg = loaded
@@ -58,6 +63,12 @@ func init() {
 		"Skills directory (default: <root>/skills)")
 	rootCmd.PersistentFlags().StringVar(&gf.ollamaHost, "ollama-host", cfg.OllamaHost,
 		"Ollama server URL [$PRISM_OLLAMA_HOST]")
+	rootCmd.PersistentFlags().StringVar(&gf.stateDir, "state-dir", cfg.StateDir,
+		"Prism local state directory [$PRISM_STATE_DIR]")
+	rootCmd.PersistentFlags().StringVar(&gf.eventStore, "event-store", cfg.EventStore,
+		"SQLite event store path; enables durable run history [$PRISM_EVENT_STORE]")
+	rootCmd.PersistentFlags().StringVar(&gf.policyFile, "policy-file", cfg.PolicyFile,
+		"YAML policy file; enables policy enforcement [$PRISM_POLICY_FILE]")
 	rootCmd.PersistentFlags().BoolVarP(&gf.verbose, "verbose", "v", false, "Verbose output")
 	rootCmd.PersistentFlags().BoolVar(&gf.jsonOut, "json", false, "Force JSON output")
 
@@ -66,10 +77,38 @@ func init() {
 	rootCmd.AddCommand(newConfigCmd())
 	rootCmd.AddCommand(newMCPCmd())
 	rootCmd.AddCommand(newBenchmarkCmd())
+	rootCmd.AddCommand(newEventsCmd())
+	rootCmd.AddCommand(newPolicyCmd())
+	rootCmd.AddCommand(newRouteCmd())
+	rootCmd.AddCommand(newSkillCmd())
+	rootCmd.AddCommand(newBundleCmd())
+	rootCmd.AddCommand(newRegistryCmd())
+	rootCmd.AddCommand(newGraphCmd())
+	rootCmd.AddCommand(newDashboardCmd())
+	rootCmd.AddCommand(newReportCmd())
 }
 
 func verboseLog(format string, args ...interface{}) {
 	if gf.verbose {
 		fmt.Fprintf(os.Stderr, "[prism] "+format+"\n", args...)
 	}
+}
+
+func eventStorePath() string {
+	if gf.eventStore != "" {
+		return gf.eventStore
+	}
+	return filepath.Join(gf.stateDir, "events.db")
+}
+
+func installedBundlesPath() string {
+	return filepath.Join(gf.stateDir, "bundles.yaml")
+}
+
+func registrySourcesPath() string {
+	return filepath.Join(gf.stateDir, "registry-sources.yaml")
+}
+
+func mcpServersPath() string {
+	return filepath.Join(gf.stateDir, "mcp-servers.yaml")
 }

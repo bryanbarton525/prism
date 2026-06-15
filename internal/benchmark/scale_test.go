@@ -1,6 +1,58 @@
 package benchmark
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
+
+func TestContextBudgetAccountingForRemoteMCP(t *testing.T) {
+	breakdown := ContextBreakdown{
+		SystemInstructions: 39,
+		ToolDefinitions:    78,
+		UserMessages:       36,
+		ToolResults:        147,
+	}
+	if got := breakdown.Total(); got != 300 {
+		t.Fatalf("total = %d, want 300", got)
+	}
+	if got := breakdown.PercentOf("tool_results", 300); got != 49.0 {
+		t.Fatalf("tool_results share = %.1f, want 49.0", got)
+	}
+	if got := breakdown.EffectiveSavings(1000, 200); got != 850 {
+		t.Fatalf("effective savings = %d, want 850", got)
+	}
+}
+
+func TestSyntheticRemoteMCPToolHandlingSavings(t *testing.T) {
+	root := repoRoot(t)
+	results, err := LoadResults(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ref, ok := results["todo-spa-build"]
+	if !ok {
+		t.Fatal("todo-spa-build fixture missing from results.yaml")
+	}
+
+	inputReduction := 100.0 * float64(ref.OrchestratorOnly.InputTokens-ref.PrismDelegated.InputTokens) / float64(ref.OrchestratorOnly.InputTokens)
+	if math.Abs(inputReduction-ref.InputTokenReductionPercent) > 0.1 {
+		t.Fatalf("input reduction = %.1f%%, want %.1f%% from fixture", inputReduction, ref.InputTokenReductionPercent)
+	}
+
+	costSavings := ref.OrchestratorOnly.CostUSD - ref.PrismDelegated.CostUSD
+	if math.Abs(costSavings-ref.NetSavingsUSD) > 0.0001 {
+		t.Fatalf("cost savings = $%.4f, want $%.4f from fixture", costSavings, ref.NetSavingsUSD)
+	}
+
+	if ref.PrismDelegated.Delegations != 3 {
+		t.Fatalf("delegations = %d, want 3 to reflect the documented MCP tool loop", ref.PrismDelegated.Delegations)
+	}
+
+	if ref.OrchestratorOnly.InputTokens <= ref.PrismDelegated.InputTokens {
+		t.Fatal("expected remote MCP handling to reduce orchestrator input tokens")
+	}
+}
 
 func TestScaledSavingsPerRun(t *testing.T) {
 	ref := ScenarioResults{

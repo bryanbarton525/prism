@@ -1,0 +1,11 @@
+version: 1
+skill: k8s-rollout-diagnostics
+cases:
+  - name: rollout stalled
+    prompt: "Deployment checkout-api rollout is stalled in namespace staging. Diagnose with read-only Kubernetes evidence."
+    expected:
+      includes:
+        - deployment
+        - rollout
+        - namespace
+        - evidence

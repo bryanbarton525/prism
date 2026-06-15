@@ -1,0 +1,11 @@
+version: 1
+skill: go-pure-util
+cases:
+  - name: deterministic utility
+    prompt: "Implement a deterministic Go utility for trimming and deduplicating string slices."
+    expected:
+      includes:
+        - deterministic
+        - utility
+        - tests
+        - code

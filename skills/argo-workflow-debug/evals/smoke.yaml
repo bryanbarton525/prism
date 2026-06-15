@@ -1,0 +1,11 @@
+version: 1
+skill: argo-workflow-debug
+cases:
+  - name: failed workflow node
+    prompt: "Argo Workflow nightly-etl failed at the transform node. Identify bounded evidence to collect and likely next checks."
+    expected:
+      includes:
+        - workflow
+        - node
+        - logs
+        - evidence

@@ -144,7 +144,7 @@ func renderPrompt(id string, vars map[string]string) (title, prompt string, err 
 		task := get("task", "Summarize PR #42 merge blockers and failing checks.")
 		title = "Run agent tool call (JSON)"
 		prompt = fmt.Sprintf(
-			"Call Prism MCP tool `run_agent` with JSON:\n\n{\n  \"agent_id\": %q,\n  \"skill_names\": [%s],\n  \"task\": %q,\n  \"format\": \"json\"\n}\n\nRules:\n- `skill_names` must be allowed by the target agent.\n- Provide bounded, evidence-oriented tasks.\n- Keep orchestration and final judgment in the parent model.",
+			"Call Prism MCP tool `run_agent` with JSON:\n\n{\n  \"agent_id\": %q,\n  \"skill_names\": [%s],\n  \"task\": %q,\n  \"format\": \"json\"\n}\n\nRules:\n- `skill_names` must be allowed by the target agent.\n- Optionally include `bundle_id` and `bundle_version` when attributing a run to an installed, policy-approved bundle.\n- Provide bounded, evidence-oriented tasks.\n- Keep orchestration and final judgment in the parent model.",
 			agentID, quoteCSV(skillsCSV), task,
 		)
 		return title, prompt, nil
@@ -295,9 +295,17 @@ Required fields:
 
 Optional:
 - format: "json" (default) or "markdown"
+- bundle_id: installed bundle ID for policy and observability attribution
+- bundle_version: bundle version to record with the run
+
+Related downstream MCP tools:
+- list_mcp_servers: see MCP servers Prism can call on behalf of specialists
+- list_mcp_server_tools: inspect compact downstream tool inventory
+- call_mcp_tool: execute one bounded downstream tool call through Prism
 
 Rules:
 - skill_names must be allowed by the selected agent.
+- bundle_id is checked by policy when policy config declares allowed bundles.
 - Keep task bounded and evidence-oriented.
 - Delegate narrow subtasks; synthesize in the parent orchestrator.
 - If required identifiers/evidence are missing, return status "insufficient_evidence" with callback fields needed from parent.`,
@@ -315,6 +323,7 @@ Keep parent-model context small by delegating evidence-heavy subtasks to Prism s
 ## When to delegate
 - Task includes large evidence blobs (CI logs, cluster state, runbooks, docs, chat exports).
 - Task is domain-specific (GitHub, Kubernetes, Argo, docs lookup, Go codegen/scaffold).
+- Task depends on a bulky downstream MCP server surface that a Prism specialist can own.
 - Work can be split into parallel, bounded subtasks.
 
 ## First-party source policy
@@ -333,8 +342,10 @@ Keep parent-model context small by delegating evidence-heavy subtasks to Prism s
    - prism://resource/tooling/orchestration-guide
    - prism://resource/agent/<agent_id>/constitution (for chosen agent)
 3. Optional: list_prompts and get_prompt to generate valid run_agent payloads.
-4. run_agent with bounded tasks and explicit skill_names.
-5. Synthesize specialist outputs in the parent model.
+4. Optional for MCP-heavy domains: list_mcp_servers and list_mcp_server_tools to expose compact downstream inventory.
+5. run_agent with bounded tasks and explicit skill_names.
+6. Optional after approval: call_mcp_tool for one bounded downstream action.
+7. Synthesize specialist outputs in the parent model.
 
 ## Fail-closed rule
 - Do not emit placeholder or fabricated evidence.
@@ -365,7 +376,9 @@ Prism enforces allowed_skills per agent; parent model must choose valid skill ID
 			URI:      uri,
 			Name:     "agents index",
 			MimeType: "application/json",
-			Content:  marshalJSON(struct{ Agents []agent.Summary `json:"agents"` }{Agents: agents}),
+			Content: marshalJSON(struct {
+				Agents []agent.Summary `json:"agents"`
+			}{Agents: agents}),
 		}, nil
 	default:
 		const prefix = "prism://resource/agent/"

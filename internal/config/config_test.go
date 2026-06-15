@@ -143,6 +143,33 @@ func TestLoadReadsPrismPrefixedEnvironment(t *testing.T) {
 	}
 }
 
+func TestLoadReadsModelRuntimeConfig(t *testing.T) {
+	t.Setenv("PRISM_MODEL_RUNTIME_ENGINE", "sglang")
+	t.Setenv("PRISM_MODEL_RUNTIME_BASE_URL", "http://localhost:30000/v1")
+	t.Setenv("PRISM_MODEL_RUNTIME_MODEL", "Qwen/Qwen3-Coder")
+	t.Setenv("PRISM_MODEL_RUNTIME_API_KEY", "EMPTY")
+	t.Setenv("PRISM_MODEL_RUNTIME_FALLBACK_ENGINE", "vllm")
+	t.Setenv("PRISM_MODEL_RUNTIME_FALLBACK_BASE_URL", "http://localhost:8000/v1")
+	t.Setenv("PRISM_MODEL_RUNTIME_FALLBACK_MODEL", "Qwen/Qwen3-Coder")
+
+	dir := t.TempDir()
+	chdir(t, dir)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load(): %v", err)
+	}
+	if cfg.ModelRuntime.Primary.Engine != "sglang" || cfg.ModelRuntime.Primary.BaseURL != "http://localhost:30000/v1" {
+		t.Fatalf("primary runtime = %#v", cfg.ModelRuntime.Primary)
+	}
+	if cfg.ModelRuntime.Primary.APIKey != "EMPTY" || cfg.ModelRuntime.Primary.Model != "Qwen/Qwen3-Coder" {
+		t.Fatalf("primary runtime = %#v", cfg.ModelRuntime.Primary)
+	}
+	if cfg.ModelRuntime.Fallback == nil || cfg.ModelRuntime.Fallback.Engine != "vllm" {
+		t.Fatalf("fallback runtime = %#v", cfg.ModelRuntime.Fallback)
+	}
+}
+
 func chdir(t *testing.T, dir string) {
 	t.Helper()
 	old, err := os.Getwd()

@@ -9,6 +9,49 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ContextBreakdown models how frontier-model prompt budget is consumed.
+type ContextBreakdown struct {
+	SystemInstructions int `json:"system_instructions"`
+	ToolDefinitions    int `json:"tool_definitions"`
+	UserMessages       int `json:"user_messages"`
+	ToolResults        int `json:"tool_results"`
+}
+
+func (b ContextBreakdown) Total() int {
+	return b.SystemInstructions + b.ToolDefinitions + b.UserMessages + b.ToolResults
+}
+
+func (b ContextBreakdown) PercentOf(section string, total int) float64 {
+	if total <= 0 {
+		return 0
+	}
+	var tokens int
+	switch section {
+	case "system_instructions":
+		tokens = b.SystemInstructions
+	case "tool_definitions":
+		tokens = b.ToolDefinitions
+	case "user_messages":
+		tokens = b.UserMessages
+	case "tool_results":
+		tokens = b.ToolResults
+	default:
+		return 0
+	}
+	return math.Round((float64(tokens)/float64(total))*1000) / 10
+}
+
+func (b ContextBreakdown) EffectiveSavings(totalTokens, remoteMCPTokenSavings int) int {
+	if totalTokens <= 0 {
+		return 0
+	}
+	weight := 1.0
+	if b.Total() > 0 {
+		weight = float64(b.ToolDefinitions+b.ToolResults) / float64(b.Total())
+	}
+	return totalTokens - int(math.Round(float64(remoteMCPTokenSavings)*weight))
+}
+
 // Rates holds per-million-token pricing for cost estimates.
 type Rates struct {
 	Orchestrator RateModel `yaml:"orchestrator"`

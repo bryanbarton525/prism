@@ -65,9 +65,9 @@ func TestToMarkdown_ContainsExpectedSections(t *testing.T) {
 		Artifacts: []Artifact{
 			{Type: "command_output", Label: "pod logs", Content: "error: OOM"},
 		},
-		Confidence: ConfidenceHigh,
-		SkillsUsed: []string{"kubectl-triage"},
-		Usage:      Usage{DurationMS: 2000},
+		Confidence:            ConfidenceHigh,
+		SkillsUsed:            []string{"kubectl-triage"},
+		Usage:                 Usage{DurationMS: 2000},
 		ContextBudgetExceeded: true,
 	}
 

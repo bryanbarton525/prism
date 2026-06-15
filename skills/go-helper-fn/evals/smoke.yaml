@@ -1,0 +1,11 @@
+version: 1
+skill: go-helper-fn
+cases:
+  - name: pure helper
+    prompt: "Write a small Go helper that normalizes Kubernetes namespace names and returns table-driven test notes."
+    expected:
+      includes:
+        - Go
+        - helper
+        - tests
+        - code

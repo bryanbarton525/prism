@@ -6,8 +6,8 @@ This guide covers day-to-day use of the Prism CLI and MCP server as implemented 
 
 1. **Clone** the repository and `cd` into it (or pass `--root` to every command).
 2. **Install** Go 1.25+ and the binary: `go install ./cmd/prism`
-3. **Start Ollama** and confirm it responds: `curl http://127.0.0.1:11434/api/version`
-4. **Pull models** used by your agents (see `model:` in `agents/*.md`), e.g.:
+3. **Start a model runtime**. The simplest path is Ollama: `curl http://127.0.0.1:11434/api/version`. Prism can also target SGLang, vLLM, or another OpenAI-compatible endpoint with `PRISM_MODEL_RUNTIME_*`.
+4. **Pull or serve a model** used by your agents. For Ollama, use:
   ```bash
    ollama pull qwen3.5:9b
   ```
@@ -28,7 +28,18 @@ Prism resolves paths relative to `**--root**` (default: current working director
 | Agent specs  | `--agent-dir`   | `PRISM_AGENT_DIR`    |
 | Skills       | `--skills-dir`  | `PRISM_SKILLS_DIR`   |
 | Ollama URL   | `--ollama-host` | `PRISM_OLLAMA_HOST`  |
+| Runtime engine | —             | `PRISM_MODEL_RUNTIME_ENGINE` |
+| Runtime base URL | —           | `PRISM_MODEL_RUNTIME_BASE_URL` |
+| Runtime model | —              | `PRISM_MODEL_RUNTIME_MODEL` |
+| Runtime API key | —            | `PRISM_MODEL_RUNTIME_API_KEY` |
+| Fallback runtime engine | —    | `PRISM_MODEL_RUNTIME_FALLBACK_ENGINE` |
+| Fallback runtime base URL | —  | `PRISM_MODEL_RUNTIME_FALLBACK_BASE_URL` |
+| Fallback runtime model | —     | `PRISM_MODEL_RUNTIME_FALLBACK_MODEL` |
+| Local state  | `--state-dir`   | `PRISM_STATE_DIR`    |
+| Event store  | `--event-store` | `PRISM_EVENT_STORE`  |
+| Policy file  | `--policy-file` | `PRISM_POLICY_FILE`  |
 | GitHub token | —               | `PRISM_GITHUB_TOKEN`, `PRISM_GH_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN` |
+| Linear MCP URL | —            | `PRISM_LINEAR_MCP_URL` |
 
 
 Example running from another directory:
@@ -37,6 +48,129 @@ Example running from another directory:
 prism --root ~/src/prism agent list
 prism --root ~/src/prism config doctor
 ```
+
+## Full local control-plane setup
+
+Use this path when you want the OSS control-plane features enabled together:
+signed bundle verification, policy enforcement, durable events, reports, and the
+local dashboard.
+
+```bash
+# 1. Build/install the binary and verify local runtime dependencies.
+go install ./cmd/prism
+ollama pull qwen3.5:9b
+prism --root "$(pwd)" config doctor
+
+# 2. Pick one local state directory for registry sources, installed bundles,
+#    and the default dashboard/event-store path.
+export PRISM_STATE_DIR=.prism
+mkdir -p "$PRISM_STATE_DIR"
+
+# 3. Register a local registry source root. Sources may be local paths or
+#    http(s) URLs. Manifest paths passed with --source are resolved under it.
+prism registry source add local .
+prism registry source list
+prism registry sync
+
+# 4. Verify and install a signed registry manifest.
+prism bundle verify --source local testdata/bundles/k8s-core-triage/registry.json \
+  --public-key testdata/bundles/k8s-core-triage/public_key.txt
+prism bundle install --source local testdata/bundles/k8s-core-triage/registry.json \
+  --dest-root . \
+  --public-key testdata/bundles/k8s-core-triage/public_key.txt
+prism bundle list
+
+# 5. Validate policy before enforcing it on runs or MCP.
+prism policy validate testdata/policies/k8s-readonly.yaml
+prism policy test testdata/policies/k8s-readonly.yaml testdata/policies/k8s-readonly-cases.yaml
+
+# 6. Run with event storage, policy, and bundle provenance.
+echo "Investigate deployment checkout-api in namespace staging" | \
+  prism --policy-file testdata/policies/k8s-readonly.yaml \
+    --event-store "$PRISM_STATE_DIR/events.db" \
+    run kubectl \
+    --skills kubectl-triage,k8s-rollout-diagnostics \
+    --bundle-id k8s-core-triage
+
+# 7. Inspect events, reports, and dashboard.
+prism --event-store "$PRISM_STATE_DIR/events.db" events summarize
+prism --event-store "$PRISM_STATE_DIR/events.db" report usage
+prism --event-store "$PRISM_STATE_DIR/events.db" dashboard serve --addr 127.0.0.1:8765
+```
+
+Open `http://127.0.0.1:8765` for the dashboard. The dashboard reads the same
+SQLite event store as `events` and `report`; it will be empty until at least one
+run or graph has been executed with `--event-store` or `PRISM_EVENT_STORE`.
+
+### Creating a registry today
+
+Prism's registry install path consumes a signed registry manifest. A registry
+source is a named local path or `http(s)` URL saved with `prism registry source
+add`; `prism bundle verify --source <name>` and `prism bundle install --source
+<name>` resolve the manifest path under that source.
+
+A signed registry manifest must include:
+
+- registry metadata: `registry_id`, `version`, `generated_at`, and optional `compat`
+- one or more bundles with `id`, `version`, `channel`, `owner`, `risk_level`,
+  `agents`, `skills`, `required_plugins`, and `files`
+- file entries with path-safe `path` values and SHA-256 hashes
+- an Ed25519 `signature` over the manifest payload
+- a matching public key supplied to `prism bundle verify` or `prism bundle install`
+
+The fixture at `testdata/bundles/k8s-core-triage/registry.json` is the canonical
+working example.
+
+Local configured source:
+
+```bash
+prism registry source add local .
+prism bundle install --source local testdata/bundles/k8s-core-triage/registry.json \
+  --dest-root . \
+  --public-key testdata/bundles/k8s-core-triage/public_key.txt
+```
+
+Remote configured source:
+
+```bash
+prism registry source add platform https://registry.example.com/prism
+prism bundle install --source platform k8s-core-triage/registry.json \
+  --dest-root . \
+  --public-key ./platform-registry-public-key.txt
+```
+
+Direct remote manifest URL:
+
+```bash
+prism bundle verify https://registry.example.com/prism/k8s-core-triage/registry.json \
+  --public-key ./platform-registry-public-key.txt
+```
+
+For remote manifests, Prism downloads the manifest's declared files into a
+temporary verification root, then runs the same Ed25519 signature, Prism-version
+compatibility, SHA-256 checksum, and path-safety checks before installing.
+
+To create a registry manifest from bundle metadata, then sign it:
+
+```bash
+prism bundle build testdata/bundles/k8s-core-triage/bundle.yaml \
+  --source-root . \
+  --output /tmp/k8s-core-triage.registry.unsigned.json
+
+prism bundle sign /tmp/k8s-core-triage.registry.unsigned.json \
+  --private-key ./registry-private-key.txt \
+  --output /tmp/k8s-core-triage.registry.json
+```
+
+Local bundle promotion and deprecation update installed bundle state:
+
+```bash
+prism bundle promote k8s-core-triage --channel stable
+prism bundle deprecate k8s-core-triage --status deprecated
+```
+
+Remote publishing and full rollback-to-prior-install snapshots are still planned
+lifecycle commands; signed local and remote verification/install paths are live.
 
 ## CLI workflows
 
@@ -70,12 +204,25 @@ EOF
 
 # Piped stdin (no --stdin flag needed)
 echo "Check sync health" | prism run argo --skills argo-sync-health
+
+# Attribute a run to an installed bundle version for policy and reporting
+echo "Investigate deployment checkout-api in namespace staging" | \
+  prism --state-dir .prism run kubectl \
+    --skills kubectl-triage,k8s-rollout-diagnostics \
+    --bundle-id k8s-core-triage
 ```
 
 **Output formats**
 
 - `--format json` (default) — full `RunResult` envelope on stdout
 - `--format markdown` — human-readable report
+
+**Bundle attribution**
+
+- `--bundle-id` records the bundle on the run and lets policy check allowed bundles.
+- `--bundle-version` records an explicit version.
+- If `--bundle-id` is set without `--bundle-version`, Prism resolves the version from installed bundle state under `--state-dir`.
+- If the bundle is not installed and no version is supplied, the CLI fails closed instead of recording ambiguous provenance.
 
 **Validation**
 
@@ -84,6 +231,75 @@ If a skill is not in `allowed_skills`, the run returns `status: validation_fail`
 If the assembled prompt exceeds `context_budget`, the runtime truncates the system prompt and sets `context_budget_exceeded: true` in the result.
 
 If the run exceeds `latency_budget_ms`, the context deadline may return `status: timeout`.
+
+### Control-plane commands
+
+Policy is optional and preserves existing behavior when unset:
+
+```bash
+prism policy validate testdata/policies/k8s-readonly.yaml
+prism policy explain testdata/policies/k8s-readonly.yaml kubectl \
+  --skills k8s-rollout-diagnostics \
+  --plugins kubernetes
+prism policy test testdata/policies/k8s-readonly.yaml testdata/policies/k8s-readonly-cases.yaml
+
+echo "Investigate deployment checkout-api in namespace staging" | \
+  prism route suggest
+```
+
+Durable event storage is opt-in for runs with `--event-store` or `PRISM_EVENT_STORE`:
+
+```bash
+prism --event-store .prism/events.db run github-cli --skills gh-pr-triage --stdin
+prism events list --limit 20
+prism events export --format csv
+prism events summarize
+```
+
+Skill, bundle, registry, graph, dashboard, and report commands:
+
+```bash
+prism skill lint
+prism skill test k8s-rollout-diagnostics
+prism skill benchmark --max-chars 24000
+
+prism registry source add local .
+prism registry source list
+prism registry sync
+
+prism bundle verify --source local testdata/bundles/k8s-core-triage/registry.json \
+  --public-key testdata/bundles/k8s-core-triage/public_key.txt
+prism bundle build testdata/bundles/k8s-core-triage/bundle.yaml --source-root . \
+  --output /tmp/k8s-core-triage.registry.unsigned.json
+prism bundle sign /tmp/k8s-core-triage.registry.unsigned.json \
+  --private-key ./registry-private-key.txt \
+  --output /tmp/k8s-core-triage.registry.json
+prism --state-dir .prism bundle install --source local testdata/bundles/k8s-core-triage/registry.json \
+  --dest-root . \
+  --public-key testdata/bundles/k8s-core-triage/public_key.txt
+prism bundle list
+prism bundle promote k8s-core-triage --channel stable
+prism bundle deprecate k8s-core-triage --status deprecated
+
+prism graph validate testdata/graphs/k8s-rollout-investigation.yaml
+prism graph show testdata/graphs/k8s-rollout-investigation.yaml
+prism graph run testdata/graphs/k8s-rollout-investigation.yaml
+
+prism dashboard serve
+prism report usage
+prism report savings --format json
+prism report adoption
+prism report bundles
+prism report skills
+```
+
+The local event store records run and graph metadata, not raw prompts, raw logs, or raw evidence.
+
+For a deterministic local control-plane smoke test that avoids live model calls:
+
+```bash
+scripts/local-acceptance.sh
+```
 
 ### Diagnostics
 
@@ -128,6 +344,10 @@ timeouts, and model/runtime errors. CLI calls tag `source: cli`; MCP calls tag
 - `Install` is the safe install entrypoint: it verifies signature, compatibility,
   and file hashes before copying files into the destination root with path-safety checks.
 
+The CLI `prism bundle install` uses this same fail-closed path for signed registry
+manifests. Local installed-bundle state is recorded only after verification and
+copying both succeed.
+
 This is useful for controlled distribution of approved `agents/` and `skills/`
 content while still relying on Prism's existing `--agent-dir` and `--skills-dir`
 resolution.
@@ -167,14 +387,18 @@ Example for Cursor (`~/.cursor/mcp.json`). Other MCP-compatible editors use equi
         "--root",
         "/Users/you/src/prism"
       ],
-      "env": { "PRISM_OLLAMA_HOST": "http://127.0.0.1:11434" }
+      "env": {
+        "PRISM_MODEL_RUNTIME_ENGINE": "ollama",
+        "PRISM_MODEL_RUNTIME_BASE_URL": "http://127.0.0.1:11434",
+        "PRISM_MODEL_RUNTIME_MODEL": "qwen3.5:9b"
+      }
     }
   }
 }
 ```
 
 After saving, reload MCP servers in your editor settings. The **prism** server should list:
-- Core tools: `list_agents`, `run_agent`, `get_constitution`, `doctor`
+- Core tools: `list_agents`, `run_agent`, `get_constitution`, `doctor`, `suggest_route`, `run_graph`, `explain_policy`, `list_policies`, `list_mcp_servers`, `list_mcp_server_tools`, `call_mcp_tool`
 - Compatibility tools: `list_prompts`, `get_prompt`, `list_resources`, `get_resource`
 
 For a local Gemini MCP config, this repository also includes a helper at `scripts/install_mcp.py`. Review the paths in the script first, then run it from the repo root with `python3 scripts/install_mcp.py`.
@@ -197,7 +421,9 @@ For a local Gemini MCP config, this repository also includes a helper at `script
         "https://github.com/bryanbarton525/prism"
       ],
       "env": {
-        "PRISM_OLLAMA_HOST": "http://127.0.0.1:11434",
+        "PRISM_MODEL_RUNTIME_ENGINE": "ollama",
+        "PRISM_MODEL_RUNTIME_BASE_URL": "http://127.0.0.1:11434",
+        "PRISM_MODEL_RUNTIME_MODEL": "qwen3.5:9b",
         "GITHUB_TOKEN": "ghp_yourtokenhere"
       }
     }
@@ -214,16 +440,74 @@ For a local Gemini MCP config, this repository also includes a helper at `script
 
 ### Runtime plugins
 
-Agent specs may declare a `tools:` allowlist. Prism resolves those names through the native runtime plugin registry, collects bounded read-only evidence before prompt assembly, and includes that evidence in both the specialist prompt and the returned artifacts.
+Agent specs may declare a `tools:` allowlist. Prism resolves those names through the native runtime plugin registry, collects bounded read-only evidence before prompt assembly, and includes that evidence in both the specialist prompt and the returned artifacts. If a policy sets `max_evidence_bytes`, oversized evidence is blocked before the prompt is assembled or the model is called.
 
-The first built-in plugin is `kubernetes`. The `kubectl` agent declares:
+Built-in v1 plugins:
+
+- `kubernetes` / alias `kubectl`: native client-go diagnostics for namespace, pod, deployment, service, event, EndpointSlice, HTTPRoute, and server-version evidence.
+- `github`: repo-local `.github` workflow/template metadata. This does not call the live GitHub API.
+- `localdocs` / alias `docs`: bounded search over `docs/`, README, and Markdown files.
+- `filesystem` / alias `fs`: bounded read-only search over common repo text files.
+- `goproject` / alias `go`: bounded Go project metadata from `go.mod` and package paths.
+- `linear`: Linear MCP setup context, issue-key extraction, and operation hints. This plugin does not execute Linear writes.
+- `mcp`: compact inventory for configured downstream MCP servers. This lets a local specialist inspect downstream tool names without loading every downstream tool schema into the parent orchestrator.
+
+The `kubectl` agent declares:
 
 ```yaml
 tools:
   - kubernetes
 ```
 
-That means Prism uses Kubernetes client-go APIs to collect namespace, pod, deployment, service, event, EndpointSlice, HTTPRoute, and server-version evidence. It does not shell out to `kubectl` for this runtime evidence. Results are labeled `runtime-plugin:kubernetes`; `kubectl` remains accepted as a compatibility alias for older agent specs.
+That means Prism uses Kubernetes client-go APIs and does not shell out to `kubectl` for runtime evidence. Results are labeled `runtime-plugin:kubernetes`; structured evidence packs are returned as `evidence-pack:*` artifacts.
+
+The `linear` agent declares:
+
+```yaml
+tools:
+  - linear
+```
+
+That means Prism adds bounded Linear MCP context before the local specialist runs. Configure an authenticated Linear MCP server in the parent MCP host for live searches and mutations. Prism's native plugin returns proposed create/edit/comment/archive actions and evidence artifacts; it does not create or edit Linear issues itself.
+
+### Downstream MCP clients
+
+Prism can also act as a bounded MCP client to downstream MCP servers. This is useful when a specialist should own a bulky tool surface, such as Linear issues/projects/comments, without forcing the parent model to carry all downstream tool schemas.
+
+Configuration is stored in `mcp-servers.yaml` under `--state-dir`.
+
+For Linear, set `PRISM_LINEAR_MCP_URL` to have Prism expose a `linear` downstream server automatically when no explicit `linear` server is saved in state:
+
+```bash
+export PRISM_LINEAR_MCP_URL=https://mcp.linear.app/mcp
+prism mcp server list
+```
+
+You can also save the server explicitly with command transport through `mcp-remote`:
+
+```bash
+prism mcp server add-command linear npx -y mcp-remote https://mcp.linear.app/mcp
+prism mcp server list
+prism mcp server tools linear
+```
+
+The Linear OAuth/token flow is handled by the downstream MCP command or its auth cache. Prism does not store Linear API tokens.
+
+Call one downstream tool through Prism:
+
+```bash
+prism mcp server call linear search_issues --args-json '{"query":"checkout rollout"}'
+```
+
+The same bridge is exposed over Prism MCP:
+
+- `list_mcp_servers`
+- `list_mcp_server_tools`
+- `call_mcp_tool`
+
+Use `call_mcp_tool` only after policy and user approval for write-oriented downstream actions.
+
+When an agent declares `tools: [mcp]`, Prism also exposes these bridge functions to the configured model runtime request as tool definitions. Tool-capable local or self-hosted models may call `list_mcp_servers`, `list_mcp_server_tools`, and `call_mcp_tool` during the specialist run; Prism executes bounded downstream calls, appends the tool result, and asks the model for the final compact result envelope.
 
 ### Tool reference
 
@@ -250,14 +534,65 @@ No parameters. Same information as `prism config doctor` (JSON).
   "agent_id": "github-cli",
   "task": "Describe what to investigate.",
   "skill_names": ["gh-pr-triage"],
-  "format": "json"
+  "format": "json",
+  "bundle_id": "team-github-triage",
+  "bundle_version": "0.1.0"
 }
 ```
 
 - `skill_names` is required (at least one entry).
 - `format` is optional (`json` or `markdown`).
+- `bundle_id` and `bundle_version` are optional; use them when attributing a run to an installed, policy-approved bundle.
 
 Response is a `RunResult` object (see README).
+
+#### `suggest_route`
+
+```json
+{
+  "task": "Investigate deployment checkout-api in namespace staging",
+  "source": "mcp"
+}
+```
+
+Returns a deterministic recommendation with `agent_id`, `skill_names`, reason, risk, and policy-shaped decision metadata.
+
+#### `run_graph`
+
+```json
+{
+  "graph": {
+    "id": "k8s-rollout-investigation",
+    "version": 1,
+    "nodes": {
+      "analyze": {
+        "agent": "kubectl",
+        "skills": ["k8s-rollout-diagnostics"],
+        "task": "Investigate deployment checkout-api in namespace staging."
+      }
+    }
+  }
+}
+```
+
+Runs a bounded graph through the same shared runner as CLI and `run_agent`. When a policy file is configured, Prism prechecks graph size/depth plus each node's agent, skills, and plugins before execution. V1 graph execution is sequential; `max_parallel` must be `0` or `1`, retries are not yet implemented, and node artifacts are returned in the graph result as bounded typed artifacts.
+
+#### `explain_policy`
+
+```json
+{
+  "agent_id": "kubectl",
+  "skills": ["k8s-rollout-diagnostics"],
+  "plugins": ["kubernetes"],
+  "source": "mcp"
+}
+```
+
+Returns the configured policy decision. If no policy file is configured, the decision is `allow` with reason `no policy configured`.
+
+#### `list_policies`
+
+No parameters. Reports whether the MCP server started with a configured policy.
 
 #### `list_prompts` / `get_prompt`
 
@@ -316,10 +651,11 @@ Suggested order:
 
 1. Create `skills/<name>/` with:
   - `SKILL.md` (frontmatter `name` must match directory name)
+  - `evals/smoke.yaml`
   - `references/REFERENCE.md`
   - `scripts/collect.sh`
 2. Add `<name>` to an agent’s `allowed_skills`.
-3. Verify: `go test ./internal/benchmark/...`
+3. Verify: `prism skill test <name>` and `go test ./internal/benchmark/...`
 
 ### Publish/install via skills.sh CLI
 
@@ -343,8 +679,8 @@ agent lists it in `allowed_skills`.
 | `no agents found`            | Wrong `--root` or cwd                  | `cd` to repo or set `--root`                                               |
 | MCP tools missing in editor | Bad `command` path or MCP not reloaded | Use absolute path to `prism`; reload MCP in host settings |
 | `validation_fail` for skills | Skill not in `allowed_skills`          | Check `prism agent show <id>`                                              |
-| `error` / timeout on run     | Ollama down or slow                    | `prism config doctor`; increase `latency_budget_ms`                        |
-| Empty or poor model output   | Wrong/missing model                    | `ollama list`; pull or edit `model:` in spec                               |
+| `error` / timeout on run     | Model runtime down or slow             | Check runtime health; increase `latency_budget_ms`; for Ollama run `prism config doctor` |
+| Empty or poor model output   | Wrong/missing model                    | Set `PRISM_MODEL_RUNTIME_MODEL`; for Ollama also check `ollama list`       |
 | MCP hangs                    | Inspecting stdout                      | Use Inspector or your MCP host; don’t run `mcp serve` interactively in a terminal |
 
 

@@ -1,0 +1,51 @@
+{
+  "registry_id": "platform-sre",
+  "version": "2026.06.03",
+  "generated_at": "2026-06-03T00:00:00Z",
+  "compat": {
+    "min_prism_version": "0.1.0"
+  },
+  "bundles": [
+    {
+      "id": "k8s-core-triage",
+      "version": "0.1.0",
+      "channel": "stable",
+      "owner": "platform-sre",
+      "description": "Read-only Kubernetes incident offload starter bundle.",
+      "risk_level": "read_only",
+      "agents": [
+        "kubectl"
+      ],
+      "skills": [
+        "kubectl-triage",
+        "k8s-rollout-diagnostics"
+      ],
+      "required_plugins": [
+        "kubernetes"
+      ],
+      "evaluation_suite": [
+        "failed-rollout",
+        "crashloop-basic"
+      ],
+      "deprecation_status": "active",
+      "files": [
+        {
+          "kind": "agent",
+          "path": "agents/kubectl.md",
+          "sha256": "f8b72fad19e5d1ac30b57c4739ecae20775d0119d3b3cf59566a5580d3502bd4"
+        },
+        {
+          "kind": "skill",
+          "path": "skills/kubectl-triage/SKILL.md",
+          "sha256": "597bd31830e6d1309189a1917be3a3a6177d8204f83eeae73fe7fca13b92f06c"
+        },
+        {
+          "kind": "skill",
+          "path": "skills/k8s-rollout-diagnostics/SKILL.md",
+          "sha256": "02c66f204f3c263e0d72a8a246e401e64db15aa0300e8921ff77210a113a9c5f"
+        }
+      ]
+    }
+  ],
+  "signature": "xXcOWCIoSEnMTYVsqeeSg/mQWeJ4qxK7OYkF6xe+zTT2b9wyAHuMvxNp2Igfi8NK+0w4c0mUS/VoY2RXkEigCA=="
+}

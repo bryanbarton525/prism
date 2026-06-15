@@ -11,9 +11,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bryanbarton525/prism/internal/downstreammcp"
+	llmruntime "github.com/bryanbarton525/prism/internal/llm/runtime"
+	"github.com/bryanbarton525/prism/internal/ollama"
 	"github.com/bryanbarton525/prism/internal/plugins"
+	internalpolicy "github.com/bryanbarton525/prism/internal/policy"
 	"github.com/bryanbarton525/prism/internal/result"
 	"github.com/bryanbarton525/prism/pkg/observe"
+	policypkg "github.com/bryanbarton525/prism/pkg/policy"
 )
 
 // ---------------------------------------------------------------------------
@@ -157,6 +162,35 @@ Use read-only kubectl evidence.
 `
 }
 
+func linearSpec() string {
+	return `---
+id: linear
+name: Linear
+description: Manage Linear issue workflows.
+model: llama3.1:8b
+context_budget: 8192
+allowed_skills:
+  - linear-issue-management
+latency_budget_ms: 30000
+temperature: 0.1
+tools:
+  - mcp
+---
+
+# Linear agent
+`
+}
+
+func linearSkill() string {
+	return `---
+name: linear-issue-management
+description: Manage Linear issues.
+---
+
+Use downstream MCP tools for Linear reads and writes.
+`
+}
+
 type fakeRuntimePlugin struct {
 	name    string
 	content string
@@ -184,6 +218,57 @@ type captureSink struct {
 func (c *captureSink) ObserveRun(_ context.Context, event observe.RunEvent) error {
 	c.events = append(c.events, event)
 	return nil
+}
+
+type fakeDownstreamMCP struct {
+	calls []string
+}
+
+func (f *fakeDownstreamMCP) Servers() []downstreammcp.Server {
+	return []downstreammcp.Server{{Name: "linear", Transport: downstreammcp.TransportCommand, Command: "linear-mcp"}}
+}
+
+func (f *fakeDownstreamMCP) ListTools(context.Context, string, downstreammcp.ListToolsOptions) ([]downstreammcp.ToolSummary, error) {
+	return []downstreammcp.ToolSummary{{Name: "create_issue", Description: "Create a Linear issue"}}, nil
+}
+
+func (f *fakeDownstreamMCP) CallTool(_ context.Context, server, tool string, _ map[string]any) (downstreammcp.CallResult, error) {
+	f.calls = append(f.calls, server+"."+tool)
+	return downstreammcp.CallResult{Server: server, Tool: tool, Content: `{"issue":"ENG-123","title":"Rollout follow-up"}`}, nil
+}
+
+type fakeModelRuntime struct {
+	calls     int
+	requests  []llmruntime.ChatRequest
+	responses []llmruntime.ChatResponse
+}
+
+func (f *fakeModelRuntime) Engine() llmruntime.Engine { return llmruntime.EngineSGLang }
+func (f *fakeModelRuntime) Health(context.Context) (*llmruntime.HealthStatus, error) {
+	return &llmruntime.HealthStatus{Healthy: true, Engine: llmruntime.EngineSGLang}, nil
+}
+func (f *fakeModelRuntime) Chat(_ context.Context, req llmruntime.ChatRequest) (*llmruntime.ChatResponse, error) {
+	f.calls++
+	f.requests = append(f.requests, req)
+	if len(f.responses) > 0 {
+		resp := f.responses[0]
+		f.responses = f.responses[1:]
+		return &resp, nil
+	}
+	return &llmruntime.ChatResponse{
+		Model: req.Model,
+		Message: llmruntime.Message{
+			Role:    "assistant",
+			Content: `{"summary":"runtime used","findings":["injected model runtime handled chat"],"confidence":"high"}`,
+		},
+		Usage: llmruntime.Usage{PromptTokens: 4, CompletionTokens: 5, TotalTokens: 9},
+	}, nil
+}
+func (f *fakeModelRuntime) Stream(context.Context, llmruntime.ChatRequest) (<-chan llmruntime.StreamEvent, error) {
+	return nil, nil
+}
+func (f *fakeModelRuntime) GenerateStructured(context.Context, llmruntime.StructuredRequest) (*llmruntime.StructuredResponse, error) {
+	return nil, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -448,6 +533,101 @@ func TestRunner_Run_Success(t *testing.T) {
 	}
 }
 
+func TestRunner_Run_UsesInjectedModelRuntime(t *testing.T) {
+	root := makeTestRoot(t,
+		map[string]string{"github-cli.md": githubCLISpec()},
+		map[string]string{"gh-pr-triage": ghPRTriageSkill()},
+	)
+	modelRuntime := &fakeModelRuntime{}
+	runner, err := New(Config{RootDir: root, ModelRuntime: modelRuntime})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+	res, err := runner.Run(context.Background(), RunRequest{
+		AgentID:    "github-cli",
+		Task:       "Summarize a PR.",
+		SkillNames: []string{"gh-pr-triage"},
+	})
+	if err != nil {
+		t.Fatalf("Run(): %v", err)
+	}
+	if modelRuntime.calls != 1 {
+		t.Fatalf("model runtime calls = %d, want 1", modelRuntime.calls)
+	}
+	if !strings.Contains(res.Summary, "runtime used") || !strings.Contains(res.Summary, "injected model runtime handled chat") {
+		t.Fatalf("summary = %q", res.Summary)
+	}
+	if res.Usage.PromptTokensEstimate != 4 || res.Usage.CompletionTokensEstimate != 5 {
+		t.Fatalf("usage = %#v", res.Usage)
+	}
+}
+
+func TestRunner_Run_MCPToolLoopUsesInjectedModelRuntime(t *testing.T) {
+	root := makeTestRoot(t,
+		map[string]string{"linear.md": linearSpec()},
+		map[string]string{"linear-issue-management": linearSkill()},
+	)
+	downstream := &fakeDownstreamMCP{}
+	modelRuntime := &fakeModelRuntime{responses: []llmruntime.ChatResponse{
+		{
+			Model: "openai/gpt-oss-20b",
+			Message: llmruntime.Message{
+				Role: "assistant",
+				ToolCalls: []llmruntime.ToolCall{{
+					ID:   "call_1",
+					Type: "function",
+					Function: llmruntime.ToolCallFunction{
+						Name: "call_mcp_tool",
+						Arguments: map[string]any{
+							"server": "linear",
+							"tool":   "create_issue",
+							"arguments": map[string]any{
+								"title": "Rollout follow-up",
+							},
+						},
+					},
+				}},
+			},
+			Usage: llmruntime.Usage{PromptTokens: 10, CompletionTokens: 2},
+		},
+		{
+			Model: "openai/gpt-oss-20b",
+			Message: llmruntime.Message{
+				Role:    "assistant",
+				Content: `{"summary":"created Linear issue ENG-123","findings":["tool result used"],"confidence":"high"}`,
+			},
+			Usage: llmruntime.Usage{PromptTokens: 11, CompletionTokens: 3},
+		},
+	}}
+	runner, err := New(Config{RootDir: root, ModelRuntime: modelRuntime, DownstreamMCP: downstream})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+	res, err := runner.Run(context.Background(), RunRequest{
+		AgentID:    "linear",
+		Task:       "Create a Linear issue for rollout follow-up.",
+		SkillNames: []string{"linear-issue-management"},
+	})
+	if err != nil {
+		t.Fatalf("Run(): %v", err)
+	}
+	if modelRuntime.calls != 2 {
+		t.Fatalf("model runtime calls = %d, want 2", modelRuntime.calls)
+	}
+	if len(modelRuntime.requests) != 2 || len(modelRuntime.requests[0].Tools) == 0 {
+		t.Fatalf("runtime requests = %#v", modelRuntime.requests)
+	}
+	if len(downstream.calls) != 1 || downstream.calls[0] != "linear.create_issue" {
+		t.Fatalf("downstream calls = %#v", downstream.calls)
+	}
+	if res.Model != "openai/gpt-oss-20b" {
+		t.Fatalf("model = %q", res.Model)
+	}
+	if !strings.Contains(res.Summary, "ENG-123") {
+		t.Fatalf("summary = %q", res.Summary)
+	}
+}
+
 func TestRunner_Run_EmitsRunEvent(t *testing.T) {
 	root := makeTestRoot(t,
 		map[string]string{"github-cli.md": githubCLISpec()},
@@ -570,6 +750,116 @@ func TestRunner_Run_KubectlToolCollectsEvidence(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected runtime-plugin:kubernetes artifact, got %#v", res.Artifacts)
+	}
+}
+
+func TestRunner_Run_MCPToolLoopExecutesDownstreamCall(t *testing.T) {
+	root := makeTestRoot(t,
+		map[string]string{"linear.md": linearSpec()},
+		map[string]string{"linear-issue-management": linearSkill()},
+	)
+	downstream := &fakeDownstreamMCP{}
+	var requests []ollama.ChatRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/version", "/api/tags":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+		case "/api/chat":
+			var req ollama.ChatRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode chat request: %v", err)
+			}
+			requests = append(requests, req)
+			w.Header().Set("Content-Type", "application/json")
+			if len(requests) == 1 {
+				if len(req.Tools) == 0 {
+					t.Fatal("expected Prism MCP bridge tools in first request")
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"model": "llama3.1:8b",
+					"message": map[string]any{
+						"role":    "assistant",
+						"content": "",
+						"tool_calls": []map[string]any{{
+							"function": map[string]any{
+								"name": "call_mcp_tool",
+								"arguments": map[string]any{
+									"server": "linear",
+									"tool":   "create_issue",
+									"arguments": map[string]any{
+										"title": "Rollout follow-up",
+									},
+								},
+							},
+						}},
+					},
+					"done":              true,
+					"prompt_eval_count": 100,
+					"eval_count":        5,
+				})
+				return
+			}
+			var sawToolResult bool
+			for _, msg := range req.Messages {
+				if msg.Role == "tool" && msg.ToolName == "call_mcp_tool" && strings.Contains(msg.Content, "ENG-123") {
+					sawToolResult = true
+				}
+			}
+			if !sawToolResult {
+				t.Fatal("second request did not include downstream tool result")
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"model": "llama3.1:8b",
+				"message": map[string]any{
+					"role":    "assistant",
+					"content": `{"summary":"created Linear issue ENG-123","findings":["tool result used"],"confidence":"high"}`,
+				},
+				"done":              true,
+				"prompt_eval_count": 120,
+				"eval_count":        12,
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	runner, err := New(Config{RootDir: root, OllamaHost: srv.URL, DownstreamMCP: downstream})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+	res, err := runner.Run(context.Background(), RunRequest{
+		AgentID:    "linear",
+		Task:       "Create a Linear issue for rollout follow-up.",
+		SkillNames: []string{"linear-issue-management"},
+	})
+	if err != nil {
+		t.Fatalf("Run(): %v", err)
+	}
+	if res.Status != result.StatusOK {
+		t.Fatalf("status = %s summary=%s", res.Status, res.Summary)
+	}
+	if len(downstream.calls) != 1 || downstream.calls[0] != "linear.create_issue" {
+		t.Fatalf("downstream calls = %#v", downstream.calls)
+	}
+	var found bool
+	for _, artifact := range res.Artifacts {
+		if artifact.Label == "mcp-tool:linear.create_issue" {
+			found = true
+			if !strings.Contains(artifact.Content, "ENG-123") {
+				t.Fatalf("tool artifact missing result: %s", artifact.Content)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected mcp tool artifact, got %#v", res.Artifacts)
+	}
+	if len(requests) != 2 {
+		t.Fatalf("chat request count = %d, want 2", len(requests))
+	}
+	if res.Usage.PromptTokensEstimate != 220 || res.Usage.CompletionTokensEstimate != 17 {
+		t.Fatalf("usage = %#v", res.Usage)
 	}
 }
 
@@ -701,6 +991,59 @@ temperature: 0.1
 	}
 	if !sink.events[0].ContextBudgetExceeded {
 		t.Fatalf("event should capture ContextBudgetExceeded: %#v", sink.events[0])
+	}
+}
+
+func TestRunner_Run_BlocksOversizedEvidenceBeforeModel(t *testing.T) {
+	root := makeTestRoot(t,
+		map[string]string{"kubectl.md": kubectlSpec()},
+		map[string]string{"kubectl-triage": kubectlTriageSkill()},
+	)
+	chatCalls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/chat" {
+			chatCalls++
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	sink := &captureSink{}
+	policy := internalpolicy.New(policypkg.Policy{
+		Version:  1,
+		Defaults: policypkg.Defaults{MaxEvidenceBytes: 10},
+		Agents: map[string]policypkg.Agent{
+			"kubectl": {Allowed: true, Skills: []string{"kubectl-triage"}, Plugins: map[string]policypkg.Plugin{"kubernetes": {Mode: "read_only"}}},
+		},
+	})
+	runner, err := New(Config{
+		RootDir:        root,
+		OllamaHost:     srv.URL,
+		EventSink:      sink,
+		PolicyEngine:   policy,
+		RuntimePlugins: plugins.NewRegistry(fakeRuntimePlugin{name: "kubernetes", content: strings.Repeat("x", 100)}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := runner.Run(context.Background(), RunRequest{
+		AgentID:    "kubectl",
+		Task:       "namespace staging",
+		SkillNames: []string{"kubectl-triage"},
+		Metadata:   observe.Metadata{Source: "cli"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Status != result.StatusValidationFail || res.PolicyDecision != policypkg.DecisionDeny {
+		t.Fatalf("result = %#v", res)
+	}
+	if chatCalls != 0 {
+		t.Fatalf("model should not be called after evidence policy denial, calls=%d", chatCalls)
+	}
+	if len(sink.events) != 1 || sink.events[0].PolicyDecision != policypkg.DecisionDeny {
+		t.Fatalf("event = %#v", sink.events)
 	}
 }
 
