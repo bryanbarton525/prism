@@ -238,7 +238,9 @@ func (f *fakeDownstreamMCP) CallTool(_ context.Context, server, tool string, _ m
 }
 
 type fakeModelRuntime struct {
-	calls int
+	calls     int
+	requests  []llmruntime.ChatRequest
+	responses []llmruntime.ChatResponse
 }
 
 func (f *fakeModelRuntime) Engine() llmruntime.Engine { return llmruntime.EngineSGLang }
@@ -247,6 +249,12 @@ func (f *fakeModelRuntime) Health(context.Context) (*llmruntime.HealthStatus, er
 }
 func (f *fakeModelRuntime) Chat(_ context.Context, req llmruntime.ChatRequest) (*llmruntime.ChatResponse, error) {
 	f.calls++
+	f.requests = append(f.requests, req)
+	if len(f.responses) > 0 {
+		resp := f.responses[0]
+		f.responses = f.responses[1:]
+		return &resp, nil
+	}
 	return &llmruntime.ChatResponse{
 		Model: req.Model,
 		Message: llmruntime.Message{
@@ -551,6 +559,72 @@ func TestRunner_Run_UsesInjectedModelRuntime(t *testing.T) {
 	}
 	if res.Usage.PromptTokensEstimate != 4 || res.Usage.CompletionTokensEstimate != 5 {
 		t.Fatalf("usage = %#v", res.Usage)
+	}
+}
+
+func TestRunner_Run_MCPToolLoopUsesInjectedModelRuntime(t *testing.T) {
+	root := makeTestRoot(t,
+		map[string]string{"linear.md": linearSpec()},
+		map[string]string{"linear-issue-management": linearSkill()},
+	)
+	downstream := &fakeDownstreamMCP{}
+	modelRuntime := &fakeModelRuntime{responses: []llmruntime.ChatResponse{
+		{
+			Model: "openai/gpt-oss-20b",
+			Message: llmruntime.Message{
+				Role: "assistant",
+				ToolCalls: []llmruntime.ToolCall{{
+					ID:   "call_1",
+					Type: "function",
+					Function: llmruntime.ToolCallFunction{
+						Name: "call_mcp_tool",
+						Arguments: map[string]any{
+							"server": "linear",
+							"tool":   "create_issue",
+							"arguments": map[string]any{
+								"title": "Rollout follow-up",
+							},
+						},
+					},
+				}},
+			},
+			Usage: llmruntime.Usage{PromptTokens: 10, CompletionTokens: 2},
+		},
+		{
+			Model: "openai/gpt-oss-20b",
+			Message: llmruntime.Message{
+				Role:    "assistant",
+				Content: `{"summary":"created Linear issue ENG-123","findings":["tool result used"],"confidence":"high"}`,
+			},
+			Usage: llmruntime.Usage{PromptTokens: 11, CompletionTokens: 3},
+		},
+	}}
+	runner, err := New(Config{RootDir: root, ModelRuntime: modelRuntime, DownstreamMCP: downstream})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+	res, err := runner.Run(context.Background(), RunRequest{
+		AgentID:    "linear",
+		Task:       "Create a Linear issue for rollout follow-up.",
+		SkillNames: []string{"linear-issue-management"},
+	})
+	if err != nil {
+		t.Fatalf("Run(): %v", err)
+	}
+	if modelRuntime.calls != 2 {
+		t.Fatalf("model runtime calls = %d, want 2", modelRuntime.calls)
+	}
+	if len(modelRuntime.requests) != 2 || len(modelRuntime.requests[0].Tools) == 0 {
+		t.Fatalf("runtime requests = %#v", modelRuntime.requests)
+	}
+	if len(downstream.calls) != 1 || downstream.calls[0] != "linear.create_issue" {
+		t.Fatalf("downstream calls = %#v", downstream.calls)
+	}
+	if res.Model != "openai/gpt-oss-20b" {
+		t.Fatalf("model = %q", res.Model)
+	}
+	if !strings.Contains(res.Summary, "ENG-123") {
+		t.Fatalf("summary = %q", res.Summary)
 	}
 }
 

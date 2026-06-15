@@ -37,6 +37,9 @@ func (r *Runner) chatWithTools(ctx context.Context, req ollama.ChatRequest, spec
 		}
 		return &chatToolResult{response: resp, promptTokens: resp.PromptEvalCount, completionTokens: resp.EvalCount}, nil
 	}
+	if r.llm != nil {
+		return r.chatWithModelRuntimeTools(ctx, req)
+	}
 
 	req.Tools = prismMCPTools()
 	var artifacts []result.Artifact
@@ -56,7 +59,7 @@ func (r *Runner) chatWithTools(ctx context.Context, req ollama.ChatRequest, spec
 		}
 		req.Messages = append(req.Messages, resp.Message)
 		for _, call := range resp.Message.ToolCalls {
-			content, artifact := r.executeMCPToolCall(ctx, call)
+			content, artifact := r.executeMCPToolCall(ctx, call.Function.Name, call.Function.Arguments)
 			artifacts = append(artifacts, artifact)
 			req.Messages = append(req.Messages, ollama.Message{Role: "tool", Content: content, ToolName: call.Function.Name})
 		}
@@ -70,17 +73,13 @@ func (r *Runner) chatWithTools(ctx context.Context, req ollama.ChatRequest, spec
 }
 
 func (r *Runner) chatWithModelRuntime(ctx context.Context, req ollama.ChatRequest) (*chatToolResult, error) {
-	messages := make([]llmruntime.Message, 0, len(req.Messages))
-	for _, msg := range req.Messages {
-		messages = append(messages, llmruntime.Message{Role: msg.Role, Content: msg.Content, ToolCallID: msg.ToolName})
-	}
 	maxTokens := 0
 	if req.Options != nil {
 		maxTokens = req.Options.NumPredict
 	}
 	chatResp, err := r.llm.Chat(ctx, llmruntime.ChatRequest{
 		Model:       req.Model,
-		Messages:    messages,
+		Messages:    ollamaMessagesToRuntime(req.Messages),
 		Temperature: temperaturePtr(req.Options),
 		MaxTokens:   maxTokens,
 	})
@@ -99,6 +98,59 @@ func (r *Runner) chatWithModelRuntime(ctx context.Context, req ollama.ChatReques
 		},
 		promptTokens:     chatResp.Usage.PromptTokens,
 		completionTokens: chatResp.Usage.CompletionTokens,
+	}, nil
+}
+
+func (r *Runner) chatWithModelRuntimeTools(ctx context.Context, req ollama.ChatRequest) (*chatToolResult, error) {
+	messages := ollamaMessagesToRuntime(req.Messages)
+	tools := ollamaToolsToRuntime(prismMCPTools())
+	maxTokens := 0
+	if req.Options != nil {
+		maxTokens = req.Options.NumPredict
+	}
+	var artifacts []result.Artifact
+	var last *llmruntime.ChatResponse
+	var promptTokens int
+	var completionTokens int
+	for round := 0; round <= maxMCPToolRounds; round++ {
+		resp, err := r.llm.Chat(ctx, llmruntime.ChatRequest{
+			Model:       req.Model,
+			Messages:    messages,
+			Tools:       tools,
+			Temperature: temperaturePtr(req.Options),
+			MaxTokens:   maxTokens,
+		})
+		if err != nil {
+			return nil, err
+		}
+		last = resp
+		promptTokens += resp.Usage.PromptTokens
+		completionTokens += resp.Usage.CompletionTokens
+		if len(resp.Message.ToolCalls) == 0 {
+			return &chatToolResult{
+				response:         runtimeResponseToOllama(resp),
+				artifacts:        artifacts,
+				promptTokens:     promptTokens,
+				completionTokens: completionTokens,
+			}, nil
+		}
+		messages = append(messages, resp.Message)
+		for _, call := range resp.Message.ToolCalls {
+			content, artifact := r.executeMCPToolCall(ctx, call.Function.Name, call.Function.Arguments)
+			artifacts = append(artifacts, artifact)
+			messages = append(messages, llmruntime.Message{Role: "tool", Content: content, ToolCallID: runtimeToolCallID(call)})
+		}
+	}
+	artifacts = append(artifacts, result.Artifact{
+		Type:    "mcp_tool_loop",
+		Label:   "mcp-tool:max-rounds",
+		Content: fmt.Sprintf("stopped after %d downstream MCP tool round(s)", maxMCPToolRounds),
+	})
+	return &chatToolResult{
+		response:         runtimeResponseToOllama(last),
+		artifacts:        artifacts,
+		promptTokens:     promptTokens,
+		completionTokens: completionTokens,
 	}, nil
 }
 
@@ -162,6 +214,70 @@ func prismMCPTools() []ollama.Tool {
 	}
 }
 
+func ollamaMessagesToRuntime(messages []ollama.Message) []llmruntime.Message {
+	out := make([]llmruntime.Message, 0, len(messages))
+	for _, msg := range messages {
+		out = append(out, llmruntime.Message{
+			Role:       msg.Role,
+			Content:    msg.Content,
+			ToolCallID: msg.ToolName,
+			ToolCalls:  ollamaToolCallsToRuntime(msg.ToolCalls),
+		})
+	}
+	return out
+}
+
+func ollamaToolsToRuntime(tools []ollama.Tool) []llmruntime.Tool {
+	out := make([]llmruntime.Tool, 0, len(tools))
+	for _, tool := range tools {
+		out = append(out, llmruntime.Tool{
+			Type: tool.Type,
+			Function: llmruntime.ToolFunction{
+				Name:        tool.Function.Name,
+				Description: tool.Function.Description,
+				Parameters:  tool.Function.Parameters,
+			},
+		})
+	}
+	return out
+}
+
+func ollamaToolCallsToRuntime(calls []ollama.ToolCall) []llmruntime.ToolCall {
+	out := make([]llmruntime.ToolCall, 0, len(calls))
+	for _, call := range calls {
+		out = append(out, llmruntime.ToolCall{
+			Type: "function",
+			Function: llmruntime.ToolCallFunction{
+				Name:      call.Function.Name,
+				Arguments: call.Function.Arguments,
+			},
+		})
+	}
+	return out
+}
+
+func runtimeResponseToOllama(resp *llmruntime.ChatResponse) *ollama.ChatResponse {
+	if resp == nil {
+		return &ollama.ChatResponse{}
+	}
+	return &ollama.ChatResponse{
+		Model: resp.Model,
+		Message: ollama.Message{
+			Role:    resp.Message.Role,
+			Content: resp.Message.Content,
+		},
+		PromptEvalCount: resp.Usage.PromptTokens,
+		EvalCount:       resp.Usage.CompletionTokens,
+	}
+}
+
+func runtimeToolCallID(call llmruntime.ToolCall) string {
+	if call.ID != "" {
+		return call.ID
+	}
+	return call.Function.Name
+}
+
 func functionTool(name, description string, parameters map[string]any) ollama.Tool {
 	return ollama.Tool{
 		Type: "function",
@@ -173,9 +289,7 @@ func functionTool(name, description string, parameters map[string]any) ollama.To
 	}
 }
 
-func (r *Runner) executeMCPToolCall(ctx context.Context, call ollama.ToolCall) (string, result.Artifact) {
-	name := call.Function.Name
-	args := call.Function.Arguments
+func (r *Runner) executeMCPToolCall(ctx context.Context, name string, args map[string]any) (string, result.Artifact) {
 	if args == nil {
 		args = map[string]any{}
 	}

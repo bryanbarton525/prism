@@ -32,7 +32,23 @@ func (r *OllamaRuntime) Health(ctx context.Context) (*runtime.HealthStatus, erro
 func (r *OllamaRuntime) Chat(ctx context.Context, req runtime.ChatRequest) (*runtime.ChatResponse, error) {
 	messages := make([]ollama.Message, 0, len(req.Messages))
 	for _, msg := range req.Messages {
-		messages = append(messages, ollama.Message{Role: msg.Role, Content: msg.Content, ToolName: msg.ToolCallID})
+		messages = append(messages, ollama.Message{
+			Role:      msg.Role,
+			Content:   msg.Content,
+			ToolName:  msg.ToolCallID,
+			ToolCalls: runtimeToolCallsToOllama(msg.ToolCalls),
+		})
+	}
+	tools := make([]ollama.Tool, 0, len(req.Tools))
+	for _, tool := range req.Tools {
+		tools = append(tools, ollama.Tool{
+			Type: tool.Type,
+			Function: ollama.ToolFunction{
+				Name:        tool.Function.Name,
+				Description: tool.Function.Description,
+				Parameters:  tool.Function.Parameters,
+			},
+		})
 	}
 	opts := &ollama.Options{NumPredict: req.MaxTokens}
 	if req.Temperature != nil {
@@ -41,14 +57,19 @@ func (r *OllamaRuntime) Chat(ctx context.Context, req runtime.ChatRequest) (*run
 	resp, err := r.client.Chat(ctx, ollama.ChatRequest{
 		Model:    firstNonEmpty(r.cfg.Model, req.Model),
 		Messages: messages,
+		Tools:    tools,
 		Options:  opts,
 	})
 	if err != nil {
 		return nil, runtime.NewError(r.Engine(), runtime.ErrorKindProvider, 0, "ollama chat failed", err)
 	}
 	return &runtime.ChatResponse{
-		Model:      resp.Model,
-		Message:    runtime.Message{Role: resp.Message.Role, Content: resp.Message.Content},
+		Model: resp.Model,
+		Message: runtime.Message{
+			Role:      resp.Message.Role,
+			Content:   resp.Message.Content,
+			ToolCalls: ollamaToolCallsToRuntime(resp.Message.ToolCalls),
+		},
 		RawContent: resp.Message.Content,
 		Usage: runtime.Usage{
 			PromptTokens:     resp.PromptEvalCount,
@@ -91,4 +112,31 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func runtimeToolCallsToOllama(calls []runtime.ToolCall) []ollama.ToolCall {
+	out := make([]ollama.ToolCall, 0, len(calls))
+	for _, call := range calls {
+		out = append(out, ollama.ToolCall{
+			Function: ollama.ToolCallFunction{
+				Name:      call.Function.Name,
+				Arguments: call.Function.Arguments,
+			},
+		})
+	}
+	return out
+}
+
+func ollamaToolCallsToRuntime(calls []ollama.ToolCall) []runtime.ToolCall {
+	out := make([]runtime.ToolCall, 0, len(calls))
+	for _, call := range calls {
+		out = append(out, runtime.ToolCall{
+			Type: "function",
+			Function: runtime.ToolCallFunction{
+				Name:      call.Function.Name,
+				Arguments: call.Function.Arguments,
+			},
+		})
+	}
+	return out
 }

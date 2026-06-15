@@ -187,6 +187,7 @@ func (r *OpenAICompatibleRuntime) openAIRequest(req ChatRequest, format *respons
 	return openAIChatRequest{
 		Model:          firstNonEmpty(r.cfg.Model, req.Model),
 		Messages:       req.Messages,
+		Tools:          req.Tools,
 		Temperature:    req.Temperature,
 		MaxTokens:      req.MaxTokens,
 		Stream:         stream,
@@ -255,10 +256,62 @@ func (r *OpenAICompatibleRuntime) setHeaders(req *http.Request) {
 type openAIChatRequest struct {
 	Model          string          `json:"model"`
 	Messages       []Message       `json:"messages"`
+	Tools          []Tool          `json:"tools,omitempty"`
 	Temperature    *float64        `json:"temperature,omitempty"`
 	MaxTokens      int             `json:"max_tokens,omitempty"`
 	Stream         bool            `json:"stream"`
 	ResponseFormat *responseFormat `json:"response_format,omitempty"`
+}
+
+func (f *ToolCallFunction) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Name      string          `json:"name"`
+		Arguments json.RawMessage `json:"arguments"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	f.Name = raw.Name
+	if len(raw.Arguments) == 0 || string(raw.Arguments) == "null" {
+		return nil
+	}
+	var args map[string]any
+	if raw.Arguments[0] == '"' {
+		var encoded string
+		if err := json.Unmarshal(raw.Arguments, &encoded); err != nil {
+			return err
+		}
+		if strings.TrimSpace(encoded) == "" {
+			f.Arguments = map[string]any{}
+			return nil
+		}
+		if err := json.Unmarshal([]byte(encoded), &args); err != nil {
+			return err
+		}
+		f.Arguments = args
+		return nil
+	}
+	if err := json.Unmarshal(raw.Arguments, &args); err != nil {
+		return err
+	}
+	f.Arguments = args
+	return nil
+}
+
+func (f ToolCallFunction) MarshalJSON() ([]byte, error) {
+	var raw struct {
+		Name      string `json:"name"`
+		Arguments string `json:"arguments,omitempty"`
+	}
+	raw.Name = f.Name
+	if f.Arguments != nil {
+		data, err := json.Marshal(f.Arguments)
+		if err != nil {
+			return nil, err
+		}
+		raw.Arguments = string(data)
+	}
+	return json.Marshal(raw)
 }
 
 type responseFormat struct {

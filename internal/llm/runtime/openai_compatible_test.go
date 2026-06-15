@@ -96,6 +96,94 @@ func TestOpenAICompatibleChatPreservesReasoningContent(t *testing.T) {
 	}
 }
 
+func TestOpenAICompatibleChatSerializesToolsAndParsesToolCalls(t *testing.T) {
+	var got openAIChatRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatal(err)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"model": "served",
+			"choices": []map[string]any{{"message": map[string]any{
+				"role": "assistant",
+				"tool_calls": []map[string]any{{
+					"id":   "call_1",
+					"type": "function",
+					"function": map[string]any{
+						"name":      "call_mcp_tool",
+						"arguments": `{"server":"context7","tool":"resolve-library-id"}`,
+					},
+				}},
+			}}},
+		})
+	}))
+	defer srv.Close()
+	rt, _ := NewOpenAICompatibleRuntime(Config{Engine: EngineSGLang, BaseURL: srv.URL, Model: "m"})
+	res, err := rt.Chat(context.Background(), ChatRequest{
+		Messages: []Message{{Role: "user", Content: "hi"}},
+		Tools: []Tool{{
+			Type: "function",
+			Function: ToolFunction{
+				Name:        "call_mcp_tool",
+				Description: "Call downstream MCP",
+				Parameters:  map[string]any{"type": "object"},
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Tools) != 1 || got.Tools[0].Function.Name != "call_mcp_tool" {
+		t.Fatalf("tools = %#v", got.Tools)
+	}
+	if len(res.Message.ToolCalls) != 1 {
+		t.Fatalf("tool calls = %#v", res.Message.ToolCalls)
+	}
+	call := res.Message.ToolCalls[0]
+	if call.ID != "call_1" || call.Function.Name != "call_mcp_tool" || call.Function.Arguments["server"] != "context7" {
+		t.Fatalf("tool call = %#v", call)
+	}
+}
+
+func TestOpenAICompatibleChatSerializesAssistantToolCallArgumentsAsString(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatal(err)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"model":   "served",
+			"choices": []map[string]any{{"message": map[string]any{"role": "assistant", "content": "ok"}}},
+		})
+	}))
+	defer srv.Close()
+	rt, _ := NewOpenAICompatibleRuntime(Config{Engine: EngineSGLang, BaseURL: srv.URL, Model: "m"})
+	_, err := rt.Chat(context.Background(), ChatRequest{
+		Messages: []Message{{
+			Role: "assistant",
+			ToolCalls: []ToolCall{{
+				ID:   "call_1",
+				Type: "function",
+				Function: ToolCallFunction{
+					Name: "call_mcp_tool",
+					Arguments: map[string]any{
+						"server": "context7",
+					},
+				},
+			}},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	messages := got["messages"].([]any)
+	toolCalls := messages[0].(map[string]any)["tool_calls"].([]any)
+	fn := toolCalls[0].(map[string]any)["function"].(map[string]any)
+	if _, ok := fn["arguments"].(string); !ok {
+		t.Fatalf("arguments = %#v, want JSON string", fn["arguments"])
+	}
+}
+
 func TestStreamParsesSSEFixtures(t *testing.T) {
 	sse := ": comment\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\ndata: {\"choices\":[{\"message\":{\"content\":\" world\"}}]}\n\ndata: [DONE]\n"
 	rt, done := streamRuntime(t, sse, http.StatusOK)
