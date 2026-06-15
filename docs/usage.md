@@ -6,8 +6,8 @@ This guide covers day-to-day use of the Prism CLI and MCP server as implemented 
 
 1. **Clone** the repository and `cd` into it (or pass `--root` to every command).
 2. **Install** Go 1.25+ and the binary: `go install ./cmd/prism`
-3. **Start Ollama** and confirm it responds: `curl http://127.0.0.1:11434/api/version`
-4. **Pull models** used by your agents (see `model:` in `agents/*.md`), e.g.:
+3. **Start a model runtime**. The simplest path is Ollama: `curl http://127.0.0.1:11434/api/version`. Prism can also target SGLang, vLLM, or another OpenAI-compatible endpoint with `PRISM_MODEL_RUNTIME_*`.
+4. **Pull or serve a model** used by your agents. For Ollama, use:
   ```bash
    ollama pull qwen3.5:9b
   ```
@@ -28,6 +28,13 @@ Prism resolves paths relative to `**--root**` (default: current working director
 | Agent specs  | `--agent-dir`   | `PRISM_AGENT_DIR`    |
 | Skills       | `--skills-dir`  | `PRISM_SKILLS_DIR`   |
 | Ollama URL   | `--ollama-host` | `PRISM_OLLAMA_HOST`  |
+| Runtime engine | —             | `PRISM_MODEL_RUNTIME_ENGINE` |
+| Runtime base URL | —           | `PRISM_MODEL_RUNTIME_BASE_URL` |
+| Runtime model | —              | `PRISM_MODEL_RUNTIME_MODEL` |
+| Runtime API key | —            | `PRISM_MODEL_RUNTIME_API_KEY` |
+| Fallback runtime engine | —    | `PRISM_MODEL_RUNTIME_FALLBACK_ENGINE` |
+| Fallback runtime base URL | —  | `PRISM_MODEL_RUNTIME_FALLBACK_BASE_URL` |
+| Fallback runtime model | —     | `PRISM_MODEL_RUNTIME_FALLBACK_MODEL` |
 | Local state  | `--state-dir`   | `PRISM_STATE_DIR`    |
 | Event store  | `--event-store` | `PRISM_EVENT_STORE`  |
 | Policy file  | `--policy-file` | `PRISM_POLICY_FILE`  |
@@ -380,7 +387,11 @@ Example for Cursor (`~/.cursor/mcp.json`). Other MCP-compatible editors use equi
         "--root",
         "/Users/you/src/prism"
       ],
-      "env": { "PRISM_OLLAMA_HOST": "http://127.0.0.1:11434" }
+      "env": {
+        "PRISM_MODEL_RUNTIME_ENGINE": "ollama",
+        "PRISM_MODEL_RUNTIME_BASE_URL": "http://127.0.0.1:11434",
+        "PRISM_MODEL_RUNTIME_MODEL": "qwen3.5:9b"
+      }
     }
   }
 }
@@ -410,7 +421,9 @@ For a local Gemini MCP config, this repository also includes a helper at `script
         "https://github.com/bryanbarton525/prism"
       ],
       "env": {
-        "PRISM_OLLAMA_HOST": "http://127.0.0.1:11434",
+        "PRISM_MODEL_RUNTIME_ENGINE": "ollama",
+        "PRISM_MODEL_RUNTIME_BASE_URL": "http://127.0.0.1:11434",
+        "PRISM_MODEL_RUNTIME_MODEL": "qwen3.5:9b",
         "GITHUB_TOKEN": "ghp_yourtokenhere"
       }
     }
@@ -494,7 +507,7 @@ The same bridge is exposed over Prism MCP:
 
 Use `call_mcp_tool` only after policy and user approval for write-oriented downstream actions.
 
-When an agent declares `tools: [mcp]`, Prism also exposes these bridge functions to the local Ollama chat request as tool definitions. Tool-capable local models may call `list_mcp_servers`, `list_mcp_server_tools`, and `call_mcp_tool` during the specialist run; Prism executes bounded downstream calls, appends the tool result, and asks the model for the final compact result envelope.
+When an agent declares `tools: [mcp]`, Prism also exposes these bridge functions to the configured model runtime request as tool definitions. Tool-capable local or self-hosted models may call `list_mcp_servers`, `list_mcp_server_tools`, and `call_mcp_tool` during the specialist run; Prism executes bounded downstream calls, appends the tool result, and asks the model for the final compact result envelope.
 
 ### Tool reference
 
@@ -666,8 +679,8 @@ agent lists it in `allowed_skills`.
 | `no agents found`            | Wrong `--root` or cwd                  | `cd` to repo or set `--root`                                               |
 | MCP tools missing in editor | Bad `command` path or MCP not reloaded | Use absolute path to `prism`; reload MCP in host settings |
 | `validation_fail` for skills | Skill not in `allowed_skills`          | Check `prism agent show <id>`                                              |
-| `error` / timeout on run     | Ollama down or slow                    | `prism config doctor`; increase `latency_budget_ms`                        |
-| Empty or poor model output   | Wrong/missing model                    | `ollama list`; pull or edit `model:` in spec                               |
+| `error` / timeout on run     | Model runtime down or slow             | Check runtime health; increase `latency_budget_ms`; for Ollama run `prism config doctor` |
+| Empty or poor model output   | Wrong/missing model                    | Set `PRISM_MODEL_RUNTIME_MODEL`; for Ollama also check `ollama list`       |
 | MCP hangs                    | Inspecting stdout                      | Use Inspector or your MCP host; don’t run `mcp serve` interactively in a terminal |
 
 

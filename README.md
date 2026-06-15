@@ -2,14 +2,14 @@
 
 ![Prism logo](docs/img/prism-logo.png)
 
-**Keep your AI editor or MCP host as the orchestrator. Offload narrow, governed work to local Ollama specialists.**
+**Keep your AI editor or MCP host as the orchestrator. Offload narrow, governed work to local or self-hosted specialists.**
 
-Prism is an open-source, local-first AI offload control plane. It runs tool-specific agents on [Ollama](https://ollama.com/) — GitHub CI, Kubernetes, Argo, Linear issue workflows, docs lookup, Go codegen — and returns compact JSON summaries. Your paid model sees a short brief, not every skill, constitution, runbook, and evidence dump.
+Prism is an open-source, local-first AI offload control plane. It runs tool-specific agents on a configurable model runtime — [Ollama](https://ollama.com/) by default, plus SGLang and vLLM-compatible endpoints — for GitHub CI, Kubernetes, Argo, Linear issue workflows, docs lookup, Go codegen, and more. Your paid model sees a short brief, not every skill, constitution, runbook, and evidence dump.
 
 ## Why use it
 
 - **Lower orchestrator cost** — **94% orchestrator input reduction** on a live todo-app coding task ([benchmarks](#proof-it-saves-tokens))
-- **Local specialists at $0** — Ollama runs absorb skill bodies and domain context; the orchestrator synthesizes from summaries
+- **Local specialists at $0** — local or homelab model runtimes absorb skill bodies and domain context; the orchestrator synthesizes from summaries
 - **Editor stays in charge** — no autonomous swarm; you pick agent + skills per subtask
 - **Progressive disclosure** — only attached [Agent Skills](https://agentskills.io/) per call, enforced by allowlists
 - **Native runtime plugins** — read-only evidence collectors, such as Kubernetes diagnostics, run through Prism plugins instead of ad hoc shell calls
@@ -22,7 +22,7 @@ Prism is evolving into a local-first AI offload control plane for engineering te
 
 ## Quick start
 
-**Requires:** Go 1.25+, [Ollama](https://ollama.com/) at `http://127.0.0.1:11434`, model from agent specs (default `qwen3.5:9b`).
+**Requires:** Go 1.25+ and a model runtime. The simplest path is [Ollama](https://ollama.com/) at `http://127.0.0.1:11434` with the model from agent specs (default `qwen3.5:9b`). Set `PRISM_MODEL_RUNTIME_*` to target Ollama explicitly, SGLang, vLLM, or another OpenAI-compatible endpoint.
 
 ```bash
 go install ./cmd/prism
@@ -68,7 +68,7 @@ scripts/local-acceptance.sh
 
 Register Prism as an MCP server in your AI editor. Example for Cursor (`~/.cursor/mcp.json`; other MCP hosts use equivalent config — see [docs/usage.md](docs/usage.md)):
 
-Use the full path to your `prism` binary:
+Use the full path to your `prism` binary. This example targets Ollama through the runtime registry:
 
 ```json
 {
@@ -95,7 +95,9 @@ Use the full path to your `prism` binary:
       "command": "/absolute/path/to/prism",
       "args": ["mcp", "serve", "--root", "https://github.com/bryanbarton525/prism"],
       "env": {
-        "PRISM_OLLAMA_HOST": "http://127.0.0.1:11434",
+        "PRISM_MODEL_RUNTIME_ENGINE": "ollama",
+        "PRISM_MODEL_RUNTIME_BASE_URL": "http://127.0.0.1:11434",
+        "PRISM_MODEL_RUNTIME_MODEL": "qwen3.5:9b",
         "GITHUB_TOKEN": "ghp_yourtokenhere"
       }
     }
@@ -105,7 +107,7 @@ Use the full path to your `prism` binary:
 
 Reload MCP servers in your editor, then call `**run_agent**` with `agent_id`, `task`, and `skill_names`.
 
-For local Gemini MCP setup, review and run `scripts/install_mcp.py` from the repo root.
+For SGLang, vLLM, fallback runtime, and live contract examples, see [docs/model-runtime.md](docs/model-runtime.md). For local Gemini MCP setup, review and run `scripts/install_mcp.py` from the repo root.
 
 Available tools include:
 
