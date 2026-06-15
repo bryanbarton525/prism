@@ -15,14 +15,21 @@ The runtime packages live under `internal/llm`:
 
 - `internal/llm/runtime`: config structs, `ModelRuntime`, normalized errors,
   OpenAI-compatible adapter, streaming, and structured output.
+- `internal/llm`: the runtime registry/factory and engine adapters.
 - `internal/llm/fallback`: optional primary/fallback wrapper.
-- `internal/llm`: runtime factory.
 
 Prism startup builds the configured runtime once and injects it into the shared
 agent runner. Existing Ollama behavior remains the default when no runtime is
 configured.
 
 ## Engines
+
+The default registry includes:
+
+- `ollama`: Prism's legacy local specialist runtime, wrapped behind
+  `ModelRuntime`.
+- `sglang`: OpenAI-compatible SGLang `/v1/chat/completions`.
+- `vllm`: OpenAI-compatible vLLM `/v1/chat/completions`.
 
 SGLang is the preferred default for Prism's next local-specialist runtime
 because it emphasizes serving efficiency and prefix-cache friendly workflows.
@@ -33,6 +40,14 @@ vLLM remains supported because many teams already run OpenAI-compatible vLLM
 endpoints and it is a strong general-purpose serving runtime.
 
 ## Configuration
+
+Explicit Ollama runtime:
+
+```bash
+export PRISM_MODEL_RUNTIME_ENGINE=ollama
+export PRISM_MODEL_RUNTIME_BASE_URL=http://127.0.0.1:11434
+export PRISM_MODEL_RUNTIME_MODEL=qwen3.5:9b
+```
 
 Primary SGLang:
 
@@ -55,8 +70,14 @@ export PRISM_MODEL_RUNTIME_FALLBACK_BASE_URL=http://localhost:8000/v1
 export PRISM_MODEL_RUNTIME_FALLBACK_MODEL=Qwen/Qwen3-Coder
 ```
 
+When `PRISM_MODEL_RUNTIME_MODEL` is set, the runtime sends that model ID to the
+provider even if an agent spec has its own legacy `model` value. This lets one
+MCP/server installation retarget all specialists to Ollama, SGLang, vLLM, or a
+compatible gateway without editing every agent file.
+
 Local endpoints:
 
+- Ollama: `http://127.0.0.1:11434`
 - SGLang: `http://localhost:30000/v1`
 - vLLM: `http://localhost:8000/v1`
 

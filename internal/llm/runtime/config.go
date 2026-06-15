@@ -5,6 +5,7 @@ import "time"
 type Engine string
 
 const (
+	EngineOllama Engine = "ollama"
 	EngineSGLang Engine = "sglang"
 	EngineVLLM   Engine = "vllm"
 )

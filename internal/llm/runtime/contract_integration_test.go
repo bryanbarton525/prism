@@ -43,7 +43,7 @@ func TestContractChat(t *testing.T) {
 	rt := contractRuntime(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	res, err := rt.Chat(ctx, ChatRequest{Messages: []Message{{Role: "user", Content: "Reply with the word prism."}}, MaxTokens: 16})
+	res, err := rt.Chat(ctx, ChatRequest{Messages: []Message{{Role: "user", Content: "Reply with the word prism."}}, MaxTokens: 128})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestContractStream(t *testing.T) {
 	rt := contractRuntime(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	ch, err := rt.Stream(ctx, ChatRequest{Messages: []Message{{Role: "user", Content: "Reply with the word prism."}}, MaxTokens: 16})
+	ch, err := rt.Stream(ctx, ChatRequest{Messages: []Message{{Role: "user", Content: "Reply with the word prism."}}, MaxTokens: 128})
 	if err != nil {
 		t.Fatal(err)
 	}

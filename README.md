@@ -76,7 +76,11 @@ Use the full path to your `prism` binary:
     "prism": {
       "command": "/absolute/path/to/prism",
       "args": ["mcp", "serve", "--root", "/absolute/path/to/prism"],
-      "env": { "PRISM_OLLAMA_HOST": "http://127.0.0.1:11434" }
+      "env": {
+        "PRISM_MODEL_RUNTIME_ENGINE": "ollama",
+        "PRISM_MODEL_RUNTIME_BASE_URL": "http://127.0.0.1:11434",
+        "PRISM_MODEL_RUNTIME_MODEL": "qwen3.5:9b"
+      }
     }
   }
 }

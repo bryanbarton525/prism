@@ -32,7 +32,7 @@ func TestOpenAICompatibleChatSerializesRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 	temp := 0.1
-	if _, err := rt.Chat(context.Background(), ChatRequest{Messages: []Message{{Role: "user", Content: "hi"}}, Temperature: &temp, MaxTokens: 10}); err != nil {
+	if _, err := rt.Chat(context.Background(), ChatRequest{Model: "agent-default", Messages: []Message{{Role: "user", Content: "hi"}}, Temperature: &temp, MaxTokens: 10}); err != nil {
 		t.Fatal(err)
 	}
 	if got.Model != "default" || got.Stream {
@@ -63,7 +63,7 @@ func TestOpenAICompatibleChatParsesResponse(t *testing.T) {
 }
 
 func TestOpenAICompatibleHealthParsing(t *testing.T) {
-	for _, body := range []string{`{"status":"ok"}`, `{"ok":true}`, `{}`} {
+	for _, body := range []string{`{"status":"ok"}`, `{"ok":true}`, `{}`, `OK`} {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(body)) }))
 		rt, _ := NewOpenAICompatibleRuntime(Config{Engine: EngineSGLang, BaseURL: srv.URL})
 		status, err := rt.Health(context.Background())
@@ -71,6 +71,28 @@ func TestOpenAICompatibleHealthParsing(t *testing.T) {
 		if err != nil || !status.Healthy {
 			t.Fatalf("body %s status=%#v err=%v", body, status, err)
 		}
+	}
+}
+
+func TestOpenAICompatibleChatPreservesReasoningContent(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"model": "m",
+			"choices": []map[string]any{{"message": map[string]any{
+				"role":              "assistant",
+				"content":           "final",
+				"reasoning_content": "thinking",
+			}}},
+		})
+	}))
+	defer srv.Close()
+	rt, _ := NewOpenAICompatibleRuntime(Config{Engine: EngineSGLang, BaseURL: srv.URL, Model: "m"})
+	res, err := rt.Chat(context.Background(), ChatRequest{Messages: []Message{{Role: "user", Content: "hi"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Message.Content != "final" || res.Message.ReasoningContent != "thinking" {
+		t.Fatalf("message = %#v", res.Message)
 	}
 }
 

@@ -49,6 +49,10 @@ func (r *OpenAICompatibleRuntime) Health(ctx context.Context) (*HealthStatus, er
 	if len(bytes.TrimSpace(body)) == 0 {
 		return &HealthStatus{Healthy: true, Engine: r.cfg.Engine, Detail: "empty health body accepted"}, nil
 	}
+	plainHealth := strings.ToLower(strings.TrimSpace(string(body)))
+	if plainHealth == "ok" || plainHealth == "healthy" || plainHealth == "ready" {
+		return &HealthStatus{Healthy: true, Engine: r.cfg.Engine, Detail: "healthy"}, nil
+	}
 	var parsed struct {
 		Status string `json:"status"`
 		OK     *bool  `json:"ok"`
@@ -181,7 +185,7 @@ func (r *OpenAICompatibleRuntime) chat(ctx context.Context, req ChatRequest, for
 
 func (r *OpenAICompatibleRuntime) openAIRequest(req ChatRequest, format *responseFormat, stream bool) openAIChatRequest {
 	return openAIChatRequest{
-		Model:          firstNonEmpty(req.Model, r.cfg.Model),
+		Model:          firstNonEmpty(r.cfg.Model, req.Model),
 		Messages:       req.Messages,
 		Temperature:    req.Temperature,
 		MaxTokens:      req.MaxTokens,
