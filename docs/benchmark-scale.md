@@ -49,7 +49,13 @@ Pricing assumptions: `testdata/benchmarks/rates.yaml` (default orchestrator GPT-
 | feature-notification-center | 17,922 | 485 | 97.3% | $0.0378 |
 | todo-spa-build | 6,191 | 363 | 94.1% | $0.0096 |
 
+Verified synthetic regression check: `go test ./internal/benchmark/...` passes, and the context-budget accounting test now validates the MCP prompt-budget breakdown used for savings analysis.
+
+Verified benchmark-path measurement (2026-06-14, mock harness): `go test -tags mock ./internal/benchmark/... -run TestHomelabReleaseIncident_Mock -v` produced `token_reduction_percent=92.8%`, `net_cost_savings_usd=$0.0176`, `orchestrator_only_input=9505 output=276`, and `prism_delegated_input=684 output=276 local_tokens=9019` from the real `Compare()` path.
+
 **Why input reduction grows at scale:** baseline orchestrator input grows with rules/history/skills; delegated synthesis stays ~flat because agents return compact JSON summaries.
+
+**Context-budget accounting:** the benchmark path now also accounts for frontier prompt budget composition (system instructions, tool definitions, user messages, and tool results) when estimating how MCP delegation reduces the orchestrator’s effective prompt footprint.
 
 Todo scenario quality parity check (live run): both baseline and Prism outputs matched 10/10 rubric checks (`index.html`, `styles.css`, `app.js`, `README`, `localStorage`, add/complete/delete flows, event listeners, todo list UI), with both responses including full code fences.
 

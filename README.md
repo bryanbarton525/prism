@@ -231,6 +231,8 @@ prism benchmark run todo-spa-build
 prism benchmark project --write
 ```
 
+Current verified benchmark-path result (2026-06-14 mock harness): `go test -tags mock ./internal/benchmark/... -run TestHomelabReleaseIncident_Mock -v` produced `92.8%` input reduction and `$0.0176` net savings from the real `Compare()` path.
+
 More scenarios: **[docs/benchmark-scale.md](docs/benchmark-scale.md)**
 
 ## Documentation

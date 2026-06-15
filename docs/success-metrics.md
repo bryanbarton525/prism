@@ -54,6 +54,8 @@ Cost rates live in test configuration (for example `testdata/benchmarks/rates.ya
 so CI does not depend on live billing APIs. Committed live measurements live in
 `testdata/benchmarks/results.yaml`; monthly extrapolation in `scale-profiles.yaml`.
 
+Verified benchmark-path measurement (2026-06-14, mock harness): `go test -tags mock ./internal/benchmark/... -run TestHomelabReleaseIncident_Mock -v` produced `token_reduction_percent=92.8%` and `net_cost_savings_usd=$0.0176` from the real `Compare()` path.
+
 ### Example monthly projection (2025-05-31)
 
 | Profile | Monthly savings | Annual savings |

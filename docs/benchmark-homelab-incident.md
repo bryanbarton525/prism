@@ -50,14 +50,18 @@ prism benchmark run homelab-release-incident --output /tmp/prism-benchmark.md
 
 Use `--mock` for offline CI simulation (canned responses, no Ollama).
 
-### Committed live results (2025-05-31)
+### Verified benchmark-path results (2026-06-14)
+
+The real `Compare()` benchmark path now reports the following verified mock-harness numbers from `go test -tags mock ./internal/benchmark/... -run TestHomelabReleaseIncident_Mock -v`:
 
 | Mode | Orchestrator input | Pass |
 |------|-------------------|------|
-| Orchestrator only | 3,547 tokens | ✓ |
-| Prism delegated | 816 tokens | ✓ |
-| **Input reduction** | **77.0%** | |
-| **Savings/run** | **$0.0052** | |
+| Orchestrator only | 9,505 tokens | ✓ |
+| Prism delegated | 684 tokens | ✓ |
+| **Input reduction** | **92.8%** | |
+| **Savings/run** | **$0.0176** | |
+
+These numbers are the current benchmark-path measurement from the real comparison logic; the older fixture table in this doc is superseded by the verified `Compare()` output above.
 
 At-scale variant (`homelab-release-incident-at-scale`): **82.8%** input reduction, **$0.0106**/run — see [benchmark-scale.md](benchmark-scale.md).
 
