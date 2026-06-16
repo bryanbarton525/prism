@@ -19,7 +19,17 @@ This guide covers day-to-day use of the Prism CLI and MCP server as implemented 
 
 ## Configuration
 
-Prism resolves paths relative to `**--root**` (default: current working directory). It also reads an optional `.env` file from the current working directory before checking environment variables.
+Prism resolves paths relative to `**--root**` (default: current working directory). It reads configuration from environment variables, an optional `.env` file in the current working directory, and an optional Prism env file. Environment variables and local `.env` values override the Prism env file.
+
+The Prism env file is selected with `PRISM_CONFIG_FILE`. If that is unset, Prism looks for `config.env` under `PRISM_STATE_DIR`, or `~/.prism/config.env` when `PRISM_STATE_DIR` is unset. This gives IDEs, MCP hosts, and standalone launchers one Prism-owned place to point at instead of requiring host-specific config parsing.
+
+Example `~/.prism/config.env`:
+
+```bash
+PRISM_MODEL_RUNTIME_ENGINE=sglang
+PRISM_MODEL_RUNTIME_BASE_URL=http://sglang.barton.local/v1
+PRISM_MODEL_RUNTIME_MODEL=openai/gpt-oss-20b
+```
 
 
 | Setting      | Flag            | Environment variable |
@@ -35,6 +45,7 @@ Prism resolves paths relative to `**--root**` (default: current working director
 | Fallback runtime engine | —    | `PRISM_MODEL_RUNTIME_FALLBACK_ENGINE` |
 | Fallback runtime base URL | —  | `PRISM_MODEL_RUNTIME_FALLBACK_BASE_URL` |
 | Fallback runtime model | —     | `PRISM_MODEL_RUNTIME_FALLBACK_MODEL` |
+| Prism env file | —             | `PRISM_CONFIG_FILE` |
 | Local state  | `--state-dir`   | `PRISM_STATE_DIR`    |
 | Event store  | `--event-store` | `PRISM_EVENT_STORE`  |
 | Policy file  | `--policy-file` | `PRISM_POLICY_FILE`  |

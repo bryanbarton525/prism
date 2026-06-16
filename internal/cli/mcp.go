@@ -57,7 +57,11 @@ Example Cursor mcp.json:
 
 			logger := log.New(os.Stderr, "[prism-mcp] ", log.LstdFlags)
 			logger.Println(mcp.StatusSummary(runner))
-			logger.Printf("ollama: %s", gf.ollamaHost)
+			if cfg.ModelRuntime.Primary.Engine != "" || cfg.ModelRuntime.Primary.BaseURL != "" {
+				logger.Printf("model_runtime: engine=%s base_url=%s model=%s", cfg.ModelRuntime.Primary.Engine, cfg.ModelRuntime.Primary.BaseURL, cfg.ModelRuntime.Primary.Model)
+			} else {
+				logger.Printf("ollama: %s", gf.ollamaHost)
+			}
 			logger.Printf("root: %s", gf.rootDir)
 			logger.Printf("agents: %s", resolvedAgentDir())
 			logger.Println("tools: list_agents, run_agent, get_constitution, doctor, suggest_route, run_graph, explain_policy, list_policies, list_bundles, install_bundle, get_usage_summary, get_skill_health, list_mcp_servers, list_mcp_server_tools, call_mcp_tool")
