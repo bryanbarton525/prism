@@ -170,6 +170,110 @@ func TestLoadReadsModelRuntimeConfig(t *testing.T) {
 	}
 }
 
+func TestLoadReadsPrismConfigFileFallback(t *testing.T) {
+	t.Setenv("PRISM_MODEL_RUNTIME_ENGINE", "")
+	t.Setenv("PRISM_MODEL_RUNTIME_BASE_URL", "")
+	t.Setenv("PRISM_MODEL_RUNTIME_MODEL", "")
+	t.Setenv("PRISM_MODEL_RUNTIME_API_KEY", "")
+	t.Setenv("PRISM_CONFIG_FILE", "")
+
+	dir := t.TempDir()
+	chdir(t, dir)
+	stateDir := filepath.Join(dir, "state")
+	t.Setenv("PRISM_STATE_DIR", stateDir)
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	config := `
+PRISM_MODEL_RUNTIME_MODEL = "openai/gpt-oss-20b"
+PRISM_MODEL_RUNTIME_BASE_URL = "http://sglang.barton.local/v1"
+PRISM_MODEL_RUNTIME_ENGINE = "sglang"
+`
+	if err := os.WriteFile(filepath.Join(stateDir, "config.env"), []byte(config), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load(): %v", err)
+	}
+	if cfg.ModelRuntime.Primary.Engine != "sglang" {
+		t.Fatalf("engine = %q", cfg.ModelRuntime.Primary.Engine)
+	}
+	if cfg.ModelRuntime.Primary.BaseURL != "http://sglang.barton.local/v1" {
+		t.Fatalf("base url = %q", cfg.ModelRuntime.Primary.BaseURL)
+	}
+	if cfg.ModelRuntime.Primary.Model != "openai/gpt-oss-20b" {
+		t.Fatalf("model = %q", cfg.ModelRuntime.Primary.Model)
+	}
+}
+
+func TestLoadReadsExplicitPrismConfigFile(t *testing.T) {
+	t.Setenv("PRISM_MODEL_RUNTIME_ENGINE", "")
+	t.Setenv("PRISM_MODEL_RUNTIME_BASE_URL", "")
+	t.Setenv("PRISM_MODEL_RUNTIME_MODEL", "")
+
+	dir := t.TempDir()
+	chdir(t, dir)
+	configPath := filepath.Join(dir, "runtime.env")
+	t.Setenv("PRISM_CONFIG_FILE", configPath)
+	config := `
+export PRISM_MODEL_RUNTIME_MODEL = "openai/gpt-oss-20b"
+PRISM_MODEL_RUNTIME_BASE_URL = "http://sglang.barton.local/v1"
+PRISM_MODEL_RUNTIME_ENGINE = "sglang"
+`
+	if err := os.WriteFile(configPath, []byte(config), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load(): %v", err)
+	}
+	if cfg.ModelRuntime.Primary.Engine != "sglang" {
+		t.Fatalf("engine = %q", cfg.ModelRuntime.Primary.Engine)
+	}
+	if cfg.ModelRuntime.Primary.BaseURL != "http://sglang.barton.local/v1" {
+		t.Fatalf("base url = %q", cfg.ModelRuntime.Primary.BaseURL)
+	}
+	if cfg.ModelRuntime.Primary.Model != "openai/gpt-oss-20b" {
+		t.Fatalf("model = %q", cfg.ModelRuntime.Primary.Model)
+	}
+}
+
+func TestLoadPrefersPrismEnvOverConfigFile(t *testing.T) {
+	t.Setenv("PRISM_MODEL_RUNTIME_ENGINE", "vllm")
+	t.Setenv("PRISM_MODEL_RUNTIME_BASE_URL", "http://vllm.local/v1")
+	t.Setenv("PRISM_MODEL_RUNTIME_MODEL", "local/model")
+
+	dir := t.TempDir()
+	chdir(t, dir)
+	configPath := filepath.Join(dir, "runtime.env")
+	t.Setenv("PRISM_CONFIG_FILE", configPath)
+	config := `
+PRISM_MODEL_RUNTIME_MODEL = "openai/gpt-oss-20b"
+PRISM_MODEL_RUNTIME_BASE_URL = "http://sglang.barton.local/v1"
+PRISM_MODEL_RUNTIME_ENGINE = "sglang"
+`
+	if err := os.WriteFile(configPath, []byte(config), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load(): %v", err)
+	}
+	if cfg.ModelRuntime.Primary.Engine != "vllm" {
+		t.Fatalf("engine = %q", cfg.ModelRuntime.Primary.Engine)
+	}
+	if cfg.ModelRuntime.Primary.BaseURL != "http://vllm.local/v1" {
+		t.Fatalf("base url = %q", cfg.ModelRuntime.Primary.BaseURL)
+	}
+	if cfg.ModelRuntime.Primary.Model != "local/model" {
+		t.Fatalf("model = %q", cfg.ModelRuntime.Primary.Model)
+	}
+}
+
 func chdir(t *testing.T, dir string) {
 	t.Helper()
 	old, err := os.Getwd()
