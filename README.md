@@ -122,6 +122,8 @@ When an agent declares `tools:` in its spec, Prism resolves those names through 
 
 Prism can also act as a bounded MCP client to downstream servers. Configure one under `prism mcp server ...`, then use Prism MCP tools `list_mcp_servers`, `list_mcp_server_tools`, and `call_mcp_tool`. Agents that declare `tools: [mcp]` can also let a tool-capable local model call that bridge during the run, so the specialist owns bulky downstream tool surfaces without loading every downstream schema into the parent model.
 
+Ready-to-copy sample configs (`config.env`, `mcp-servers.yaml`, `prism-policy.json`) live in **[examples/](examples/README.md)**.
+
 Runs can also be attributed to signed installed bundles. Pass `--bundle-id` on `prism run` (and optionally `--bundle-version`) or include `bundle_id`/`bundle_version` in MCP `run_agent` calls; policy can check the bundle ID and the event store records the bundle version for dashboard and report summaries.
 
 Full setup, flags, troubleshooting: **[docs/usage.md](docs/usage.md)**

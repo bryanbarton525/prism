@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "defaults": {
+    "mode": "suggest",
+    "raw_prompt_capture": false,
+    "max_graph_nodes": 50,
+    "max_graph_depth": 4,
+    "max_parallel_nodes": 4,
+    "max_runtime_seconds": 600,
+    "max_evidence_bytes": 200000,
+    "remote_models_allowed": false
+  },
+  "agents": {
+    "linear": {
+      "allowed": true,
+      "skills": ["linear-issue-management"],
+      "plugins": {
+        "mcp": { "mode": "read_only" }
+      }
+    },
+    "go-helper": {
+      "allowed": true,
+      "skills": ["go-helper-fn", "go-test-table", "go-pure-util"]
+    },
+    "researcher": {
+      "allowed": false
+    }
+  },
+  "sources": {
+    "cli": { "allowed": true },
+    "mcp": { "allowed": true }
+  },
+  "workspaces": {
+    "default": { "allowed": true }
+  },
+  "bundles": {
+    "trusted-internal": { "allowed": true }
+  },
+  "write_actions": { "allowed": false }
+}

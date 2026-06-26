@@ -1,0 +1,48 @@
+# Downstream MCP servers Prism can call on behalf of agents.
+# Lives at ~/.prism/mcp-servers.yaml. Manage with:
+#   prism mcp server add-command <name> <command> [args...]
+#   prism mcp server add-sse     <name> <url>
+#   prism mcp server list
+#
+# Fields:
+#   name        unique server name agents reference (e.g. call_mcp_tool server=linear)
+#   transport   "command" (stdio subprocess) or "sse" (HTTP/SSE endpoint)
+#   command     executable to launch        (transport: command)
+#   args        arguments for the command    (transport: command)
+#   url         endpoint URL                 (transport: sse)
+#   timeout_ms  per-call timeout, default 30000
+#   max_bytes   max bytes returned per call, default 20000
+#   description optional human-readable note
+servers:
+  # Command (stdio) transport launched via npx.
+  - name: linear
+    transport: command
+    command: npx
+    args:
+      - -y
+      - mcp-remote
+      - https://mcp.linear.app/mcp
+    timeout_ms: 45000
+    max_bytes: 50000
+    description: Linear issues, projects, and comments.
+
+  # Another command-transport server.
+  - name: context7
+    transport: command
+    command: npx
+    args:
+      - -y
+      - "@upstash/context7-mcp"
+      - --transport
+      - stdio
+    timeout_ms: 45000
+    max_bytes: 50000
+    description: Up-to-date library and framework documentation.
+
+  # SSE (HTTP) transport example.
+  - name: internal-tools
+    transport: sse
+    url: http://127.0.0.1:8080/sse
+    timeout_ms: 30000
+    max_bytes: 20000
+    description: Example self-hosted MCP server over SSE.
