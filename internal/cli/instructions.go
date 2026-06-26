@@ -274,12 +274,15 @@ func installInstructions(dest, block, preamble string) (string, error) {
 		return "updated", nil
 	}
 
-	// Append a fresh block, ensuring separation from existing content.
-	sep := "\n"
-	if !strings.HasSuffix(content, "\n") {
-		sep = "\n\n"
-	} else if !strings.HasSuffix(content, "\n\n") {
+	// Append a fresh block, ensuring exactly one blank line of separation.
+	var sep string
+	switch {
+	case strings.HasSuffix(content, "\n\n"):
+		sep = ""
+	case strings.HasSuffix(content, "\n"):
 		sep = "\n"
+	default:
+		sep = "\n\n"
 	}
 	if err := os.WriteFile(dest, []byte(content+sep+block), 0o644); err != nil {
 		return "", err
@@ -320,10 +323,13 @@ func replaceInstructionsBlock(content, block string) (string, bool) {
 	if start == -1 {
 		return content, false
 	}
-	endIdx := strings.Index(content, instructionsEndMarker)
-	if endIdx == -1 || endIdx < start {
+	// Search for END only within the content that follows BEGIN, so a mention of
+	// the END sentinel earlier in the file (e.g., documentation) is ignored.
+	relEnd := strings.Index(content[start:], instructionsEndMarker)
+	if relEnd == -1 {
 		return content, false
 	}
+	endIdx := start + relEnd
 	end := endIdx + len(instructionsEndMarker)
 	// Absorb a single trailing newline so block (which ends in "\n") doesn't
 	// accumulate blank lines on repeated installs.
@@ -340,10 +346,12 @@ func removeInstructionsBlock(content string) (string, bool) {
 	if start == -1 {
 		return content, false
 	}
-	endIdx := strings.Index(content, instructionsEndMarker)
-	if endIdx == -1 || endIdx < start {
+	// Search for END only after BEGIN so earlier documentation mentions are ignored.
+	relEnd := strings.Index(content[start:], instructionsEndMarker)
+	if relEnd == -1 {
 		return content, false
 	}
+	endIdx := start + relEnd
 	end := endIdx + len(instructionsEndMarker)
 	if end < len(content) && content[end] == '\n' {
 		end++

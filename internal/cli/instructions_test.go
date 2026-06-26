@@ -183,3 +183,60 @@ func TestResolveInstructionsTargets(t *testing.T) {
 		t.Fatal("expected error for unknown target")
 	}
 }
+
+// TestSentinelStringsInDocumentation is a regression test for the case where
+// the END sentinel appears as standalone documentation text before the actual
+// Prism block. Old code searched for END from the start of the file, so it
+// found this earlier occurrence before BEGIN, saw endIdx < start, and returned
+// "no block" — causing installInstructions to append a duplicate instead of
+// updating. The search must be anchored after BEGIN.
+func TestSentinelStringsInDocumentation(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "AGENTS.md")
+
+	// File mentions only the END sentinel in a documentation line before the block.
+	docContent := "# Guide\n\nRemove the `" + instructionsEndMarker + "` line to delete a block.\n\n"
+	if err := os.WriteFile(dest, []byte(docContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	block := instructionsBlock(instructionsTarget{})
+
+	// Install should append because no real block (BEGIN…END pair) exists yet.
+	action, err := installInstructions(dest, block, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if action != "appended" {
+		t.Fatalf("action = %q, want appended", action)
+	}
+
+	// Re-install must update the real block, not append another one.
+	action, err = installInstructions(dest, block, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if action != "updated" {
+		t.Fatalf("re-install action = %q, want updated (duplicate appended instead)", action)
+	}
+	afterUpdate, _ := os.ReadFile(dest)
+	if strings.Count(string(afterUpdate), instructionsBeginMarker) != 1 {
+		t.Fatalf("expected exactly one block after re-install, got:\n%s", string(afterUpdate))
+	}
+
+	// Uninstall must remove the real block and leave the doc text intact.
+	action, err = uninstallInstructions(dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if action != "removed" {
+		t.Fatalf("uninstall action = %q, want removed", action)
+	}
+	afterRemove, _ := os.ReadFile(dest)
+	if strings.Contains(string(afterRemove), instructionsBeginMarker) {
+		t.Fatalf("real block was not removed:\n%s", string(afterRemove))
+	}
+	if !strings.Contains(string(afterRemove), instructionsEndMarker) {
+		t.Fatalf("doc text with END sentinel was incorrectly removed:\n%s", string(afterRemove))
+	}
+}
