@@ -1,0 +1,17 @@
+{
+  "generated_at": "2026-06-24T03:19:08.032801+00:00",
+  "source_commit": "93afbcddaa4673705ec90355984c72ef3739a142",
+  "backend": "reused frontier semantic extraction",
+  "model": "gpt-5.5",
+  "mode": "curated-directed",
+  "token_counts_available": false,
+  "query_smoke": {
+    "symbol_focused": [
+      "mcp serve",
+      "policy enforcement",
+      "graph retries"
+    ],
+    "good": true,
+    "prose_downstream_mcp_query": "generic Server anchor; vocabulary ranking still needs improvement"
+  }
+}

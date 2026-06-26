@@ -1,0 +1,77 @@
+[
+  {
+    "id": "mcp-startup",
+    "question": "How does prism mcp serve start?",
+    "expected_files": ["internal/cli/mcp.go", "internal/mcp/server.go"]
+  },
+  {
+    "id": "runtime-config",
+    "question": "How is model runtime configuration resolved?",
+    "expected_files": ["internal/config/config.go", "internal/llm/runtime/config.go"]
+  },
+  {
+    "id": "downstream-mcp",
+    "question": "How does run_agent reach a downstream MCP server?",
+    "expected_files": ["internal/mcp/server.go", "internal/downstreammcp/client.go"]
+  },
+  {
+    "id": "policy-enforcement",
+    "question": "Where is policy enforcement performed?",
+    "expected_files": ["internal/policy/policy.go", "internal/app/runner.go"]
+  },
+  {
+    "id": "graph-retries",
+    "question": "How does graph execution handle retries?",
+    "expected_files": ["internal/graph/graph.go"]
+  },
+  {
+    "id": "bundle-install",
+    "question": "How are bundles verified and installed?",
+    "expected_files": ["internal/bundles/install.go", "pkg/registry/registry.go"]
+  },
+  {
+    "id": "registry-sync",
+    "question": "How does registry source synchronization work?",
+    "expected_files": ["internal/cli/registry.go", "pkg/registry/registry.go"]
+  },
+  {
+    "id": "skill-discovery",
+    "question": "How are skills discovered and loaded?",
+    "expected_files": ["internal/skill/discover.go", "internal/skill/skill.go"]
+  },
+  {
+    "id": "event-store",
+    "question": "How are run events persisted and summarized?",
+    "expected_files": ["internal/events/store.go", "internal/events/export.go"]
+  },
+  {
+    "id": "reports",
+    "question": "How are event, bundle, and skill reports generated?",
+    "expected_files": ["internal/cli/report.go", "internal/reports/reports.go"]
+  },
+  {
+    "id": "root-resolution",
+    "question": "How is a local or GitHub workspace root resolved?",
+    "expected_files": ["internal/rootresolver/rootresolver.go", "internal/github/github.go"]
+  },
+  {
+    "id": "runtime-plugins",
+    "question": "How are runtime plugins registered and called?",
+    "expected_files": ["internal/plugins/plugin.go", "internal/app/runtime_tools.go"]
+  },
+  {
+    "id": "route-suggestion",
+    "question": "How does Prism suggest an agent route?",
+    "expected_files": ["internal/router/router.go", "internal/mcp/server.go"]
+  },
+  {
+    "id": "evidence-handoff",
+    "question": "How is structured evidence handed between agents?",
+    "expected_files": ["internal/handoff/evidence_summary.go", "pkg/evidence/evidence.go"]
+  },
+  {
+    "id": "dashboard",
+    "question": "How does the dashboard expose run events?",
+    "expected_files": ["internal/dashboard/server.go", "internal/events/store.go"]
+  }
+]

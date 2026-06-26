@@ -34,3 +34,13 @@ go.work.sum
 # Prism binary
 /prism
 /prism.exe
+
+# graphify regenerable cache (AST + semantic, content-addressed; rebuilt on demand)
+graphify-out/cache/
+**/graphify-out/cache/
+
+# graphify machine-specific pointers (regenerated locally; not portable)
+graphify-out/.graphify_root
+graphify-out/.graphify_python
+**/graphify-out/.graphify_root
+**/graphify-out/.graphify_python

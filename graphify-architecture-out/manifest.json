@@ -1,0 +1,582 @@
+{
+  "README.md": {
+    "sha256": "f1f5d19c2172107174f36f02d5974203be8e80efe5dfee38026a7ce0536f05ec",
+    "size": 14808
+  },
+  "agents/README.md": {
+    "sha256": "b87d721a67b46838b15f09971f07bea6fbab3a4cb34b83b224b84d57e0b335a8",
+    "size": 2730
+  },
+  "agents/argo.md": {
+    "sha256": "22897c958e05970218b1b2a4fc56da1f9f3bea82faedd78e8472dda4e1597b44",
+    "size": 1003
+  },
+  "agents/frontend-builder.md": {
+    "sha256": "989a824b062168f036907fc18494556b9b3b69261ce62a16da904e36128979fa",
+    "size": 823
+  },
+  "agents/github-cli.md": {
+    "sha256": "43af387c4ad61ceeec2caa451275ac3193a4b8557282b829f7984b4f0b2731c8",
+    "size": 1522
+  },
+  "agents/go-helper.md": {
+    "sha256": "0054d02832f981e12bf9af43dad86f3977c3cb23c4f14d2f2a52f2d6356c149c",
+    "size": 818
+  },
+  "agents/go-scaffold.md": {
+    "sha256": "4e529df02127aa7bba57c1035421a546c3c49439954947ad05fb574554e0a865",
+    "size": 798
+  },
+  "agents/kubectl.md": {
+    "sha256": "f8b72fad19e5d1ac30b57c4739ecae20775d0119d3b3cf59566a5580d3502bd4",
+    "size": 1782
+  },
+  "agents/linear.md": {
+    "sha256": "6cf3193708b11b05307d242bbb447dec19145705d61d046c3a298c5750221718",
+    "size": 1249
+  },
+  "agents/web-docs-search.md": {
+    "sha256": "a4b9499d87dda5f077e809f4793a1ef872397e51aa2d7533f5d54ed0f63b5ad2",
+    "size": 1340
+  },
+  "cmd/prism/main.go": {
+    "sha256": "94a1fb0dbfc6cd50ce69b64bc8b7d849a45ad96c1f78ed296055f5b256c65f51",
+    "size": 207
+  },
+  "constitutions/README.md": {
+    "sha256": "28e09395da33d8ed9addb7e1018ab62e214e08a228cf90adc9a8b74979b8a4de",
+    "size": 2042
+  },
+  "constitutions/argo.md": {
+    "sha256": "7b73918aa6ae78359fa77924b3a75a5bf8fd23821773b7e0783c2930b1df6018",
+    "size": 715
+  },
+  "constitutions/frontend-builder.md": {
+    "sha256": "fd009ef3bc9b474ccaedf66a07e78cb4e9af8fc2c91ed6d741b6340be56ca9a6",
+    "size": 864
+  },
+  "constitutions/github-cli.md": {
+    "sha256": "e19d7c662596b78e900446e392333c0793919bf442664e659bfab86f42538d6b",
+    "size": 657
+  },
+  "constitutions/go-helper.md": {
+    "sha256": "ee7a5efed0ef45d5b4c7d8edffb24e9e6df56b8bb0cee9c9ebdb93021c926790",
+    "size": 1222
+  },
+  "constitutions/go-scaffold.md": {
+    "sha256": "1d95b2dbe6b03d8a56d64e80e840664bedbf5e512c2525ee80e076139daca6de",
+    "size": 1172
+  },
+  "constitutions/implementer.md": {
+    "sha256": "37d3bb68a93d1386bac64c47c864dc27f51f4a5cfcbb7c8ba62a7008283c8db5",
+    "size": 1184
+  },
+  "constitutions/kubectl.md": {
+    "sha256": "39ae497fbea4ab4d01627f2226beafdac5687dda04499f88ac88b97132029f9d",
+    "size": 752
+  },
+  "constitutions/linear.md": {
+    "sha256": "53b9df763e604e3dd6f87257796c15a8a3807166a46cfac76b0f8fa26f83ab0d",
+    "size": 1491
+  },
+  "constitutions/planner.md": {
+    "sha256": "bedaed2270911e120434d8c5bac4816885f1e38f0267efa82d4d436ea7b03d7f",
+    "size": 1171
+  },
+  "constitutions/researcher.md": {
+    "sha256": "6b06bb2c618c98cd237fc9c31db108c85726ed770dfaa37503ed38d9c7908101",
+    "size": 1319
+  },
+  "constitutions/reviewer.md": {
+    "sha256": "e9784817016479b76ea63c3892a5e96067badfbf9743e45b4451642bce972267",
+    "size": 1224
+  },
+  "constitutions/test-designer.md": {
+    "sha256": "c3a8b5b3067f90c08b73cab3f875b06e529d6232da92934f85753befdbc2d759",
+    "size": 1165
+  },
+  "constitutions/web-docs-search.md": {
+    "sha256": "52be1c6f30f7be4ab548f33d8ef99c9c9c9ecc9bb33babfcc770b6f27dc56709",
+    "size": 649
+  },
+  "docs/architecture/control-plane.md": {
+    "sha256": "8313647e2c9f672637b0848bb3eaeba45420717ed522b6a7f8d32a8ef4f44074",
+    "size": 2158
+  },
+  "docs/comparison.md": {
+    "sha256": "b89e897946265e129b26f391d8444571535074b6cf271726cdc367f4703775c0",
+    "size": 3598
+  },
+  "docs/implementation-plan.md": {
+    "sha256": "e26548342282756b2e9773251480de217b3941d44a2d81cce0202ae78d256434",
+    "size": 19761
+  },
+  "docs/model-runtime.md": {
+    "sha256": "def46549f935ab6e0df3a7442071430bae289b13d92e9e04e677790a4f6a5c3b",
+    "size": 5652
+  },
+  "docs/product/prism-oss-product-definition.md": {
+    "sha256": "c1fe6a9297903ebe1b93c15b9d27d6596ffb63907be1d240b955c8b3c79c3e7c",
+    "size": 37087
+  },
+  "docs/success-metrics.md": {
+    "sha256": "7170f66c65782560fda089472ec73938b58952077ccf6b25bc466aa6988c0d01",
+    "size": 4883
+  },
+  "docs/tooling-references.md": {
+    "sha256": "29acaf996a0e952c3dc178e3cf191590261161e95c2a1f7d742cd54a7f911a07",
+    "size": 3093
+  },
+  "docs/usage.md": {
+    "sha256": "1856f70fb2aaacc061d7fcc3d207bd25fc4138ce6fd90d740df4c4c415599ecb",
+    "size": 28325
+  },
+  "go.mod": {
+    "sha256": "7279068e4fa3a6154efa2bf8fe9951753bb05f3741566538d41c36e4eb5f91dc",
+    "size": 3142
+  },
+  "internal/agent/registry.go": {
+    "sha256": "c5ed8e77b61154f63aaaead755212b2985d3f9640e686c7ed288eeeef5382c0c",
+    "size": 2066
+  },
+  "internal/agent/spec.go": {
+    "sha256": "e19f897556f08a60abe070c3d51d166b746e471ac68dedc8eeac438752277154",
+    "size": 6043
+  },
+  "internal/app/doctor.go": {
+    "sha256": "901e7e8575b74c8e33a1f3f4f668e58b89ba4b9c7cf460a9bf5f8c762691994a",
+    "size": 3335
+  },
+  "internal/app/prompt.go": {
+    "sha256": "074bf6e2bcc5247ef050d34296098844928fb04805d54e8485b77accb423d8b3",
+    "size": 4182
+  },
+  "internal/app/runner.go": {
+    "sha256": "606d0ae8d94766a4eeee491130a8005af64dbef01234423340f2613b45b82317",
+    "size": 21972
+  },
+  "internal/app/runtime_tools.go": {
+    "sha256": "553d3dbcf0bf87752fd3e70a360662749a8ddfa7fd0b050969233780cef6058f",
+    "size": 4482
+  },
+  "internal/app/tool_loop.go": {
+    "sha256": "1536df88d6d679d950f3c42dc44c30adea345c02dc6548435ccadbe39f456f01",
+    "size": 11897
+  },
+  "internal/bundles/install.go": {
+    "sha256": "63552e7f60709f1992fb68cfeeccb8854c0ffb2f5891f92b13dd5333e05c3e54",
+    "size": 7818
+  },
+  "internal/bundles/lifecycle.go": {
+    "sha256": "fb28fd5debc7d165b453803cc656409ed72d9edd71894b358120e3ef340c46ca",
+    "size": 5606
+  },
+  "internal/bundles/state.go": {
+    "sha256": "35008232986fdcb1a78f7fb918bd1f6a340df55a42b464849be320dc1e5e1929",
+    "size": 3592
+  },
+  "internal/cli/agent.go": {
+    "sha256": "8194d19625330a0397ff27438b861f9b25ad622e5c35484d8d1884cc8e1b2eb6",
+    "size": 7549
+  },
+  "internal/cli/benchmark.go": {
+    "sha256": "7562dfaf2a8c5b320015efff679f82d57029e3948c4edd606a27cbfcac09b0ab",
+    "size": 2911
+  },
+  "internal/cli/benchmark_project.go": {
+    "sha256": "99134061b610f6be66423218ca6dae0f920a301bb349fffb70fd6e4c2d485026",
+    "size": 2135
+  },
+  "internal/cli/bundle.go": {
+    "sha256": "adb4c05f2f5e625e5be7334294b2408485540a3205530d239f8749cc1a354035",
+    "size": 10163
+  },
+  "internal/cli/config.go": {
+    "sha256": "c521ce0fb5b8ee06c0c0d4970b29b227b97a2dc8ff0bcfd184dd178cd97301b2",
+    "size": 1609
+  },
+  "internal/cli/dashboard.go": {
+    "sha256": "f29b8f0b97dd87b519a8b612444b083e1f8079154a25946ce9f9159e0d8f30c9",
+    "size": 784
+  },
+  "internal/cli/downstream_mcp.go": {
+    "sha256": "3f4e389e76423183374fad3d5e8a39a071c28fde04b450675d9ad014b731ebe0",
+    "size": 1049
+  },
+  "internal/cli/events.go": {
+    "sha256": "cc205a2bb3ac3f21076e37c1aba41467de23bb5d5397bd2687c20e073ba7aa1b",
+    "size": 2973
+  },
+  "internal/cli/graph.go": {
+    "sha256": "6babfbc0f925f0070b959e8bdd7700b87bb41137737ed8fea690b8b073563c4e",
+    "size": 2543
+  },
+  "internal/cli/mcp.go": {
+    "sha256": "f2f59cd4e1e38ec5ca2ba5576c09491b66f2406420a05339d024cb49cb00cfea",
+    "size": 7137
+  },
+  "internal/cli/model_runtime.go": {
+    "sha256": "506a75d646159ac88b8d6d09a66ec5250e92f4d3b791e45c97a477281b880af4",
+    "size": 798
+  },
+  "internal/cli/policy.go": {
+    "sha256": "1ac321cbb82cc5bae104cfed5ad41344c370bd22b9c29297c5a0da5770d93878",
+    "size": 2469
+  },
+  "internal/cli/registry.go": {
+    "sha256": "caa5e6c151a4255722ea23ba433181279c7bb71431cfe12f3615f968f0734adc",
+    "size": 3020
+  },
+  "internal/cli/report.go": {
+    "sha256": "29759fa36b46ec489257cd8dd788d7683bd1e1cee73eed6cec33465ad445bce8",
+    "size": 6464
+  },
+  "internal/cli/root.go": {
+    "sha256": "048188fa62614b77b9574510206557c825a6349d546166e523044985373d3c17",
+    "size": 3509
+  },
+  "internal/cli/route.go": {
+    "sha256": "c0637c3cdca5b0644869e38932c10ed7ed25d1cb14877bbd44ab4ed93d11b892",
+    "size": 1597
+  },
+  "internal/cli/run.go": {
+    "sha256": "cabf251ba264ac44185de55cd28c3997532e9b857c37e742557e4fd88f57a614",
+    "size": 4516
+  },
+  "internal/cli/skill.go": {
+    "sha256": "5a7889bc5082cffae9841402140956f2b50ff5daedff388f698b3cbca5641b18",
+    "size": 4616
+  },
+  "internal/config/config.go": {
+    "sha256": "b9367c231d37fa66e203116fd6c5b790589e4fcad4a9e5c990bb8b1139314d13",
+    "size": 7483
+  },
+  "internal/dashboard/server.go": {
+    "sha256": "310ab69b1dec06e6b9075529d25c06d85a43320b7ea5787db94cb37e8f404f50",
+    "size": 6025
+  },
+  "internal/downstreammcp/client.go": {
+    "sha256": "3e5ff9c58ab7e13c4ca9eaa44ac0bb4ecce0fa4b916133d748c6ae95cb5e32b9",
+    "size": 4730
+  },
+  "internal/downstreammcp/state.go": {
+    "sha256": "e469194b27bb57c769e4f6389fdfe71ae39e429627bb8961c165c6898c088ca1",
+    "size": 2628
+  },
+  "internal/events/export.go": {
+    "sha256": "a64274d00696f0f22af3254d1e191619719f39a02a7805c4e26baaf3b4cf3939",
+    "size": 1491
+  },
+  "internal/events/store.go": {
+    "sha256": "87c2d9c7bf78b1b0c1849dde1f6830b3c9f92eb4f08c0785a7c02ba840127cf1",
+    "size": 9088
+  },
+  "internal/github/github.go": {
+    "sha256": "ccddbf89ef481f21377d4a3d79f013e594dc3480897d4fb781cdecfa496a2c70",
+    "size": 10301
+  },
+  "internal/graph/graph.go": {
+    "sha256": "383d8410867912e110a6d803ca8c4f7fe5323ed66101e4b5cf7aece91c7908c7",
+    "size": 13361
+  },
+  "internal/handoff/evidence_summary.go": {
+    "sha256": "636c4c1aac3a9e57b36ff1208834450017849eda29f895734cf16692bd162d29",
+    "size": 4001
+  },
+  "internal/llm/factory.go": {
+    "sha256": "0841abf091e2928e40870b72b80ba1ae78ee2fd0053ee2812dab6a38a2a8b549",
+    "size": 1651
+  },
+  "internal/llm/fallback/fallback.go": {
+    "sha256": "33af861e856cfaa8043e389a4de11e7214e4dd9189fa34be23472ed823a99364",
+    "size": 2530
+  },
+  "internal/llm/ollama_runtime.go": {
+    "sha256": "e87bccd8ceccd8cf4fa36598e48acd58f082ca013b13fd931c5566083ae7cce5",
+    "size": 4487
+  },
+  "internal/llm/runtime/config.go": {
+    "sha256": "71347f880b8a3a8a5cdc77493bf19a89b7e87c7d1fd2a4ca71dccfd745ecad05",
+    "size": 917
+  },
+  "internal/llm/runtime/errors.go": {
+    "sha256": "00151d4510dcac79b35556ea0912eadce3701a928366042f81ee581953864fbc",
+    "size": 1619
+  },
+  "internal/llm/runtime/openai_compatible.go": {
+    "sha256": "0bcb670d84c91238bb14e028115ce7370be5c2e60b1a7b6235320fe2176482d8",
+    "size": 12406
+  },
+  "internal/llm/runtime/types.go": {
+    "sha256": "573a9e291d8b213c636fa99c48b2b99edc65ca25a206d7a6ba96e8aefccfa4ca",
+    "size": 2523
+  },
+  "internal/mcp/prompts_resources.go": {
+    "sha256": "f0cd092146dde3528de731eb9f60a375a228bece8a7e14a2ecdc05f7af4fe0b2",
+    "size": 16734
+  },
+  "internal/mcp/server.go": {
+    "sha256": "ed120085cd92a342bdd13b4e16c4c9678f338099b609960de914549c1985d01f",
+    "size": 20632
+  },
+  "internal/ollama/client.go": {
+    "sha256": "747a89260cba8bebfdc1178b339e180fdfc950173327f52840c48c0c9f4dc88f",
+    "size": 5107
+  },
+  "internal/plugins/filesystem/plugin.go": {
+    "sha256": "633999d93ad2e761b3b6072d3452ca467980261dda050024d854411fb5013400",
+    "size": 2637
+  },
+  "internal/plugins/githublocal/plugin.go": {
+    "sha256": "e999e4961347dd28e73e732a786f0543af857bf1a2aba2e5fc5d2c53cda10fdc",
+    "size": 2378
+  },
+  "internal/plugins/goproject/plugin.go": {
+    "sha256": "bb84858a06884a75bda826bb1682e9a9e72baa21c4d52296db73e9e393376299",
+    "size": 2793
+  },
+  "internal/plugins/kubernetes/plugin.go": {
+    "sha256": "5b3ff11bd7b192078f98c11a66180f2e538d998860054369dc91c165c615f817",
+    "size": 15265
+  },
+  "internal/plugins/linear/plugin.go": {
+    "sha256": "92f8e5380a608191881a7deacd6f817b4487578b2a492f99c84b6a0ed5993748",
+    "size": 4206
+  },
+  "internal/plugins/localdocs/plugin.go": {
+    "sha256": "11ac40fbf440db4444aeddac3aece8cf08dd74314b7a7f537ed1dbdddab7bb03",
+    "size": 2704
+  },
+  "internal/plugins/mcpbridge/plugin.go": {
+    "sha256": "f52ddf0939554cfcd490b09530cda571e2d3526b565cf4db7ec57797e54de838",
+    "size": 3571
+  },
+  "internal/plugins/plugin.go": {
+    "sha256": "e979112b1048500e79bb41992ab5fb50961c8b142cd21c6c9d8288a79398f3b9",
+    "size": 1873
+  },
+  "internal/policy/policy.go": {
+    "sha256": "708d33c6f9d37e3775df53c551c6a38c4c895fad0b494445d288357521708251",
+    "size": 7524
+  },
+  "internal/prompt/builder.go": {
+    "sha256": "dc8c08133e504e93cbbb9484bd66b7f6f2818aef82195f80c13524511a2d19a2",
+    "size": 1551
+  },
+  "internal/reports/reports.go": {
+    "sha256": "2b19b14d4329cebd88a42e198cf93f6307f0ca92785b722225921f25f0ccca9a",
+    "size": 1583
+  },
+  "internal/result/doctor.go": {
+    "sha256": "aebd384c957c4f1dc96a4cf3642fb7e014070995d346141d2749137b457bd389",
+    "size": 695
+  },
+  "internal/result/parse.go": {
+    "sha256": "a292fbbc248c77acef02f63fd2641cf52b124de37b723cb16f5665a6fd9cfc26",
+    "size": 4605
+  },
+  "internal/result/result.go": {
+    "sha256": "542d19c07e44ecf240159f67df418fd1529f38f8bab87f6f0c8b9fbfbe2942ba",
+    "size": 5285
+  },
+  "internal/rootresolver/rootresolver.go": {
+    "sha256": "15aeb001abca387ecbc799ae96be6238fd456fdb938bf7b870e7d0c3888dce64",
+    "size": 3211
+  },
+  "internal/router/router.go": {
+    "sha256": "8498f28f1f7b5786c1bf6295908a9857ef46187de089670ae7653a49b8700a10",
+    "size": 4485
+  },
+  "internal/skill/discover.go": {
+    "sha256": "44bc74eee5eac52b6c69fb1c4d2a9f23cd22381154d0550099c5778e36f2c60f",
+    "size": 1462
+  },
+  "internal/skill/evals.go": {
+    "sha256": "856ce01016ecb2201b35d81da65957e483db7d24e8e191ebc57c5cecbfeeafe5",
+    "size": 2398
+  },
+  "internal/skill/skill.go": {
+    "sha256": "4fba021376f427e800d4ae93fae2b6a2c5760ce1da236dd31d90dffaa5314a44",
+    "size": 6049
+  },
+  "pkg/bundle/bundle.go": {
+    "sha256": "dd0a6011d31c418c0671299ee907ca7a85b65352e25899021f6453c87dabc6b8",
+    "size": 2286
+  },
+  "pkg/evidence/evidence.go": {
+    "sha256": "2efb53d2eb2d07188cf3fecdd47cbb5bf4944870c1f0b899ae25f51a095a9efc",
+    "size": 1266
+  },
+  "pkg/graph/graph.go": {
+    "sha256": "7daaffe093464110127a429529c976e1518ed39f38aa3763fa37673f6a8e3ac3",
+    "size": 1897
+  },
+  "pkg/observe/observe.go": {
+    "sha256": "f59aa81c1ad75ede8c107ebacb23ed8d250723f97ee649aea336b1750a3c2090",
+    "size": 2045
+  },
+  "pkg/policy/policy.go": {
+    "sha256": "81c59162af68e306b313c9e3931ccbb27ee9f15de85d592744cdf869811a476d",
+    "size": 4299
+  },
+  "pkg/registry/registry.go": {
+    "sha256": "5bb64df20b4fb57b300c2b4363622afd94984c0055a54baa2fb7ec3ea4fd157d",
+    "size": 8334
+  },
+  "pkg/report/report.go": {
+    "sha256": "db639f96b65f78781fb509a1f0996c8944a019fc651a23a78953523fadf4feaf",
+    "size": 1168
+  },
+  "scripts/ci-check.sh": {
+    "sha256": "f2e71febfd2646b9cc43a7cdacfd133ce3f21ad42acd3861c4eed961f32b7806",
+    "size": 181
+  },
+  "scripts/hooks/pre-push-block-main.sh": {
+    "sha256": "d2ac95fe16985f4543136b9781d3b9a61eaabfe28b0bd27e29bcc2e2e392134b",
+    "size": 558
+  },
+  "scripts/install_mcp.py": {
+    "sha256": "4909f65c2d83f7d55ad1366041c387e36f82308475e72c579097bc0e2f4dbaeb",
+    "size": 994
+  },
+  "scripts/local-acceptance.sh": {
+    "sha256": "a98dd5ad9c93efa84f7745da1170e3e93401675f6b97555c67b98878e62aff77",
+    "size": 1307
+  },
+  "skills/argo-sync-health/SKILL.md": {
+    "sha256": "5b4c7580181d7297d77681c55063e349c89536768e944a1c1b77a7a14c51d4a8",
+    "size": 1472
+  },
+  "skills/argo-sync-health/references/REFERENCE.md": {
+    "sha256": "86e8b4f5cf6fb79ea19e6f5e7bad4fa3d1711577b979452ec9b9c57fac784b74",
+    "size": 122
+  },
+  "skills/argo-workflow-debug/SKILL.md": {
+    "sha256": "69abce67b149ab8ee5c20c646de5db553a8d091a81e090fa5be56bbf5ec8c95f",
+    "size": 1514
+  },
+  "skills/argo-workflow-debug/references/REFERENCE.md": {
+    "sha256": "86e8b4f5cf6fb79ea19e6f5e7bad4fa3d1711577b979452ec9b9c57fac784b74",
+    "size": 122
+  },
+  "skills/docs-source-harvest/SKILL.md": {
+    "sha256": "6125be10e4ebe656d819cc80feaaa1fabf0ecc2830d07a8973ca4cc2b68e5f86",
+    "size": 1572
+  },
+  "skills/docs-source-harvest/references/REFERENCE.md": {
+    "sha256": "86e8b4f5cf6fb79ea19e6f5e7bad4fa3d1711577b979452ec9b9c57fac784b74",
+    "size": 122
+  },
+  "skills/frontend-localstorage/SKILL.md": {
+    "sha256": "c0db796f0b35acf0b57b7529f1811946f8c17474b7532706c6eefa86bb41b5f3",
+    "size": 565
+  },
+  "skills/frontend-localstorage/references/README.md": {
+    "sha256": "421bcca9900ef21a6872af9388e88c8767bc61048d08aa269cbda1dd747f6099",
+    "size": 89
+  },
+  "skills/frontend-readme/SKILL.md": {
+    "sha256": "8b28f0119b1166c35dd8be3d937213629304e363043387cbf4325f85c742f937",
+    "size": 468
+  },
+  "skills/frontend-readme/references/README.md": {
+    "sha256": "f2577919101eb2b48a3d8ea312e390ed9b2caa9904113fa0fed12030a47f307e",
+    "size": 90
+  },
+  "skills/frontend-vanilla-spa/SKILL.md": {
+    "sha256": "8702cc184ece8993555ceb582ab51b8850433532dc06a37917295734ec42cc41",
+    "size": 625
+  },
+  "skills/frontend-vanilla-spa/references/README.md": {
+    "sha256": "87161e01d578d8841df112d04e8a11c7e96c33b2d573dadf76ef426dd691cf44",
+    "size": 85
+  },
+  "skills/gh-actions-diagnostics/SKILL.md": {
+    "sha256": "b623bbb3e16c53a46bded4dd5b00ab33578dc256a19b93b605a4dd4c5a51bafb",
+    "size": 2110
+  },
+  "skills/gh-actions-diagnostics/references/REFERENCE.md": {
+    "sha256": "86e8b4f5cf6fb79ea19e6f5e7bad4fa3d1711577b979452ec9b9c57fac784b74",
+    "size": 122
+  },
+  "skills/gh-pr-triage/SKILL.md": {
+    "sha256": "f3d82aa475164963f20d6a2262398ba5f8e01a88003a29146ca52411598a8f46",
+    "size": 1883
+  },
+  "skills/gh-pr-triage/references/REFERENCE.md": {
+    "sha256": "86e8b4f5cf6fb79ea19e6f5e7bad4fa3d1711577b979452ec9b9c57fac784b74",
+    "size": 122
+  },
+  "skills/go-helper-fn/SKILL.md": {
+    "sha256": "c952f199a43a18060b69c4e83fe850dad09a8e34cf8f26147638a4e6eb0dc937",
+    "size": 825
+  },
+  "skills/go-helper-fn/references/REFERENCE.md": {
+    "sha256": "0dc0b6d996ed5879bfeb31937ffbd3b3668baf129b6c9f7ece4c29d1d3e4e615",
+    "size": 157
+  },
+  "skills/go-package-scaffold/SKILL.md": {
+    "sha256": "714caf6896272cdc7bc92ae48d3b7bdf4d6bdff09e0156fb08bc7b2a969284c9",
+    "size": 787
+  },
+  "skills/go-package-scaffold/references/REFERENCE.md": {
+    "sha256": "4198c1559dff7cd521327c30b25f2529210e2b199ea67b0a63b9e79d5c936bfa",
+    "size": 144
+  },
+  "skills/go-pure-util/SKILL.md": {
+    "sha256": "7b1574035ff8462b0d437a14b685a8884b9f388ef978ca5a1c36badb1a7920d7",
+    "size": 792
+  },
+  "skills/go-pure-util/references/REFERENCE.md": {
+    "sha256": "72879f5198cc17a7df5eaa07fd02d122f63b3e576850288d1c8b6be7d96116fd",
+    "size": 169
+  },
+  "skills/go-test-table/SKILL.md": {
+    "sha256": "b74da353741200b4facacf7b81a0c2caaaa9d1685653d7f8be4fffa241df0f60",
+    "size": 783
+  },
+  "skills/go-test-table/references/REFERENCE.md": {
+    "sha256": "6d0f94dbc51b0e0d82dc71d4f153fecc2d0709ed195279a997ea9bd70879d293",
+    "size": 131
+  },
+  "skills/k8s-rollout-diagnostics/SKILL.md": {
+    "sha256": "02c66f204f3c263e0d72a8a246e401e64db15aa0300e8921ff77210a113a9c5f",
+    "size": 2222
+  },
+  "skills/k8s-rollout-diagnostics/references/REFERENCE.md": {
+    "sha256": "86e8b4f5cf6fb79ea19e6f5e7bad4fa3d1711577b979452ec9b9c57fac784b74",
+    "size": 122
+  },
+  "skills/kubectl-triage/SKILL.md": {
+    "sha256": "597bd31830e6d1309189a1917be3a3a6177d8204f83eeae73fe7fca13b92f06c",
+    "size": 2208
+  },
+  "skills/kubectl-triage/references/REFERENCE.md": {
+    "sha256": "86e8b4f5cf6fb79ea19e6f5e7bad4fa3d1711577b979452ec9b9c57fac784b74",
+    "size": 122
+  },
+  "skills/linear-issue-management/SKILL.md": {
+    "sha256": "3e00aba96a6af53be51828423c93d16a21cc90b19f9234773f946a89086884c8",
+    "size": 3651
+  },
+  "skills/linear-issue-management/references/REFERENCE.md": {
+    "sha256": "a61415646fd8bb7da138ae2037bca95d59e9c3f38a53ae4ff8ea9aaf112a9f2b",
+    "size": 1046
+  },
+  "skills/prism-mcp-orchestrator/SKILL.md": {
+    "sha256": "8c67b7c58ea29848e77e241da886ac12d29c3cba02db41a2adc2701bddc6c72d",
+    "size": 3651
+  },
+  "skills/prism-mcp-orchestrator/references/REFERENCE.md": {
+    "sha256": "84019338afa64f0af0df133e04798804d2a0f0b0fbdb49d5f164df7b8dfc58fb",
+    "size": 1620
+  },
+  "skills/release-notes-scan/SKILL.md": {
+    "sha256": "d6c7e7fd98cf0cdaab5e6726debaa90b12a0afc69105dabbb51489b49b375536",
+    "size": 1509
+  },
+  "skills/release-notes-scan/references/REFERENCE.md": {
+    "sha256": "86e8b4f5cf6fb79ea19e6f5e7bad4fa3d1711577b979452ec9b9c57fac784b74",
+    "size": 122
+  }
+}

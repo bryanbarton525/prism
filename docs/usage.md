@@ -23,6 +23,8 @@ Prism resolves paths relative to `**--root**` (default: current working director
 
 The Prism env file is selected with `PRISM_CONFIG_FILE`. If that is unset, Prism looks for `config.env` under `PRISM_STATE_DIR`, or `~/.prism/config.env` when `PRISM_STATE_DIR` is unset. This gives IDEs, MCP hosts, and standalone launchers one Prism-owned place to point at instead of requiring host-specific config parsing.
 
+Ready-to-copy sample configs live in [`examples/`](../examples/README.md) (`config.env`, `mcp-servers.yaml`, `prism-policy.json`).
+
 Example `~/.prism/config.env`:
 
 ```bash
@@ -485,7 +487,7 @@ That means Prism adds bounded Linear MCP context before the local specialist run
 
 Prism can also act as a bounded MCP client to downstream MCP servers. This is useful when a specialist should own a bulky tool surface, such as Linear issues/projects/comments, without forcing the parent model to carry all downstream tool schemas.
 
-Configuration is stored in `mcp-servers.yaml` under `--state-dir`.
+Configuration is stored in `mcp-servers.yaml` under `--state-dir`. See [`examples/mcp-servers.yaml`](../examples/mcp-servers.yaml) for a documented sample covering both `command` and `sse` transports.
 
 For Linear, set `PRISM_LINEAR_MCP_URL` to have Prism expose a `linear` downstream server automatically when no explicit `linear` server is saved in state:
 

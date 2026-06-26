@@ -1,0 +1,774 @@
+{
+  "cases": 15,
+  "passed": 15,
+  "full_passed": 15,
+  "pass_rate": 1.0,
+  "full_pass_rate": 1.0,
+  "results": [
+    {
+      "id": "mcp-startup",
+      "question": "How does prism mcp serve start?",
+      "expanded_terms": [
+        "mcp",
+        "serve",
+        "server",
+        "register",
+        "tools",
+        "command",
+        "prism"
+      ],
+      "matched_aliases": [
+        "mcp serve"
+      ],
+      "anchor_nodes": [
+        "cli_mcp_newmcpservecmd",
+        "mcp_server_servewithconfig",
+        "mcp_server_registertools"
+      ],
+      "expected_files": [
+        "internal/cli/mcp.go",
+        "internal/mcp/server.go"
+      ],
+      "matched_files": [
+        "internal/cli/mcp.go",
+        "internal/mcp/server.go"
+      ],
+      "pass": true,
+      "full_pass": true,
+      "start_nodes": [
+        {
+          "id": "mcp_server_registertools",
+          "label": "registerTools()",
+          "source_file": "internal/mcp/server.go",
+          "source_location": "L59"
+        },
+        {
+          "id": "cli_mcp_newmcpservecmd",
+          "label": "newMCPServeCmd()",
+          "source_file": "internal/cli/mcp.go",
+          "source_location": "L26"
+        },
+        {
+          "id": "mcp_server_servewithconfig",
+          "label": "ServeWithConfig()",
+          "source_file": "internal/mcp/server.go",
+          "source_location": "L50"
+        }
+      ]
+    },
+    {
+      "id": "runtime-config",
+      "question": "How is model runtime configuration resolved?",
+      "expanded_terms": [
+        "model",
+        "runtime",
+        "config",
+        "settings",
+        "load",
+        "viper",
+        "configuration",
+        "resolved"
+      ],
+      "matched_aliases": [
+        "model runtime configuration",
+        "runtime configuration"
+      ],
+      "anchor_nodes": [
+        "config_config_load",
+        "config_config_modelruntimefrom",
+        "runtime_runtimeconfig",
+        "config_config_settingsfrom"
+      ],
+      "expected_files": [
+        "internal/config/config.go",
+        "internal/llm/runtime/config.go"
+      ],
+      "matched_files": [
+        "internal/config/config.go",
+        "internal/llm/runtime/config.go"
+      ],
+      "pass": true,
+      "full_pass": true,
+      "start_nodes": [
+        {
+          "id": "runtime_runtimeconfig",
+          "label": "RuntimeConfig",
+          "source_file": "internal/llm/runtime/config.go",
+          "source_location": "L22"
+        },
+        {
+          "id": "config_config_modelruntimefrom",
+          "label": "modelRuntimeFrom()",
+          "source_file": "internal/config/config.go",
+          "source_location": "L96"
+        },
+        {
+          "id": "config_config_settingsfrom",
+          "label": "settingsFrom()",
+          "source_file": "internal/config/config.go",
+          "source_location": "L73"
+        }
+      ]
+    },
+    {
+      "id": "downstream-mcp",
+      "question": "How does run_agent reach a downstream MCP server?",
+      "expanded_terms": [
+        "downstream",
+        "mcp",
+        "client",
+        "call",
+        "tool",
+        "connect",
+        "run",
+        "agent",
+        "handler",
+        "server"
+      ],
+      "matched_aliases": [
+        "downstream mcp",
+        "run agent",
+        "run_agent"
+      ],
+      "anchor_nodes": [
+        "mcp_server_callmcptoolhandler",
+        "downstreammcp_client_calltool",
+        "downstreammcp_client_connect",
+        "mcp_server_runagenthandler"
+      ],
+      "expected_files": [
+        "internal/mcp/server.go",
+        "internal/downstreammcp/client.go"
+      ],
+      "matched_files": [
+        "internal/mcp/server.go",
+        "internal/downstreammcp/client.go"
+      ],
+      "pass": true,
+      "full_pass": true,
+      "start_nodes": [
+        {
+          "id": "mcp_server_callmcptoolhandler",
+          "label": "callMCPToolHandler()",
+          "source_file": "internal/mcp/server.go",
+          "source_location": "L533"
+        },
+        {
+          "id": "mcp_server_runagenthandler",
+          "label": "runAgentHandler()",
+          "source_file": "internal/mcp/server.go",
+          "source_location": "L184"
+        },
+        {
+          "id": "downstreammcp_client_calltool",
+          "label": ".CallTool()",
+          "source_file": "internal/downstreammcp/client.go",
+          "source_location": "L81"
+        }
+      ]
+    },
+    {
+      "id": "policy-enforcement",
+      "question": "Where is policy enforcement performed?",
+      "expanded_terms": [
+        "policy",
+        "engine",
+        "decision",
+        "explain",
+        "approval",
+        "runner"
+      ],
+      "matched_aliases": [
+        "policy enforcement"
+      ],
+      "anchor_nodes": [
+        "policy_engine",
+        "policy_engine_explain",
+        "app_runner_run"
+      ],
+      "expected_files": [
+        "internal/policy/policy.go",
+        "internal/app/runner.go"
+      ],
+      "matched_files": [
+        "internal/policy/policy.go",
+        "internal/app/runner.go"
+      ],
+      "pass": true,
+      "full_pass": true,
+      "start_nodes": [
+        {
+          "id": "policy_engine_explain",
+          "label": ".Explain()",
+          "source_file": "internal/policy/policy.go",
+          "source_location": "L146"
+        },
+        {
+          "id": "policy_engine",
+          "label": "Engine",
+          "source_file": "internal/policy/policy.go",
+          "source_location": "L14"
+        },
+        {
+          "id": "app_runner_run",
+          "label": ".Run()",
+          "source_file": "internal/app/runner.go",
+          "source_location": "L301"
+        }
+      ]
+    },
+    {
+      "id": "graph-retries",
+      "question": "How does graph execution handle retries?",
+      "expanded_terms": [
+        "graph",
+        "retries",
+        "node",
+        "wave",
+        "execute",
+        "run",
+        "execution"
+      ],
+      "matched_aliases": [
+        "graph retries"
+      ],
+      "anchor_nodes": [
+        "graph_graph_runwithoptions",
+        "graph_graph_runwave",
+        "graph_graph_runnodewithretries"
+      ],
+      "expected_files": [
+        "internal/graph/graph.go"
+      ],
+      "matched_files": [
+        "internal/graph/graph.go"
+      ],
+      "pass": true,
+      "full_pass": true,
+      "start_nodes": [
+        {
+          "id": "graph_graph_runnodewithretries",
+          "label": "runNodeWithRetries()",
+          "source_file": "internal/graph/graph.go",
+          "source_location": "L241"
+        },
+        {
+          "id": "graph_graph_runwave",
+          "label": "runWave()",
+          "source_file": "internal/graph/graph.go",
+          "source_location": "L226"
+        },
+        {
+          "id": "graph_graph_runwithoptions",
+          "label": "RunWithOptions()",
+          "source_file": "internal/graph/graph.go",
+          "source_location": "L111"
+        }
+      ]
+    },
+    {
+      "id": "bundle-install",
+      "question": "How are bundles verified and installed?",
+      "expanded_terms": [
+        "bundle",
+        "install",
+        "manifest",
+        "registry",
+        "verify",
+        "signature",
+        "bundles",
+        "verified",
+        "installed"
+      ],
+      "matched_aliases": [
+        "bundles verified installed"
+      ],
+      "anchor_nodes": [
+        "bundles_install_verifyregistrymanifest",
+        "bundles_install_installverified",
+        "registry_registry_verifymanifest"
+      ],
+      "expected_files": [
+        "internal/bundles/install.go",
+        "pkg/registry/registry.go"
+      ],
+      "matched_files": [
+        "internal/bundles/install.go",
+        "pkg/registry/registry.go"
+      ],
+      "pass": true,
+      "full_pass": true,
+      "start_nodes": [
+        {
+          "id": "bundles_install_verifyregistrymanifest",
+          "label": "VerifyRegistryManifest()",
+          "source_file": "internal/bundles/install.go",
+          "source_location": "L30"
+        },
+        {
+          "id": "bundles_install_installverified",
+          "label": "InstallVerified()",
+          "source_file": "internal/bundles/install.go",
+          "source_location": "L42"
+        },
+        {
+          "id": "registry_registry_verifymanifest",
+          "label": "VerifyManifest()",
+          "source_file": "pkg/registry/registry.go",
+          "source_location": "L122"
+        }
+      ]
+    },
+    {
+      "id": "registry-sync",
+      "question": "How does registry source synchronization work?",
+      "expanded_terms": [
+        "registry",
+        "source",
+        "sync",
+        "manifest",
+        "github"
+      ],
+      "matched_aliases": [
+        "registry synchronization"
+      ],
+      "anchor_nodes": [
+        "cli_registry_newregistrysynccmd",
+        "registry_registry_loadmanifest"
+      ],
+      "expected_files": [
+        "internal/cli/registry.go",
+        "pkg/registry/registry.go"
+      ],
+      "matched_files": [
+        "internal/cli/registry.go",
+        "pkg/registry/registry.go"
+      ],
+      "pass": true,
+      "full_pass": true,
+      "start_nodes": [
+        {
+          "id": "cli_registry_newregistrysynccmd",
+          "label": "newRegistrySyncCmd()",
+          "source_file": "internal/cli/registry.go",
+          "source_location": "L75"
+        },
+        {
+          "id": "registry_registry_loadmanifest",
+          "label": "LoadManifest()",
+          "source_file": "pkg/registry/registry.go",
+          "source_location": "L58"
+        },
+        {
+          "id": "cli_registry_newregistrysourceaddcmd",
+          "label": "newRegistrySourceAddCmd()",
+          "source_file": "internal/cli/registry.go",
+          "source_location": "L29"
+        }
+      ]
+    },
+    {
+      "id": "skill-discovery",
+      "question": "How are skills discovered and loaded?",
+      "expanded_terms": [
+        "skill",
+        "discover",
+        "load",
+        "registry",
+        "metadata",
+        "skills"
+      ],
+      "matched_aliases": [
+        "skills discovered loaded"
+      ],
+      "anchor_nodes": [
+        "skill_discover_discoverall",
+        "skill_skill_loaddir"
+      ],
+      "expected_files": [
+        "internal/skill/discover.go",
+        "internal/skill/skill.go"
+      ],
+      "matched_files": [
+        "internal/skill/discover.go",
+        "internal/skill/skill.go"
+      ],
+      "pass": true,
+      "full_pass": true,
+      "start_nodes": [
+        {
+          "id": "skill_discover_discoverall",
+          "label": "DiscoverAll()",
+          "source_file": "internal/skill/discover.go",
+          "source_location": "L31"
+        },
+        {
+          "id": "skill_skill_loaddir",
+          "label": "LoadDir()",
+          "source_file": "internal/skill/skill.go",
+          "source_location": "L33"
+        },
+        {
+          "id": "cli_globalflags_skillsdirordefault",
+          "label": ".skillsDirOrDefault()",
+          "source_file": "internal/cli/skill.go",
+          "source_location": "L171"
+        }
+      ]
+    },
+    {
+      "id": "event-store",
+      "question": "How are run events persisted and summarized?",
+      "expanded_terms": [
+        "event",
+        "store",
+        "append",
+        "summary",
+        "export",
+        "run",
+        "events"
+      ],
+      "matched_aliases": [
+        "events persisted summarized"
+      ],
+      "anchor_nodes": [
+        "events_store_append",
+        "events_store_summary",
+        "events_export_writejson"
+      ],
+      "expected_files": [
+        "internal/events/store.go",
+        "internal/events/export.go"
+      ],
+      "matched_files": [
+        "internal/events/store.go",
+        "internal/events/export.go"
+      ],
+      "pass": true,
+      "full_pass": true,
+      "start_nodes": [
+        {
+          "id": "events_store_append",
+          "label": ".Append()",
+          "source_file": "internal/events/store.go",
+          "source_location": "L129"
+        },
+        {
+          "id": "events_store_summary",
+          "label": ".Summary()",
+          "source_file": "internal/events/store.go",
+          "source_location": "L245"
+        },
+        {
+          "id": "events_export_writejson",
+          "label": "WriteJSON()",
+          "source_file": "internal/events/export.go",
+          "source_location": "L14"
+        }
+      ]
+    },
+    {
+      "id": "reports",
+      "question": "How are event, bundle, and skill reports generated?",
+      "expanded_terms": [
+        "report",
+        "summary",
+        "events",
+        "bundles",
+        "skills",
+        "csv",
+        "event",
+        "bundle",
+        "skill",
+        "reports"
+      ],
+      "matched_aliases": [
+        "event bundle skill reports"
+      ],
+      "anchor_nodes": [
+        "cli_report_newreportcmd",
+        "reports_reports_usagemarkdown"
+      ],
+      "expected_files": [
+        "internal/cli/report.go",
+        "internal/reports/reports.go"
+      ],
+      "matched_files": [
+        "internal/cli/report.go",
+        "internal/reports/reports.go"
+      ],
+      "pass": true,
+      "full_pass": true,
+      "start_nodes": [
+        {
+          "id": "cli_report_newreportcmd",
+          "label": "newReportCmd()",
+          "source_file": "internal/cli/report.go",
+          "source_location": "L20"
+        },
+        {
+          "id": "reports_reports_usagemarkdown",
+          "label": "UsageMarkdown()",
+          "source_file": "internal/reports/reports.go",
+          "source_location": "L10"
+        },
+        {
+          "id": "cli_report_newreportskillscmd",
+          "label": "newReportSkillsCmd()",
+          "source_file": "internal/cli/report.go",
+          "source_location": "L109"
+        }
+      ]
+    },
+    {
+      "id": "root-resolution",
+      "question": "How is a local or GitHub workspace root resolved?",
+      "expanded_terms": [
+        "root",
+        "resolve",
+        "workspace",
+        "github",
+        "local",
+        "git",
+        "hub",
+        "resolved"
+      ],
+      "matched_aliases": [
+        "workspace root resolution"
+      ],
+      "anchor_nodes": [
+        "rootresolver_rootresolver_resolve",
+        "github_github_new"
+      ],
+      "expected_files": [
+        "internal/rootresolver/rootresolver.go",
+        "internal/github/github.go"
+      ],
+      "matched_files": [
+        "internal/rootresolver/rootresolver.go",
+        "internal/github/github.go"
+      ],
+      "pass": true,
+      "full_pass": true,
+      "start_nodes": [
+        {
+          "id": "rootresolver_rootresolver_resolve",
+          "label": "Resolve()",
+          "source_file": "internal/rootresolver/rootresolver.go",
+          "source_location": "L38"
+        },
+        {
+          "id": "github_github_new",
+          "label": "New()",
+          "source_file": "internal/github/github.go",
+          "source_location": "L102"
+        },
+        {
+          "id": "agents_github_cli_evidence_backed_diagnostics",
+          "label": "Evidence-backed GitHub Diagnostics",
+          "source_file": "agents/github-cli.md",
+          "source_location": null
+        }
+      ]
+    },
+    {
+      "id": "runtime-plugins",
+      "question": "How are runtime plugins registered and called?",
+      "expanded_terms": [
+        "runtime",
+        "plugin",
+        "tools",
+        "evidence",
+        "registry",
+        "plugins"
+      ],
+      "matched_aliases": [
+        "runtime plugins"
+      ],
+      "anchor_nodes": [
+        "plugins_plugin_newregistry",
+        "app_runtime_tools_collectruntimeevidence"
+      ],
+      "expected_files": [
+        "internal/plugins/plugin.go",
+        "internal/app/runtime_tools.go"
+      ],
+      "matched_files": [
+        "internal/plugins/plugin.go",
+        "internal/app/runtime_tools.go"
+      ],
+      "pass": true,
+      "full_pass": true,
+      "start_nodes": [
+        {
+          "id": "app_runtime_tools_collectruntimeevidence",
+          "label": "collectRuntimeEvidence()",
+          "source_file": "internal/app/runtime_tools.go",
+          "source_location": "L21"
+        },
+        {
+          "id": "plugins_plugin_newregistry",
+          "label": "NewRegistry()",
+          "source_file": "internal/plugins/plugin.go",
+          "source_location": "L46"
+        },
+        {
+          "id": "app_runner_defaultruntimeplugins",
+          "label": "defaultRuntimePlugins()",
+          "source_file": "internal/app/runner.go",
+          "source_location": "L234"
+        }
+      ]
+    },
+    {
+      "id": "route-suggestion",
+      "question": "How does Prism suggest an agent route?",
+      "expanded_terms": [
+        "route",
+        "suggest",
+        "router",
+        "agent",
+        "candidate",
+        "prism"
+      ],
+      "matched_aliases": [
+        "suggest agent route"
+      ],
+      "anchor_nodes": [
+        "router_router_suggest",
+        "mcp_server_suggestroutehandler"
+      ],
+      "expected_files": [
+        "internal/router/router.go",
+        "internal/mcp/server.go"
+      ],
+      "matched_files": [
+        "internal/router/router.go",
+        "internal/mcp/server.go"
+      ],
+      "pass": true,
+      "full_pass": true,
+      "start_nodes": [
+        {
+          "id": "mcp_server_suggestroutehandler",
+          "label": "suggestRouteHandler()",
+          "source_file": "internal/mcp/server.go",
+          "source_location": "L249"
+        },
+        {
+          "id": "router_router_suggest",
+          "label": ".Suggest()",
+          "source_file": "internal/router/router.go",
+          "source_location": "L40"
+        },
+        {
+          "id": "cli_route_newroutesuggestcmd",
+          "label": "newRouteSuggestCmd()",
+          "source_file": "internal/cli/route.go",
+          "source_location": "L23"
+        }
+      ]
+    },
+    {
+      "id": "evidence-handoff",
+      "question": "How is structured evidence handed between agents?",
+      "expanded_terms": [
+        "evidence",
+        "summary",
+        "finding",
+        "risk",
+        "source",
+        "structured",
+        "agents"
+      ],
+      "matched_aliases": [
+        "structured evidence agents"
+      ],
+      "anchor_nodes": [
+        "handoff_evidence_summary_generatereposcansummary",
+        "evidence_pack"
+      ],
+      "expected_files": [
+        "internal/handoff/evidence_summary.go",
+        "pkg/evidence/evidence.go"
+      ],
+      "matched_files": [
+        "internal/handoff/evidence_summary.go",
+        "pkg/evidence/evidence.go"
+      ],
+      "pass": true,
+      "full_pass": true,
+      "start_nodes": [
+        {
+          "id": "handoff_evidence_summary_generatereposcansummary",
+          "label": "GenerateRepoScanSummary()",
+          "source_file": "internal/handoff/evidence_summary.go",
+          "source_location": "L42"
+        },
+        {
+          "id": "evidence_pack",
+          "label": "Pack",
+          "source_file": "pkg/evidence/evidence.go",
+          "source_location": "L7"
+        },
+        {
+          "id": "handoff_evidencesummary",
+          "label": "EvidenceSummary",
+          "source_file": "internal/handoff/evidence_summary.go",
+          "source_location": "L12"
+        }
+      ]
+    },
+    {
+      "id": "dashboard",
+      "question": "How does the dashboard expose run events?",
+      "expanded_terms": [
+        "dashboard",
+        "server",
+        "events",
+        "handler",
+        "view",
+        "store",
+        "run"
+      ],
+      "matched_aliases": [
+        "dashboard run events"
+      ],
+      "anchor_nodes": [
+        "dashboard_server_serve",
+        "dashboard_server_viewevents",
+        "events_store_summary"
+      ],
+      "expected_files": [
+        "internal/dashboard/server.go",
+        "internal/events/store.go"
+      ],
+      "matched_files": [
+        "internal/dashboard/server.go",
+        "internal/events/store.go"
+      ],
+      "pass": true,
+      "full_pass": true,
+      "start_nodes": [
+        {
+          "id": "dashboard_server_viewevents",
+          "label": "viewEvents()",
+          "source_file": "internal/dashboard/server.go",
+          "source_location": "L88"
+        },
+        {
+          "id": "dashboard_server_serve",
+          "label": "Serve()",
+          "source_file": "internal/dashboard/server.go",
+          "source_location": "L167"
+        },
+        {
+          "id": "events_store_summary",
+          "label": ".Summary()",
+          "source_file": "internal/events/store.go",
+          "source_location": "L245"
+        }
+      ]
+    }
+  ]
+}
