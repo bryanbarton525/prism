@@ -86,6 +86,7 @@ func init() {
 	rootCmd.AddCommand(newGraphCmd())
 	rootCmd.AddCommand(newDashboardCmd())
 	rootCmd.AddCommand(newReportCmd())
+	rootCmd.AddCommand(newInstructionsCmd())
 }
 
 func verboseLog(format string, args ...interface{}) {

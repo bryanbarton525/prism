@@ -107,6 +107,24 @@ Use the full path to your `prism` binary. This example targets Ollama through th
 
 Reload MCP servers in your editor, then call `**run_agent**` with `agent_id`, `task`, and `skill_names`.
 
+### Install agent instructions
+
+Teach your coding agent how to use Prism by writing a Prism block into its
+instruction file. The default target is [`AGENTS.md`](https://agents.md) — the
+open standard read by Codex, Cursor, Aider, Gemini, OpenCode and others — with
+dedicated targets for agents that read their own file instead:
+
+```bash
+prism instructions install            # default: AGENTS.md
+prism instructions install -t copilot # .github/copilot-instructions.md
+prism instructions install --all      # AGENTS.md, Copilot, Claude, Gemini, Cursor
+prism instructions list               # show supported targets
+prism instructions uninstall --all    # remove the Prism block everywhere
+```
+
+The block is delimited by sentinel comments, so re-running `install` updates it
+in place without disturbing surrounding content.
+
 For SGLang, vLLM, fallback runtime, and live contract examples, see [docs/model-runtime.md](docs/model-runtime.md). For local Gemini MCP setup, review and run `scripts/install_mcp.py` from the repo root.
 
 Available tools include:
