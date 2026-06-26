@@ -329,6 +329,37 @@ Checks include:
 - `agent_registry` — loaded agent count and IDs
 - `skill_registry` — skills passing structure validation
 
+### Install agent instructions
+
+Write Prism usage guidance into your coding agent's instruction file so the host
+agent knows when and how to delegate to Prism. The default target is
+[`AGENTS.md`](https://agents.md), the open standard read by Codex, Cursor, Aider,
+Gemini, OpenCode and others. Dedicated targets cover agents that read their own
+file instead of AGENTS.md.
+
+```bash
+prism instructions list                 # show supported targets
+prism instructions install              # default target: AGENTS.md
+prism instructions install -t copilot   # .github/copilot-instructions.md
+prism instructions install -t claude    # CLAUDE.md
+prism instructions install --all        # every supported target
+prism instructions install --dir path/  # install into another directory
+prism instructions uninstall --all      # remove the Prism block everywhere
+```
+
+| Target    | File                              | Agent |
+| --------- | --------------------------------- | ----- |
+| `agents`  | `AGENTS.md` (default)             | Codex, Cursor, Aider, Gemini, OpenCode, … |
+| `copilot` | `.github/copilot-instructions.md` | GitHub Copilot / VS Code |
+| `claude`  | `CLAUDE.md`                       | Claude Code |
+| `gemini`  | `GEMINI.md`                       | Gemini CLI |
+| `cursor`  | `.cursor/rules/prism.mdc`         | Cursor (rules file) |
+
+The Prism block is delimited by `<!-- BEGIN PRISM INSTRUCTIONS -->` /
+`<!-- END PRISM INSTRUCTIONS -->` sentinels. Re-running `install` updates the
+block in place and leaves surrounding content untouched; `uninstall` removes only
+the Prism block (and deletes the file if nothing else remains).
+
 ## Programmatic integrations
 
 Prism's primary interfaces are still the CLI and MCP server, but the repository
