@@ -11,7 +11,7 @@ func TestInstallInstructionsCreatesFile(t *testing.T) {
 	dir := t.TempDir()
 	dest := filepath.Join(dir, "AGENTS.md")
 
-	action, err := installInstructions(dest, "")
+	action, err := installInstructions(dest, instructionsBlock(instructionsTarget{}), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestInstallInstructionsWritesPreambleForNewFile(t *testing.T) {
 	dest := filepath.Join(dir, ".cursor", "rules", "prism.mdc")
 	preamble := "---\ndescription: x\nalwaysApply: true\n---\n\n"
 
-	if _, err := installInstructions(dest, preamble); err != nil {
+	if _, err := installInstructions(dest, instructionsBlock(instructionsTarget{}), preamble); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(dest)
@@ -56,7 +56,7 @@ func TestInstallInstructionsAppendsToExistingFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	action, err := installInstructions(dest, "")
+	action, err := installInstructions(dest, instructionsBlock(instructionsTarget{}), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,12 +81,12 @@ func TestInstallInstructionsIsIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := installInstructions(dest, ""); err != nil {
+	if _, err := installInstructions(dest, instructionsBlock(instructionsTarget{}), ""); err != nil {
 		t.Fatal(err)
 	}
 	afterFirst, _ := os.ReadFile(dest)
 
-	action, err := installInstructions(dest, "")
+	action, err := installInstructions(dest, instructionsBlock(instructionsTarget{}), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func TestUninstallInstructionsRemovesBlockKeepsContent(t *testing.T) {
 	if err := os.WriteFile(dest, []byte(original), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := installInstructions(dest, ""); err != nil {
+	if _, err := installInstructions(dest, instructionsBlock(instructionsTarget{}), ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -133,7 +133,7 @@ func TestUninstallInstructionsRemovesBlockKeepsContent(t *testing.T) {
 func TestUninstallInstructionsDeletesFileWhenOnlyBlock(t *testing.T) {
 	dir := t.TempDir()
 	dest := filepath.Join(dir, "AGENTS.md")
-	if _, err := installInstructions(dest, ""); err != nil {
+	if _, err := installInstructions(dest, instructionsBlock(instructionsTarget{}), ""); err != nil {
 		t.Fatal(err)
 	}
 

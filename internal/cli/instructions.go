@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,12 +18,21 @@ const (
 	instructionsEndMarker   = "<!-- END PRISM INSTRUCTIONS -->"
 )
 
+// Instruction content lives in markdown files compiled in via go:embed.
+// templates/instructions.md is the single shared body; per-target intro text
+// lives in the instructionsTarget struct and is substituted at the
+// <!-- END_INTRO --> marker so no content is duplicated across files.
+//
+//go:embed templates/*.md
+var instructionsFS embed.FS
+
 // instructionsTarget describes one place Prism guidance can be installed.
 type instructionsTarget struct {
 	key      string // CLI value, e.g. "agents"
 	path     string // path relative to --dir
 	label    string // human-readable agent/tool name
 	preamble string // written above the block only when creating a new file
+	intro    string // replaces the default intro paragraph (up to <!-- END_INTRO -->); empty = use shared default
 }
 
 // instructionsTargets enumerates supported targets. "agents" (AGENTS.md) is the
@@ -30,16 +40,39 @@ type instructionsTarget struct {
 func instructionsTargets() []instructionsTarget {
 	return []instructionsTarget{
 		{key: "agents", path: "AGENTS.md", label: "AGENTS.md (open standard: Codex, Cursor, Aider, Gemini, OpenCode, …)"},
-		{key: "copilot", path: filepath.Join(".github", "copilot-instructions.md"), label: "GitHub Copilot / VS Code"},
-		{key: "claude", path: "CLAUDE.md", label: "Claude Code"},
-		{key: "gemini", path: "GEMINI.md", label: "Gemini CLI"},
+		{
+			key:   "copilot",
+			path:  filepath.Join(".github", "copilot-instructions.md"),
+			label: "GitHub Copilot / VS Code",
+			intro: "Prism is a local-first specialist agent runner. From GitHub Copilot Chat, delegate focused, evidence-heavy subtasks to bounded local agents (served by Ollama or an OpenAI-compatible runtime such as SGLang) instead of loading every tool and skill into this conversation.",
+		},
+		{
+			key:   "claude",
+			path:  "CLAUDE.md",
+			label: "Claude Code",
+			intro: "Prism is a local-first specialist agent runner. When working in Claude Code, delegate focused, evidence-heavy subtasks to bounded local agents (served by Ollama or an OpenAI-compatible runtime such as SGLang) rather than expanding this context window with every tool and skill.",
+		},
+		{
+			key:   "gemini",
+			path:  "GEMINI.md",
+			label: "Gemini CLI",
+			intro: "Prism is a local-first specialist agent runner. From the Gemini CLI, delegate focused, evidence-heavy subtasks to bounded local agents (served by Ollama or an OpenAI-compatible runtime such as SGLang) instead of loading every tool and skill into context.",
+		},
 		{
 			key:      "cursor",
 			path:     filepath.Join(".cursor", "rules", "prism.mdc"),
 			label:    "Cursor (rules file)",
-			preamble: "---\ndescription: Prism specialist agent runner guidance\nalwaysApply: true\n---\n\n",
+			preamble: cursorPreamble(),
+			intro:    "Prism is a local-first specialist agent runner. In Cursor, delegate focused, evidence-heavy subtasks to bounded local agents (served by Ollama or an OpenAI-compatible runtime such as SGLang) instead of loading every tool and skill into the chat context.",
 		},
 	}
+}
+
+// cursorPreamble returns the Cursor rules frontmatter followed by a blank line,
+// normalized so trailing-newline differences in the embedded file don't matter.
+func cursorPreamble() string {
+	data, _ := instructionsFS.ReadFile("templates/cursor-preamble.md")
+	return strings.TrimRight(string(data), "\n") + "\n\n"
 }
 
 func instructionsTargetByKey(key string) (instructionsTarget, bool) {
@@ -60,44 +93,34 @@ func instructionsTargetKeys() []string {
 	return keys
 }
 
-// instructionsBlock returns the Prism guidance wrapped in sentinel markers.
-func instructionsBlock() string {
-	body := `## Prism
+const introMarker = "<!-- END_INTRO -->"
 
-Prism is a local-first specialist agent runner. It delegates focused,
-evidence-heavy subtasks to bounded local agents (served by Ollama or an
-OpenAI-compatible runtime such as SGLang) and returns compact, auditable
-summaries.
+// instructionsBodyFor returns the markdown body for the given target. The shared
+// instructions.md is the single source of truth; if the target carries a custom
+// intro, the text before <!-- END_INTRO --> is replaced with it.
+func instructionsBodyFor(t instructionsTarget) string {
+	data, _ := instructionsFS.ReadFile("templates/instructions.md")
+	body := string(data)
+	if t.intro == "" {
+		// Strip the marker and return the unmodified body.
+		return strings.Replace(body, "\n"+introMarker, "", 1)
+	}
+	parts := strings.SplitN(body, "\n"+introMarker, 2)
+	if len(parts) != 2 {
+		return body
+	}
+	// parts[0] is everything up to (not including) the marker line;
+	// replace from the first paragraph onwards with the custom intro.
+	heading := "## Prism"
+	if idx := strings.Index(parts[0], heading); idx >= 0 {
+		return heading + "\n\n" + t.intro + parts[1]
+	}
+	return heading + "\n\n" + t.intro + parts[1]
+}
 
-Use Prism when a task benefits from a dedicated specialist that owns a bulky
-tool or context surface (Kubernetes, GitHub, Go scaffolding, Linear, docs
-search, downstream MCP servers) instead of loading everything into the parent
-model.
-
-### CLI
-
-- ` + "`prism agent list`" + ` — list available specialist agents.
-- ` + "`prism run --agent <id> --skill <skill> --input \"<task>\"`" + ` — run one
-  specialist with a required skill and a short task brief.
-- ` + "`prism doctor`" + ` — check runtime, registry, and skill health.
-
-### MCP
-
-Prism also runs as an MCP server (` + "`prism mcp serve`" + `, stdio). Core tools:
-
-- ` + "`list_agents`, `run_agent`, `get_constitution`, `doctor`" + `
-- ` + "`suggest_route`, `run_graph`, `explain_policy`, `list_policies`" + `
-- ` + "`list_mcp_servers`, `list_mcp_server_tools`, `call_mcp_tool`" + `
-
-### Workflow
-
-1. Paste a short brief — do not paste every skill and all evidence into chat.
-2. Delegate evidence-heavy subtasks to Prism specialists via ` + "`run_agent`" + `.
-3. Synthesize their compact summaries; rely on returned evidence artifacts for
-   proof of any downstream action.
-
-See README.md and docs/usage.md for setup, configuration, and flags.`
-
+// instructionsBlock wraps a target's body in sentinel markers.
+func instructionsBlock(t instructionsTarget) string {
+	body := strings.TrimRight(instructionsBodyFor(t), "\n")
 	return instructionsBeginMarker + "\n" + body + "\n" + instructionsEndMarker + "\n"
 }
 
@@ -154,7 +177,7 @@ func newInstructionsInstallCmd() *cobra.Command {
 			out := cmd.OutOrStdout()
 			for _, t := range selected {
 				dest := filepath.Join(dir, t.path)
-				action, err := installInstructions(dest, t.preamble)
+				action, err := installInstructions(dest, instructionsBlock(t), t.preamble)
 				if err != nil {
 					return fmt.Errorf("%s: %w", t.key, err)
 				}
@@ -228,8 +251,7 @@ func resolveInstructionsTargets(keys []string, all bool) ([]instructionsTarget, 
 
 // installInstructions writes or refreshes the Prism block at dest. It returns a
 // short action word ("created", "updated", "appended") describing what happened.
-func installInstructions(dest, preamble string) (string, error) {
-	block := instructionsBlock()
+func installInstructions(dest, block, preamble string) (string, error) {
 	existing, err := os.ReadFile(dest)
 	if err != nil {
 		if !os.IsNotExist(err) {
