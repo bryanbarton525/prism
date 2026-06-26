@@ -1,0 +1,22 @@
+{
+  "runs": [
+    {
+      "date": "2026-06-22T01:43:53.716389+00:00",
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "files": 331
+    },
+    {
+      "date": "2026-06-24T03:12:16.095762+00:00",
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "files": 331,
+      "backend": "codex-workers",
+      "model": "gpt-5.5",
+      "mode": "deep",
+      "usage_note": "Token counts unavailable from worker result API"
+    }
+  ],
+  "total_input_tokens": 0,
+  "total_output_tokens": 0
+}
