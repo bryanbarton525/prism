@@ -448,15 +448,17 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 	}
 
 	// ── 10. Call the model runtime ────────────────────────────────────────
-	temperature := spec.Temperature
 	chatReq := llmruntime.ChatRequest{
 		Model: spec.Model,
 		Messages: []llmruntime.Message{
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: userPrompt},
 		},
-		Temperature:   &temperature,
 		ContextLength: spec.ContextBudget,
+	}
+	if spec.Temperature != 0 {
+		temperature := spec.Temperature
+		chatReq.Temperature = &temperature
 	}
 
 	toolChat, err := r.chatWithTools(ctx, chatReq, spec)
