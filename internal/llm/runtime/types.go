@@ -22,7 +22,11 @@ type ChatRequest struct {
 	Tools       []Tool            `json:"tools,omitempty"`
 	Temperature *float64          `json:"temperature,omitempty"`
 	MaxTokens   int               `json:"max_tokens,omitempty"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
+	// ContextLength is an optional context-window hint in tokens. Runtimes
+	// that manage their own context (OpenAI-compatible servers) ignore it;
+	// the Ollama runtime maps it to num_ctx.
+	ContextLength int               `json:"context_length,omitempty"`
+	Metadata      map[string]string `json:"metadata,omitempty"`
 }
 
 type Message struct {

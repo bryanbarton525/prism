@@ -9,51 +9,43 @@ import (
 	"github.com/bryanbarton525/prism/internal/agent"
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
 	llmruntime "github.com/bryanbarton525/prism/internal/llm/runtime"
-	"github.com/bryanbarton525/prism/internal/ollama"
 	"github.com/bryanbarton525/prism/internal/result"
 )
 
 const maxMCPToolRounds = 4
 
 type chatToolResult struct {
-	response         *ollama.ChatResponse
+	response         *llmruntime.ChatResponse
 	artifacts        []result.Artifact
 	promptTokens     int
 	completionTokens int
 }
 
-func (r *Runner) chatWithTools(ctx context.Context, req ollama.ChatRequest, spec *agent.Spec) (*chatToolResult, error) {
+func (r *Runner) chatWithTools(ctx context.Context, req llmruntime.ChatRequest, spec *agent.Spec) (*chatToolResult, error) {
 	if !agentUsesMCP(spec) || r.downmcp == nil {
-		if r.llm != nil {
-			resp, err := r.chatWithModelRuntime(ctx, req)
-			if err != nil {
-				return nil, err
-			}
-			return resp, nil
-		}
-		resp, err := r.ollama.Chat(ctx, req)
+		resp, err := r.llm.Chat(ctx, req)
 		if err != nil {
 			return nil, err
 		}
-		return &chatToolResult{response: resp, promptTokens: resp.PromptEvalCount, completionTokens: resp.EvalCount}, nil
+		return &chatToolResult{response: resp, promptTokens: resp.Usage.PromptTokens, completionTokens: resp.Usage.CompletionTokens}, nil
 	}
-	if r.llm != nil {
-		return r.chatWithModelRuntimeTools(ctx, req)
-	}
+	return r.chatWithMCPToolLoop(ctx, req)
+}
 
+func (r *Runner) chatWithMCPToolLoop(ctx context.Context, req llmruntime.ChatRequest) (*chatToolResult, error) {
 	req.Tools = prismMCPTools()
 	var artifacts []result.Artifact
-	var last *ollama.ChatResponse
+	var last *llmruntime.ChatResponse
 	var promptTokens int
 	var completionTokens int
 	for round := 0; round <= maxMCPToolRounds; round++ {
-		resp, err := r.ollama.Chat(ctx, req)
+		resp, err := r.llm.Chat(ctx, req)
 		if err != nil {
 			return nil, err
 		}
 		last = resp
-		promptTokens += resp.PromptEvalCount
-		completionTokens += resp.EvalCount
+		promptTokens += resp.Usage.PromptTokens
+		completionTokens += resp.Usage.CompletionTokens
 		if len(resp.Message.ToolCalls) == 0 {
 			return &chatToolResult{response: resp, artifacts: artifacts, promptTokens: promptTokens, completionTokens: completionTokens}, nil
 		}
@@ -61,7 +53,7 @@ func (r *Runner) chatWithTools(ctx context.Context, req ollama.ChatRequest, spec
 		for _, call := range resp.Message.ToolCalls {
 			content, artifact := r.executeMCPToolCall(ctx, call.Function.Name, call.Function.Arguments)
 			artifacts = append(artifacts, artifact)
-			req.Messages = append(req.Messages, ollama.Message{Role: "tool", Content: content, ToolName: call.Function.Name})
+			req.Messages = append(req.Messages, llmruntime.Message{Role: "tool", Content: content, ToolCallID: runtimeToolCallID(call)})
 		}
 	}
 	artifacts = append(artifacts, result.Artifact{
@@ -70,95 +62,6 @@ func (r *Runner) chatWithTools(ctx context.Context, req ollama.ChatRequest, spec
 		Content: fmt.Sprintf("stopped after %d downstream MCP tool round(s)", maxMCPToolRounds),
 	})
 	return &chatToolResult{response: last, artifacts: artifacts, promptTokens: promptTokens, completionTokens: completionTokens}, nil
-}
-
-func (r *Runner) chatWithModelRuntime(ctx context.Context, req ollama.ChatRequest) (*chatToolResult, error) {
-	maxTokens := 0
-	if req.Options != nil {
-		maxTokens = req.Options.NumPredict
-	}
-	chatResp, err := r.llm.Chat(ctx, llmruntime.ChatRequest{
-		Model:       req.Model,
-		Messages:    ollamaMessagesToRuntime(req.Messages),
-		Temperature: temperaturePtr(req.Options),
-		MaxTokens:   maxTokens,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &chatToolResult{
-		response: &ollama.ChatResponse{
-			Model: chatResp.Model,
-			Message: ollama.Message{
-				Role:    chatResp.Message.Role,
-				Content: chatResp.Message.Content,
-			},
-			PromptEvalCount: chatResp.Usage.PromptTokens,
-			EvalCount:       chatResp.Usage.CompletionTokens,
-		},
-		promptTokens:     chatResp.Usage.PromptTokens,
-		completionTokens: chatResp.Usage.CompletionTokens,
-	}, nil
-}
-
-func (r *Runner) chatWithModelRuntimeTools(ctx context.Context, req ollama.ChatRequest) (*chatToolResult, error) {
-	messages := ollamaMessagesToRuntime(req.Messages)
-	tools := ollamaToolsToRuntime(prismMCPTools())
-	maxTokens := 0
-	if req.Options != nil {
-		maxTokens = req.Options.NumPredict
-	}
-	var artifacts []result.Artifact
-	var last *llmruntime.ChatResponse
-	var promptTokens int
-	var completionTokens int
-	for round := 0; round <= maxMCPToolRounds; round++ {
-		resp, err := r.llm.Chat(ctx, llmruntime.ChatRequest{
-			Model:       req.Model,
-			Messages:    messages,
-			Tools:       tools,
-			Temperature: temperaturePtr(req.Options),
-			MaxTokens:   maxTokens,
-		})
-		if err != nil {
-			return nil, err
-		}
-		last = resp
-		promptTokens += resp.Usage.PromptTokens
-		completionTokens += resp.Usage.CompletionTokens
-		if len(resp.Message.ToolCalls) == 0 {
-			return &chatToolResult{
-				response:         runtimeResponseToOllama(resp),
-				artifacts:        artifacts,
-				promptTokens:     promptTokens,
-				completionTokens: completionTokens,
-			}, nil
-		}
-		messages = append(messages, resp.Message)
-		for _, call := range resp.Message.ToolCalls {
-			content, artifact := r.executeMCPToolCall(ctx, call.Function.Name, call.Function.Arguments)
-			artifacts = append(artifacts, artifact)
-			messages = append(messages, llmruntime.Message{Role: "tool", Content: content, ToolCallID: runtimeToolCallID(call)})
-		}
-	}
-	artifacts = append(artifacts, result.Artifact{
-		Type:    "mcp_tool_loop",
-		Label:   "mcp-tool:max-rounds",
-		Content: fmt.Sprintf("stopped after %d downstream MCP tool round(s)", maxMCPToolRounds),
-	})
-	return &chatToolResult{
-		response:         runtimeResponseToOllama(last),
-		artifacts:        artifacts,
-		promptTokens:     promptTokens,
-		completionTokens: completionTokens,
-	}, nil
-}
-
-func temperaturePtr(opts *ollama.Options) *float64 {
-	if opts == nil {
-		return nil
-	}
-	return &opts.Temperature
 }
 
 func agentUsesMCP(spec *agent.Spec) bool {
@@ -187,8 +90,8 @@ Do not claim a downstream mutation succeeded unless a call_mcp_tool result prove
 `
 }
 
-func prismMCPTools() []ollama.Tool {
-	return []ollama.Tool{
+func prismMCPTools() []llmruntime.Tool {
+	return []llmruntime.Tool{
 		functionTool("list_mcp_servers", "List downstream MCP servers configured for Prism.", map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
@@ -214,63 +117,6 @@ func prismMCPTools() []ollama.Tool {
 	}
 }
 
-func ollamaMessagesToRuntime(messages []ollama.Message) []llmruntime.Message {
-	out := make([]llmruntime.Message, 0, len(messages))
-	for _, msg := range messages {
-		out = append(out, llmruntime.Message{
-			Role:       msg.Role,
-			Content:    msg.Content,
-			ToolCallID: msg.ToolName,
-			ToolCalls:  ollamaToolCallsToRuntime(msg.ToolCalls),
-		})
-	}
-	return out
-}
-
-func ollamaToolsToRuntime(tools []ollama.Tool) []llmruntime.Tool {
-	out := make([]llmruntime.Tool, 0, len(tools))
-	for _, tool := range tools {
-		out = append(out, llmruntime.Tool{
-			Type: tool.Type,
-			Function: llmruntime.ToolFunction{
-				Name:        tool.Function.Name,
-				Description: tool.Function.Description,
-				Parameters:  tool.Function.Parameters,
-			},
-		})
-	}
-	return out
-}
-
-func ollamaToolCallsToRuntime(calls []ollama.ToolCall) []llmruntime.ToolCall {
-	out := make([]llmruntime.ToolCall, 0, len(calls))
-	for _, call := range calls {
-		out = append(out, llmruntime.ToolCall{
-			Type: "function",
-			Function: llmruntime.ToolCallFunction{
-				Name:      call.Function.Name,
-				Arguments: call.Function.Arguments,
-			},
-		})
-	}
-	return out
-}
-
-func runtimeResponseToOllama(resp *llmruntime.ChatResponse) *ollama.ChatResponse {
-	if resp == nil {
-		return &ollama.ChatResponse{}
-	}
-	return &ollama.ChatResponse{
-		Model: resp.Model,
-		Message: ollama.Message{
-			Role:    resp.Message.Role,
-			Content: resp.Message.Content,
-		},
-		PromptEvalCount: resp.Usage.PromptTokens,
-		EvalCount:       resp.Usage.CompletionTokens,
-	}
-}
-
 func runtimeToolCallID(call llmruntime.ToolCall) string {
 	if call.ID != "" {
 		return call.ID
@@ -278,10 +124,10 @@ func runtimeToolCallID(call llmruntime.ToolCall) string {
 	return call.Function.Name
 }
 
-func functionTool(name, description string, parameters map[string]any) ollama.Tool {
-	return ollama.Tool{
+func functionTool(name, description string, parameters map[string]any) llmruntime.Tool {
+	return llmruntime.Tool{
 		Type: "function",
-		Function: ollama.ToolFunction{
+		Function: llmruntime.ToolFunction{
 			Name:        name,
 			Description: description,
 			Parameters:  parameters,
