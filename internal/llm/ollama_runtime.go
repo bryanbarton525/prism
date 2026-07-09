@@ -50,7 +50,7 @@ func (r *OllamaRuntime) Chat(ctx context.Context, req runtime.ChatRequest) (*run
 			},
 		})
 	}
-	opts := &ollama.Options{NumPredict: req.MaxTokens}
+	opts := &ollama.Options{NumPredict: req.MaxTokens, NumCtx: req.ContextLength}
 	if req.Temperature != nil {
 		opts.Temperature = *req.Temperature
 	}

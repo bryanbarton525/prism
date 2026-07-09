@@ -19,15 +19,16 @@ The runtime packages live under `internal/llm`:
 - `internal/llm/fallback`: optional primary/fallback wrapper.
 
 Prism startup builds the configured runtime once and injects it into the shared
-agent runner. Existing Ollama behavior remains the default when no runtime is
-configured.
+agent runner. When no explicit runtime is configured, Prism builds an
+Ollama-backed `ModelRuntime` from the legacy Ollama host setting, so agent chat
+uses the same runtime abstraction for Ollama, SGLang, and vLLM.
 
 ## Engines
 
 The default registry includes:
 
-- `ollama`: Prism's legacy local specialist runtime, wrapped behind
-  `ModelRuntime`.
+- `ollama`: Prism's default local specialist runtime, implemented as an Ollama
+  adapter behind `ModelRuntime`.
 - `sglang`: OpenAI-compatible SGLang `/v1/chat/completions`.
 - `vllm`: OpenAI-compatible vLLM `/v1/chat/completions`.
 
