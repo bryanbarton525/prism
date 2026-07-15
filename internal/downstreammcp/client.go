@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bryanbarton525/prism/internal/textutil"
+
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -28,6 +30,15 @@ type ListToolsOptions struct {
 	MaxTools      int
 }
 
+// ListToolsResult reports the bounded tool inventory plus the true total so
+// callers (and the models reading their output) can tell when the list was
+// cut by MaxTools.
+type ListToolsResult struct {
+	Tools     []ToolSummary `json:"tools"`
+	Total     int           `json:"total"`
+	Truncated bool          `json:"truncated,omitempty"`
+}
+
 type CallResult struct {
 	Server            string `json:"server"`
 	Tool              string `json:"tool"`
@@ -45,19 +56,21 @@ func (c *Client) Servers() []Server {
 	return c.state.PublicServers()
 }
 
-func (c *Client) ListTools(ctx context.Context, serverName string, opts ListToolsOptions) ([]ToolSummary, error) {
+func (c *Client) ListTools(ctx context.Context, serverName string, opts ListToolsOptions) (ListToolsResult, error) {
 	server, ok := c.state.Get(serverName)
 	if !ok {
-		return nil, fmt.Errorf("downstream MCP server %q is not configured", serverName)
+		return ListToolsResult{}, fmt.Errorf("downstream MCP server %q is not configured", serverName)
 	}
+	ctx, cancel := operationContext(ctx, server)
+	defer cancel()
 	session, closeFn, err := c.connect(ctx, server)
 	if err != nil {
-		return nil, err
+		return ListToolsResult{}, err
 	}
 	defer closeFn()
 	res, err := session.ListTools(ctx, &mcpsdk.ListToolsParams{})
 	if err != nil {
-		return nil, fmt.Errorf("listing tools from %s: %w", serverName, err)
+		return ListToolsResult{}, fmt.Errorf("listing tools from %s: %w", serverName, err)
 	}
 	limit := opts.MaxTools
 	if limit <= 0 || limit > len(res.Tools) {
@@ -75,7 +88,11 @@ func (c *Client) ListTools(ctx context.Context, serverName string, opts ListTool
 		}
 		tools = append(tools, summary)
 	}
-	return tools, nil
+	return ListToolsResult{
+		Tools:     tools,
+		Total:     len(res.Tools),
+		Truncated: limit < len(res.Tools),
+	}, nil
 }
 
 func (c *Client) CallTool(ctx context.Context, serverName, toolName string, args map[string]any) (CallResult, error) {
@@ -83,6 +100,8 @@ func (c *Client) CallTool(ctx context.Context, serverName, toolName string, args
 	if !ok {
 		return CallResult{}, fmt.Errorf("downstream MCP server %q is not configured", serverName)
 	}
+	ctx, cancel := operationContext(ctx, server)
+	defer cancel()
 	session, closeFn, err := c.connect(ctx, server)
 	if err != nil {
 		return CallResult{}, err
@@ -104,29 +123,38 @@ func (c *Client) CallTool(ctx context.Context, serverName, toolName string, args
 	}, nil
 }
 
+// operationContext applies the server's timeout_ms to one ListTools/CallTool
+// operation (connect + request), so failures surface as a clean deadline on
+// the call itself rather than the transport dying mid-request.
+func operationContext(ctx context.Context, server Server) (context.Context, context.CancelFunc) {
+	timeout := time.Duration(server.TimeoutMS) * time.Millisecond
+	return context.WithTimeout(ctx, timeout)
+}
+
+// connect expects ctx to carry the operation deadline (see operationContext).
+// The command-transport subprocess is bound to ctx, so it is reaped when the
+// operation finishes or times out.
 func (c *Client) connect(ctx context.Context, server Server) (*mcpsdk.ClientSession, func(), error) {
 	server = server.withDefaults()
 	if err := server.Validate(); err != nil {
 		return nil, nil, err
 	}
-	timeout := time.Duration(server.TimeoutMS) * time.Millisecond
-	ctx, cancel := context.WithTimeout(ctx, timeout)
 	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "prism-downstream-mcp", Version: "v0.1.0"}, nil)
 	var transport mcpsdk.Transport
 	switch server.Transport {
 	case TransportCommand:
 		transport = &mcpsdk.CommandTransport{Command: exec.CommandContext(ctx, server.Command, server.Args...)}
 	case TransportSSE:
-		transport = &mcpsdk.SSEClientTransport{Endpoint: server.URL, HTTPClient: &http.Client{Timeout: timeout}}
+		// No http.Client Timeout here: a client-wide timeout would kill the
+		// long-lived SSE stream. The operation context bounds the call.
+		transport = &mcpsdk.SSEClientTransport{Endpoint: server.URL, HTTPClient: &http.Client{}}
 	}
 	session, err := client.Connect(ctx, transport, nil)
 	if err != nil {
-		cancel()
 		return nil, nil, fmt.Errorf("connecting to downstream MCP server %s: %w", server.Name, err)
 	}
 	closeFn := func() {
 		_ = session.Close()
-		cancel()
 	}
 	return session, closeFn, nil
 }
@@ -142,9 +170,11 @@ func contentText(content []mcpsdk.Content) string {
 			continue
 		}
 		data, err := item.MarshalJSON()
-		if err == nil {
-			parts = append(parts, string(data))
+		if err != nil {
+			parts = append(parts, fmt.Sprintf("[unrenderable %T content: %v]", item, err))
+			continue
 		}
+		parts = append(parts, string(data))
 	}
 	return strings.TrimSpace(strings.Join(parts, "\n"))
 }
@@ -155,10 +185,11 @@ func trim(s string, limit int) string {
 }
 
 func trimWithFlag(s string, limit int) (string, bool) {
-	if limit <= 0 || len(s) <= limit {
-		return s, false
+	out, cut := textutil.CutBytes(s, limit)
+	if !cut {
+		return out, false
 	}
-	return s[:limit] + "...", true
+	return out + "...", true
 }
 
 func ParseArguments(raw string) (map[string]any, error) {

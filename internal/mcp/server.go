@@ -208,7 +208,13 @@ func runAgentHandler(runner app.AgentRunner) func(context.Context, *mcpsdk.CallT
 		if err != nil {
 			return nil, result.RunResult{}, err
 		}
-		return textResult(marshalJSON(res)), res, nil
+		out := textResult(marshalJSON(res))
+		// Failed runs come back as envelopes (status error/timeout/
+		// validation_fail) rather than Go errors so observability still sees
+		// them; mark the MCP result so the host model doesn't read the
+		// envelope as successful specialist evidence.
+		out.IsError = res.Status != result.StatusOK
+		return out, res, nil
 	}
 }
 
@@ -242,8 +248,11 @@ func doctorHandler(runner app.AgentRunner) func(context.Context, *mcpsdk.CallToo
 }
 
 type SuggestRouteInput struct {
-	Task   string `json:"task"`
-	Source string `json:"source"`
+	Task string `json:"task"`
+	// omitempty keeps source optional in the inferred tool schema; the
+	// handler defaults it to "mcp". Without it the SDK rejects calls that
+	// omit source before the handler can apply the default.
+	Source string `json:"source,omitempty"`
 }
 
 func suggestRouteHandler(runner app.AgentRunner, policy *internalpolicy.Engine) func(context.Context, *mcpsdk.CallToolRequest, SuggestRouteInput) (*mcpsdk.CallToolResult, router.Result, error) {
@@ -280,10 +289,13 @@ func runGraphHandler(runner app.AgentRunner, cfg Config) func(context.Context, *
 }
 
 type ExplainPolicyInput struct {
-	AgentID string   `json:"agent_id"`
-	Skills  []string `json:"skills"`
-	Plugins []string `json:"plugins"`
-	Source  string   `json:"source"`
+	AgentID string `json:"agent_id"`
+	// omitempty keeps these optional in the inferred tool schema — a policy
+	// question may involve no skills or plugins, and source defaults to
+	// "mcp" in the handler.
+	Skills  []string `json:"skills,omitempty"`
+	Plugins []string `json:"plugins,omitempty"`
+	Source  string   `json:"source,omitempty"`
 }
 
 type ListPoliciesInput struct{}
@@ -505,6 +517,10 @@ type ListMCPServerToolsOutput struct {
 	Server string                      `json:"server"`
 	Tools  []downstreammcp.ToolSummary `json:"tools"`
 	Count  int                         `json:"count"`
+	// Total is the number of tools the downstream server actually exposes;
+	// when Truncated is true the list was cut at max_tools.
+	Total     int  `json:"total"`
+	Truncated bool `json:"truncated,omitempty"`
 }
 
 func listMCPServerToolsHandler(client *downstreammcp.Client) func(context.Context, *mcpsdk.CallToolRequest, ListMCPServerToolsInput) (*mcpsdk.CallToolResult, ListMCPServerToolsOutput, error) {
@@ -515,11 +531,11 @@ func listMCPServerToolsHandler(client *downstreammcp.Client) func(context.Contex
 		if input.Server == "" {
 			return nil, ListMCPServerToolsOutput{}, fmt.Errorf("list_mcp_server_tools: server is required")
 		}
-		tools, err := client.ListTools(ctx, input.Server, downstreammcp.ListToolsOptions{IncludeSchema: input.IncludeSchema, MaxTools: input.MaxTools})
+		res, err := client.ListTools(ctx, input.Server, downstreammcp.ListToolsOptions{IncludeSchema: input.IncludeSchema, MaxTools: input.MaxTools})
 		if err != nil {
 			return nil, ListMCPServerToolsOutput{}, err
 		}
-		out := ListMCPServerToolsOutput{Server: input.Server, Tools: tools, Count: len(tools)}
+		out := ListMCPServerToolsOutput{Server: input.Server, Tools: res.Tools, Count: len(res.Tools), Total: res.Total, Truncated: res.Truncated}
 		return textResult(marshalJSON(out)), out, nil
 	}
 }
@@ -548,7 +564,12 @@ func callMCPToolHandler(client *downstreammcp.Client) func(context.Context, *mcp
 		if err != nil {
 			return nil, downstreammcp.CallResult{}, err
 		}
-		return textResult(marshalJSON(res)), res, nil
+		out := textResult(marshalJSON(res))
+		// Surface downstream tool failures on the MCP result itself so hosts
+		// (and their models) that key off isError do not treat the payload as
+		// successful evidence.
+		out.IsError = res.IsError
+		return out, res, nil
 	}
 }
 

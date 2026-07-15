@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/bryanbarton525/prism/internal/textutil"
 )
 
 type OpenAICompatibleRuntime struct {
@@ -185,6 +187,9 @@ func (r *OpenAICompatibleRuntime) chat(ctx context.Context, req ChatRequest, for
 
 func (r *OpenAICompatibleRuntime) openAIRequest(req ChatRequest, format *responseFormat, stream bool) openAIChatRequest {
 	return openAIChatRequest{
+		// Config model deliberately wins over the per-request model: one
+		// OpenAI-compatible server serves one model, and agent specs may carry
+		// Ollama-style names the server would reject (docs/model-runtime.md).
 		Model:          firstNonEmpty(r.cfg.Model, req.Model),
 		Messages:       req.Messages,
 		Tools:          req.Tools,
@@ -227,6 +232,12 @@ func (r *OpenAICompatibleRuntime) parseSSE(ctx context.Context, body io.Reader, 
 			return
 		}
 		for _, choice := range chunk.Choices {
+			// Streaming has no accumulation path for tool calls; dropping them
+			// silently would let the model's tool requests vanish. Fail loud.
+			if len(choice.Delta.ToolCalls) > 0 || len(choice.Message.ToolCalls) > 0 {
+				sendStreamEvent(out, StreamEvent{Kind: StreamEventError, Err: NewError(r.cfg.Engine, ErrorKindInvalidRequest, 0, "stream returned tool calls, which streaming does not support; use Chat for tool-enabled requests", nil)})
+				return
+			}
 			content := firstNonEmpty(choice.Delta.Content, choice.Message.Content)
 			if content != "" {
 				sendStreamEvent(out, StreamEvent{Kind: StreamEventDelta, Delta: content})
@@ -373,11 +384,8 @@ func firstNonEmpty(values ...string) string {
 
 func trimBody(body []byte) string {
 	msg := strings.TrimSpace(string(body))
-	if len(msg) > 1000 {
-		return msg[:1000] + "..."
-	}
 	if msg == "" {
 		return "empty response body"
 	}
-	return msg
+	return textutil.Truncate(msg, 1000, "...")
 }

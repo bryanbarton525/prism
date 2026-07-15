@@ -228,8 +228,11 @@ func (f *fakeDownstreamMCP) Servers() []downstreammcp.Server {
 	return []downstreammcp.Server{{Name: "linear", Transport: downstreammcp.TransportCommand, Command: "linear-mcp"}}
 }
 
-func (f *fakeDownstreamMCP) ListTools(context.Context, string, downstreammcp.ListToolsOptions) ([]downstreammcp.ToolSummary, error) {
-	return []downstreammcp.ToolSummary{{Name: "create_issue", Description: "Create a Linear issue"}}, nil
+func (f *fakeDownstreamMCP) ListTools(context.Context, string, downstreammcp.ListToolsOptions) (downstreammcp.ListToolsResult, error) {
+	return downstreammcp.ListToolsResult{
+		Tools: []downstreammcp.ToolSummary{{Name: "create_issue", Description: "Create a Linear issue"}},
+		Total: 1,
+	}, nil
 }
 
 func (f *fakeDownstreamMCP) CallTool(_ context.Context, server, tool string, _ map[string]any) (downstreammcp.CallResult, error) {
@@ -601,6 +604,43 @@ latency_budget_ms: 30000
 	}
 	if modelRuntime.requests[0].Temperature != nil {
 		t.Fatalf("temperature = %v, want nil", *modelRuntime.requests[0].Temperature)
+	}
+}
+
+func TestRunner_Run_SendsExplicitZeroTemperature(t *testing.T) {
+	spec := `---
+id: github-cli
+name: GitHub CLI
+description: Diagnose PRs with gh.
+model: llama3.1:8b
+context_budget: 6144
+temperature: 0
+allowed_skills:
+  - gh-pr-triage
+latency_budget_ms: 30000
+---
+
+# GitHub CLI agent
+`
+	root := makeTestRoot(t,
+		map[string]string{"github-cli.md": spec},
+		map[string]string{"gh-pr-triage": ghPRTriageSkill()},
+	)
+	modelRuntime := &fakeModelRuntime{}
+	runner, err := New(Config{RootDir: root, ModelRuntime: modelRuntime})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+	_, err = runner.Run(context.Background(), RunRequest{
+		AgentID:    "github-cli",
+		Task:       "Summarize a PR.",
+		SkillNames: []string{"gh-pr-triage"},
+	})
+	if err != nil {
+		t.Fatalf("Run(): %v", err)
+	}
+	if len(modelRuntime.requests) != 1 || modelRuntime.requests[0].Temperature == nil || *modelRuntime.requests[0].Temperature != 0 {
+		t.Fatalf("explicit temperature 0 must be sent, got %#v", modelRuntime.requests)
 	}
 }
 

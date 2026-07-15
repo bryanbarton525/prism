@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bryanbarton525/prism/internal/plugins"
+	"github.com/bryanbarton525/prism/internal/textutil"
 	"github.com/bryanbarton525/prism/pkg/evidence"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -504,10 +505,7 @@ func age(t time.Time) string {
 }
 
 func truncate(s string, max int) string {
-	if max <= 0 || len(s) <= max {
-		return s
-	}
-	return s[:max] + "\n[truncated]"
+	return textutil.Truncate(s, max, "\n[truncated]")
 }
 
 func unstructuredSlice(obj map[string]any, fields ...string) ([]any, bool, error) {

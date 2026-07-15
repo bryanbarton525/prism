@@ -10,6 +10,7 @@ import (
 	"github.com/bryanbarton525/prism/internal/agent"
 	"github.com/bryanbarton525/prism/internal/plugins"
 	"github.com/bryanbarton525/prism/internal/result"
+	"github.com/bryanbarton525/prism/internal/textutil"
 )
 
 type runtimeEvidence struct {
@@ -33,7 +34,7 @@ func collectRuntimeEvidence(ctx context.Context, registry *plugins.Registry, spe
 			continue
 		}
 
-		toolName, ok := defaultPluginTool(plugin)
+		toolName, toolSpec, ok := defaultPluginTool(plugin)
 		if !ok {
 			msg := fmt.Sprintf("runtime plugin %q has no callable tools", plugin.Name())
 			out.artifacts = append(out.artifacts, result.Artifact{
@@ -55,10 +56,17 @@ func collectRuntimeEvidence(ctx context.Context, registry *plugins.Registry, spe
 				Content: "[error] " + err.Error(),
 			}
 		}
+		// The ToolSpec MaxBytes contract is enforced here, not just trusted:
+		// a plugin that overruns its own declared bound must not blow the
+		// evidence budget.
+		content := strings.TrimSpace(toolResult.Content)
+		if toolSpec.MaxBytes > 0 {
+			content = textutil.Truncate(content, toolSpec.MaxBytes, "\n[truncated to plugin max_bytes]")
+		}
 		artifact := result.Artifact{
 			Type:    "runtime_evidence",
 			Label:   toolResult.Label,
-			Content: strings.TrimSpace(toolResult.Content),
+			Content: content,
 		}
 		out.artifacts = append(out.artifacts, artifact)
 		out.byteSize += len(artifact.Content)
@@ -89,13 +97,13 @@ func runtimeToolArgs(task string) map[string]string {
 	return args
 }
 
-func defaultPluginTool(plugin plugins.Plugin) (string, bool) {
+func defaultPluginTool(plugin plugins.Plugin) (string, plugins.ToolSpec, bool) {
 	for _, tool := range plugin.Tools() {
 		if tool.ReadOnly {
-			return tool.Name, true
+			return tool.Name, tool, true
 		}
 	}
-	return "", false
+	return "", plugins.ToolSpec{}, false
 }
 
 func kubernetesArgs(task string) map[string]string {
@@ -117,7 +125,7 @@ var (
 	namespacePatterns = []*regexp.Regexp{
 		regexp.MustCompile(`(?i)\bnamespace\s*[:=]\s*([a-z0-9]([-a-z0-9.]*[a-z0-9])?)`),
 		regexp.MustCompile(`(?i)\bnamespace\s+([a-z0-9]([-a-z0-9.]*[a-z0-9])?)`),
-		regexp.MustCompile(`\s-n\s+([a-z0-9]([-a-z0-9.]*[a-z0-9])?)`),
+		regexp.MustCompile(`(?:^|\s)-n\s+([a-z0-9]([-a-z0-9.]*[a-z0-9])?)`),
 	}
 	deploymentPatterns = []*regexp.Regexp{
 		regexp.MustCompile(`(?i)\bdeployment\s*[:=]\s*([a-z0-9]([-a-z0-9.]*[a-z0-9])?)`),
