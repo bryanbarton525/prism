@@ -50,3 +50,30 @@ func TestTruncateSuffix(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestTruncateWithinHardBudget(t *testing.T) {
+	// Total output including suffix must never exceed the limit.
+	if got := TruncateWithin("abcdefghij", 8, "[cut]"); got != "abc[cut]" || len(got) > 8 {
+		t.Fatalf("got %q (%d bytes)", got, len(got))
+	}
+	// Under the limit: unchanged.
+	if got := TruncateWithin("ab", 8, "[cut]"); got != "ab" {
+		t.Fatalf("got %q", got)
+	}
+	// Limit smaller than the suffix: hard cut, no marker.
+	if got := TruncateWithin("abcdefghij", 3, "[cut]"); got != "abc" {
+		t.Fatalf("got %q", got)
+	}
+	// Zero disables.
+	if got := TruncateWithin("abc", 0, "[cut]"); got != "abc" {
+		t.Fatalf("got %q", got)
+	}
+	// Rune safety at the reduced boundary.
+	got := TruncateWithin("日本語テキスト", 10, "[cut]")
+	if len(got) > 10 {
+		t.Fatalf("got %d bytes", len(got))
+	}
+	if !utf8.ValidString(got) {
+		t.Fatalf("invalid UTF-8: %q", got)
+	}
+}

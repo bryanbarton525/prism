@@ -145,7 +145,18 @@ func marshalBounded(inventory inventoryDoc, limit int) (string, error) {
 			return content, err
 		}
 	}
-	return content, err
+
+	// Even with zero tools listed, enough servers with long metadata can
+	// exceed the limit. Fall back to a minimal valid document rather than
+	// returning JSON that overflows the declared bound.
+	minimal := inventoryDoc{
+		Configured: inventory.Configured,
+		Notes: []string{
+			fmt.Sprintf("Inventory of %d server(s) exceeded the output limit; use list_mcp_servers and list_mcp_server_tools for details.", len(inventory.Servers)),
+		},
+	}
+	data, err := json.MarshalIndent(minimal, "", "  ")
+	return string(data), err
 }
 
 func evidencePack(content string, servers int) *evidence.Pack {

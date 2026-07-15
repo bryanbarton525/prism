@@ -46,6 +46,38 @@ func TestMarshalBoundedAlwaysValidJSON(t *testing.T) {
 	}
 }
 
+func TestMarshalBoundedMinimalFallback(t *testing.T) {
+	// Server metadata alone exceeds the limit even with zero tools listed;
+	// the fallback must still return valid JSON under the limit.
+	doc := inventoryDoc{Configured: true}
+	for i := 0; i < 30; i++ {
+		doc.Servers = append(doc.Servers, serverInventory{
+			Name:      strings.Repeat("n", 60),
+			Transport: "command",
+			Command:   strings.Repeat("c", 120),
+			URL:       strings.Repeat("u", 120),
+		})
+	}
+	content, err := marshalBounded(doc, 800)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(content) > 800 {
+		t.Fatalf("content = %d bytes, want <= 800", len(content))
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(content), &parsed); err != nil {
+		t.Fatalf("fallback inventory is not valid JSON: %v", err)
+	}
+	if parsed["configured"] != true {
+		t.Fatalf("configured flag lost: %v", parsed)
+	}
+	notes, _ := parsed["notes"].([]any)
+	if len(notes) == 0 || !strings.Contains(notes[0].(string), "exceeded the output limit") {
+		t.Fatalf("fallback note missing: %v", notes)
+	}
+}
+
 func TestInventoryWithoutClientIsBoundedEvidence(t *testing.T) {
 	res, err := New(nil).Call(context.Background(), plugins.ToolCall{Tool: ToolInventory})
 	if err != nil {

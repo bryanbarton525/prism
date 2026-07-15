@@ -61,7 +61,7 @@ func collectRuntimeEvidence(ctx context.Context, registry *plugins.Registry, spe
 		// evidence budget.
 		content := strings.TrimSpace(toolResult.Content)
 		if toolSpec.MaxBytes > 0 {
-			content = textutil.Truncate(content, toolSpec.MaxBytes, "\n[truncated to plugin max_bytes]")
+			content = textutil.TruncateWithin(content, toolSpec.MaxBytes, "\n[truncated to plugin max_bytes]")
 		}
 		artifact := result.Artifact{
 			Type:    "runtime_evidence",
