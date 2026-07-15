@@ -197,7 +197,7 @@ type Runner struct {
 
 type DownstreamMCPClient interface {
 	Servers() []downstreammcp.Server
-	ListTools(context.Context, string, downstreammcp.ListToolsOptions) ([]downstreammcp.ToolSummary, error)
+	ListTools(context.Context, string, downstreammcp.ListToolsOptions) (downstreammcp.ListToolsResult, error)
 	CallTool(context.Context, string, string, map[string]any) (downstreammcp.CallResult, error)
 }
 
@@ -456,8 +456,8 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 		},
 		ContextLength: spec.ContextBudget,
 	}
-	if spec.Temperature != 0 {
-		temperature := spec.Temperature
+	if spec.Temperature != nil {
+		temperature := *spec.Temperature
 		chatReq.Temperature = &temperature
 	}
 

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bryanbarton525/prism/internal/plugins"
+	"github.com/bryanbarton525/prism/internal/textutil"
 	"github.com/bryanbarton525/prism/pkg/evidence"
 )
 
@@ -155,8 +156,5 @@ func containsAny(s string, needles ...string) bool {
 }
 
 func trim(s string, limit int) string {
-	if len(s) <= limit {
-		return s
-	}
-	return s[:limit] + "..."
+	return textutil.Truncate(s, limit, "...")
 }

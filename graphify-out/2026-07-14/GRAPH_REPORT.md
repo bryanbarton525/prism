@@ -1,12 +1,12 @@
 # Graph Report - prism  (2026-07-14)
 
 ## Corpus Check
-- 296 files · ~485,509 words
+- 295 files · ~484,298 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 3369 nodes · 5346 edges · 397 communities (346 shown, 51 thin omitted)
-- Extraction: 85% EXTRACTED · 15% INFERRED · 0% AMBIGUOUS · INFERRED: 800 edges (avg confidence: 0.82)
+- 3360 nodes · 5327 edges · 404 communities (353 shown, 51 thin omitted)
+- Extraction: 85% EXTRACTED · 15% INFERRED · 0% AMBIGUOUS · INFERRED: 794 edges (avg confidence: 0.82)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
@@ -148,6 +148,7 @@
 - [[_COMMUNITY_Documentation Harvest Collector|Documentation Harvest Collector]]
 - [[_COMMUNITY_Frontend Storage Collector|Frontend Storage Collector]]
 - [[_COMMUNITY_Frontend README Collector|Frontend README Collector]]
+- [[_COMMUNITY_Vanilla SPA Collector|Vanilla SPA Collector]]
 - [[_COMMUNITY_Go Helper Collector|Go Helper Collector]]
 - [[_COMMUNITY_Go Scaffold Collector|Go Scaffold Collector]]
 - [[_COMMUNITY_Go Utility Collector|Go Utility Collector]]
@@ -166,6 +167,7 @@
 - [[_COMMUNITY_Community 150|Community 150]]
 - [[_COMMUNITY_Community 151|Community 151]]
 - [[_COMMUNITY_Community 152|Community 152]]
+- [[_COMMUNITY_Community 153|Community 153]]
 - [[_COMMUNITY_Community 155|Community 155]]
 - [[_COMMUNITY_Community 156|Community 156]]
 - [[_COMMUNITY_Community 157|Community 157]]
@@ -186,6 +188,7 @@
 - [[_COMMUNITY_Community 172|Community 172]]
 - [[_COMMUNITY_Community 173|Community 173]]
 - [[_COMMUNITY_Community 174|Community 174]]
+- [[_COMMUNITY_Community 175|Community 175]]
 - [[_COMMUNITY_Community 176|Community 176]]
 - [[_COMMUNITY_Community 177|Community 177]]
 - [[_COMMUNITY_Community 178|Community 178]]
@@ -256,6 +259,7 @@
 - [[_COMMUNITY_Community 243|Community 243]]
 - [[_COMMUNITY_Community 244|Community 244]]
 - [[_COMMUNITY_Community 245|Community 245]]
+- [[_COMMUNITY_Community 246|Community 246]]
 - [[_COMMUNITY_Community 247|Community 247]]
 - [[_COMMUNITY_Community 248|Community 248]]
 - [[_COMMUNITY_Community 249|Community 249]]
@@ -336,6 +340,7 @@
 - [[_COMMUNITY_Community 324|Community 324]]
 - [[_COMMUNITY_Community 325|Community 325]]
 - [[_COMMUNITY_Community 326|Community 326]]
+- [[_COMMUNITY_Community 327|Community 327]]
 - [[_COMMUNITY_Community 328|Community 328]]
 - [[_COMMUNITY_Community 329|Community 329]]
 - [[_COMMUNITY_Community 330|Community 330]]
@@ -346,6 +351,7 @@
 - [[_COMMUNITY_Community 335|Community 335]]
 - [[_COMMUNITY_Community 336|Community 336]]
 - [[_COMMUNITY_Community 337|Community 337]]
+- [[_COMMUNITY_Community 339|Community 339]]
 - [[_COMMUNITY_Community 340|Community 340]]
 - [[_COMMUNITY_Community 341|Community 341]]
 - [[_COMMUNITY_Community 342|Community 342]]
@@ -381,24 +387,25 @@
 - [[_COMMUNITY_Community 402|Community 402]]
 - [[_COMMUNITY_Community 403|Community 403]]
 - [[_COMMUNITY_Community 405|Community 405]]
+- [[_COMMUNITY_Community 407|Community 407]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `Communities (92 total, 12 thin omitted)` - 78 edges
-2. `contains()` - 64 edges
+2. `contains()` - 63 edges
 3. `readFile()` - 56 edges
 4. `writeFile()` - 42 edges
 5. `Prism OSS Product Definition, Architecture Plan, and Constitution` - 35 edges
 6. `Plugin` - 33 edges
 7. `T` - 28 edges
-8. `makeTestRoot()` - 28 edges
+8. `makeTestRoot()` - 27 edges
 9. `Runner` - 26 edges
 10. `collectDiagnostics()` - 25 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `Evidence-backed GitHub Diagnostics` --semantically_similar_to--> `Read-only Repository Diagnostics`  [INFERRED] [semantically similar]
-  agents/github-cli.md → constitutions/github-cli.md
 - `Read-only Argo Diagnostics` --semantically_similar_to--> `Argo Diagnostic Safety`  [INFERRED] [semantically similar]
   agents/argo.md → constitutions/argo.md
+- `Evidence-backed GitHub Diagnostics` --semantically_similar_to--> `Read-only Repository Diagnostics`  [INFERRED] [semantically similar]
+  agents/github-cli.md → constitutions/github-cli.md
 - `MCP-backed Linear Mutation Evidence` --semantically_similar_to--> `Auditable MCP Mutations`  [INFERRED] [semantically similar]
   agents/linear.md → constitutions/linear.md
 - `Per-Invocation Skill Progressive Disclosure` --semantically_similar_to--> `Skill Progressive Disclosure`  [INFERRED] [semantically similar]
@@ -409,19 +416,19 @@
 ## Import Cycles
 - None detected.
 
-## Communities (397 total, 51 thin omitted)
+## Communities (404 total, 51 thin omitted)
 
 ### Community 0 - "MCP Server and Resources"
 Cohesion: 0.06
-Nodes (92): AgentRunner, CallToolRequest, CallToolResult, Context, AgentRunner, CallResult, CallToolRequest, CallToolResult (+84 more)
+Nodes (90): AgentRunner, CallToolRequest, CallToolResult, Context, AgentRunner, CallResult, CallToolRequest, CallToolResult (+82 more)
 
 ### Community 1 - "Agent Prompts and Results"
 Cohesion: 0.03
 Nodes (78): Communities (92 total, 12 thin omitted), Community 0 - "MCP Control Plane Server", Community 10 - "MCP Prompts and Resources", Community 11 - "Ollama Model Runtime", Community 12 - "Policy Rule Model", Community 13 - "Model Runtime Interfaces", Community 14 - "Signed Bundle Registry", Community 15 - "Remote Bundle Installation" (+70 more)
 
 ### Community 2 - "Bundle Installation and State"
-Cohesion: 0.24
-Nodes (17): RegistrySources, LoadSources(), SaveSources(), TestResolveRegistrySourceArgLocal(), TestResolveRegistrySourceArgRejectsEscapingPath(), TestResolveRegistrySourceArgRemote(), TestValidateRegistrySourceLocalAndRemote(), TestValidateRegistrySourceRejectsFile() (+9 more)
+Cohesion: 0.10
+Nodes (44): RegistrySource, RegistrySources, State, Deprecate(), Load(), LoadManifest(), LoadSources(), Promote() (+36 more)
 
 ### Community 3 - "Skill Management and Reports"
 Cohesion: 0.05
@@ -429,7 +436,7 @@ Nodes (56): Agent, newPolicyCmd(), newPolicyExplainCmd(), newPolicyTestCmd(), ne
 
 ### Community 4 - "Agent Runtime Tool Loop"
 Cohesion: 0.06
-Nodes (48): AgentRunner, chatToolResult, Config, Constitution, DownstreamMCPClient, defaultRuntimePlugins(), eventKind(), isRemoteModelRuntime() (+40 more)
+Nodes (50): AgentRunner, chatToolResult, Config, Constitution, DownstreamMCPClient, defaultRuntimePlugins(), eventKind(), isRemoteModelRuntime() (+42 more)
 
 ### Community 5 - "Benchmark Cost Projections"
 Cohesion: 0.08
@@ -440,8 +447,8 @@ Cohesion: 0.28
 Nodes (17): agentConstitution(), agentList(), agentShow(), configuredEventSink(), configuredPolicyEngine(), newAgentCmd(), newAgentConstitutionCmd(), newAgentListCmd() (+9 more)
 
 ### Community 7 - "Kubernetes Diagnostics Plugin"
-Cohesion: 0.07
-Nodes (45): Spec, Parse(), stemFromName(), validate(), Summary, assemblePrompt(), AssemblePromptForTest(), outputFormatInstruction() (+37 more)
+Cohesion: 0.17
+Nodes (19): removeInstructionsBlock(), replaceInstructionsBlock(), eventsView, PageData, Server, intParam(), listOptionsFromRequest(), New() (+11 more)
 
 ### Community 8 - "Benchmark Execution Harness"
 Cohesion: 0.07
@@ -460,8 +467,8 @@ Cohesion: 0.25
 Nodes (30): ghPRTriageSkill(), githubCLISpec(), kubectlSpec(), kubectlTriageSkill(), makeTestRoot(), mockOllama(), mockOllamaError(), TestNew_BadAgentDir() (+22 more)
 
 ### Community 12 - "Homelab Incident Benchmark"
-Cohesion: 0.23
-Nodes (13): newDashboardCmd(), newDashboardServeCmd(), newEventsCmd(), newEventsExportCmd(), newEventsListCmd(), newEventsSummarizeCmd(), eventStorePath(), WriteCSV() (+5 more)
+Cohesion: 0.36
+Nodes (9): newDashboardCmd(), newDashboardServeCmd(), newEventsCmd(), newEventsExportCmd(), newEventsListCmd(), newEventsSummarizeCmd(), eventStorePath(), Command (+1 more)
 
 ### Community 13 - "Model Runtime Factory"
 Cohesion: 0.09
@@ -476,36 +483,36 @@ Cohesion: 0.07
 Nodes (29): 12. MCP Design, 13. Repository Structure, 14. Implementation Plan, 15. First Killer Demo, 17. Security and Privacy Requirements, 18. Open Source Monetization Strategy, 19. Non-Goals, 1. Project Vision (+21 more)
 
 ### Community 16 - "Evidence Handoff Summaries"
-Cohesion: 0.23
-Nodes (15): newReportBundlesCmd(), newReportCmd(), newReportEventsCmd(), newReportSkillsCmd(), reportSkillHealth(), writeSummaryCSV(), reportSkill, Command (+7 more)
+Cohesion: 0.38
+Nodes (13): cursorPreamble(), instructionsBodyFor(), instructionsTargetByKey(), instructionsTargetKeys(), instructionsTargets(), newInstructionsCmd(), newInstructionsInstallCmd(), newInstructionsListCmd() (+5 more)
 
 ### Community 17 - "DAG Execution Engine"
-Cohesion: 0.06
-Nodes (64): repoRoot(), TestAgentSkillAllowlists(), TestAgentSpecsLoad(), TestBenchmarkThresholdsFile(), TestGoldenPromptAssembly_githubCLI(), TestScenarioDelegationsResolve(), TestSkillsDiscover(), ModelRateProfile (+56 more)
+Cohesion: 0.05
+Nodes (67): repoRoot(), TestAgentSkillAllowlists(), TestAgentSpecsLoad(), TestBenchmarkThresholdsFile(), TestGoldenPromptAssembly_githubCLI(), TestScenarioDelegationsResolve(), TestSkillsDiscover(), ModelRateProfile (+59 more)
 
 ### Community 18 - "Agent Runner Tests"
 Cohesion: 0.09
-Nodes (28): ChatRequest, ChatResponse, Client, Config, Context, Engine, HealthStatus, Message (+20 more)
+Nodes (29): ChatRequest, ChatResponse, Client, Config, Context, Engine, HealthStatus, Message (+21 more)
 
 ### Community 19 - "Todo SPA Benchmark"
 Cohesion: 0.11
 Nodes (16): captureSink, fakeDownstreamMCP, fakeModelRuntime, CallResult, ChatRequest, ChatResponse, Context, Engine (+8 more)
 
 ### Community 20 - "Ollama Model Runtime"
-Cohesion: 0.15
-Nodes (15): EvalCase, EvalExpected, FS, Skill, T, FS, DiscoverAll(), TestDiscoverAll_realSkillsDir() (+7 more)
+Cohesion: 0.06
+Nodes (61): newReportBundlesCmd(), newReportCmd(), newReportEventsCmd(), newReportSkillsCmd(), reportSkillHealth(), writeSummaryCSV(), reportSkill, fileExists() (+53 more)
 
 ### Community 21 - "Runtime Fallback Tests"
 Cohesion: 0.14
-Nodes (19): ChatRequest, ChatResponse, Client, Config, Context, Engine, HealthStatus, ModelRuntime (+11 more)
+Nodes (18): ChatRequest, ChatResponse, Client, Config, Context, Engine, HealthStatus, ModelRuntime (+10 more)
 
 ### Community 22 - "Model Runtime Contracts"
-Cohesion: 0.10
-Nodes (20): Prism example configs, Quick start, graphify, Built-in agents, Develop, Documentation, Extension points, How it compares (+12 more)
+Cohesion: 0.07
+Nodes (27): Prism example configs, Quick start, graphify, Benchmark view, Built-in agents, Develop, Documentation, Executive benchmark view (+19 more)
 
 ### Community 23 - "GitHub Filesystem Adapter"
 Cohesion: 0.17
-Nodes (15): fakeRuntime, TestChatFallbackDecisions(), TestHealthBothUnhealthy(), TestHealthFallback(), TestStreamPreStartFallback(), TestStructuredFallbackOnTimeout(), ChatRequest, ChatResponse (+7 more)
+Nodes (16): fakeRuntime, TestChatFallbackDecisions(), TestHealthBothUnhealthy(), TestHealthFallback(), TestStreamPreStartFallback(), TestStructuredFallbackOnTimeout(), ChatRequest, ChatResponse (+8 more)
 
 ### Community 24 - "Technical Token Flow Diagram"
 Cohesion: 0.10
@@ -516,12 +523,12 @@ Cohesion: 0.18
 Nodes (20): Artifact, Finding, RawMessage, RunResult, T, agentOutput, buildCompact(), bulletFindings() (+12 more)
 
 ### Community 26 - "Scaled Incident Context"
-Cohesion: 0.06
-Nodes (79): BuildOptions, checkedPublicKey(), downloadFile(), fetchURL(), InstallVerified(), isHTTPURL(), joinRegistryURL(), loadManifestAndSource() (+71 more)
+Cohesion: 0.14
+Nodes (33): Bundle, BundleFile, Compat, PublicKey, Time, Manifest, PrivateKey, T (+25 more)
 
 ### Community 27 - "GitHub File Metadata"
-Cohesion: 0.33
-Nodes (15): isHTTPRegistrySource(), joinRegistrySource(), newBundleBuildCmd(), newBundleCmd(), newBundleDeprecateCmd(), newBundleInstallCmd(), newBundleListCmd(), newBundlePromoteCmd() (+7 more)
+Cohesion: 0.25
+Nodes (20): checkedPublicKey(), downloadFile(), fetchURL(), InstallVerified(), isHTTPURL(), joinRegistryURL(), loadManifestAndSource(), loadRegistryInputs() (+12 more)
 
 ### Community 28 - "Ollama API Client"
 Cohesion: 0.13
@@ -532,36 +539,36 @@ Cohesion: 0.16
 Nodes (20): Monolithic Incident Context Inflation, Prism Compact Incident Delegation, GitOps-First Recovery Policy, Enterprise Incident Response Policy, Payments Metrics and API Migration Policy, Platform Incident Runbook Set, Platform Upgrade Recovery Sequence, Platform V2.4.0 API Migration Requirements (+12 more)
 
 ### Community 30 - "Policy Resource Schema"
-Cohesion: 0.05
-Nodes (47): DirEntry, FileInfo, FileMode, contentEntry, FS, ghDir, ghDirEntry, ghFile (+39 more)
+Cohesion: 0.11
+Nodes (6): FileInfo, FileMode, ghDirEntry, ghFile, ghFileInfo, Time
 
 ### Community 31 - "Policy Request Test Schema"
 Cohesion: 0.12
 Nodes (17): Context, Message, RawMessage, Tool, ToolCall, ToolCallFunction, ToolFunction, ChatRequest (+9 more)
 
 ### Community 32 - "Agent CLI Commands"
-Cohesion: 0.15
-Nodes (12): Argo agent, Boundaries, Input assumptions, Mission, Output contract, Read-only Argo Diagnostics, Argo constitution, Argo Diagnostic Safety (+4 more)
+Cohesion: 0.19
+Nodes (12): DirEntry, contentEntry, FS, ghDir, decodeContent(), dirEntries(), New(), ParseURL() (+4 more)
 
 ### Community 33 - "Downstream MCP Client"
 Cohesion: 0.11
-Nodes (18): internal/cli/root.go, sha256, size, internal/cli/run.go, sha256, size, internal/downstreammcp/state.go, sha256 (+10 more)
+Nodes (18): agents/README.md, sha256, size, internal/cli/root.go, sha256, size, internal/cli/run.go, sha256 (+10 more)
 
 ### Community 34 - "Runtime Fallback Engine"
-Cohesion: 0.15
-Nodes (16): $ref, additionalProperties, type, additionalProperties, type, properties, agents, bundles (+8 more)
+Cohesion: 0.12
+Nodes (19): $ref, additionalProperties, type, additionalProperties, type, properties, agents, bundles (+11 more)
 
 ### Community 35 - "Workspace Root Resolution"
 Cohesion: 0.11
 Nodes (19): type, type, minimum, type, minimum, type, agent_id, bundle_id (+11 more)
 
 ### Community 36 - "Parallel Graph Execution Tests"
-Cohesion: 0.27
-Nodes (12): RegistrySource, State, Deprecate(), Load(), LoadManifest(), Promote(), RecordInstall(), Save() (+4 more)
+Cohesion: 0.24
+Nodes (18): assemblePrompt(), AssemblePromptForTest(), outputFormatInstruction(), makeFakeSkill(), TestAssemblePrompt_ConstitutionFirst(), TestAssemblePrompt_EmptyConstitution(), TestAssemblePrompt_MultipleSkills_Order(), TestAssemblePrompt_NoSkills() (+10 more)
 
 ### Community 37 - "Agent Specification Tests"
-Cohesion: 0.16
-Nodes (15): newConfigCmd(), newDoctorCmd(), Execute(), init(), verboseLog(), newRunCmd(), resolveTask(), runAgent() (+7 more)
+Cohesion: 0.20
+Nodes (12): Execute(), init(), verboseLog(), newRunCmd(), resolveTask(), runAgent(), stdinIsPiped(), runFlags (+4 more)
 
 ### Community 38 - "Runner Test Doubles"
 Cohesion: 0.12
@@ -572,8 +579,8 @@ Cohesion: 0.18
 Nodes (12): New(), shouldFallback(), Runtime, ChatRequest, ChatResponse, Context, Engine, HealthStatus (+4 more)
 
 ### Community 40 - "Benchmark Scenario Assembly"
-Cohesion: 0.11
-Nodes (21): fakeGraphRunner, graphDef(), TestRunWithOptionsEmitsGraphEventAndPassesPriorArtifacts(), TestRunWithOptionsPolicyPrecheckDeniesBeforeNodeExecution(), TestRunWithOptionsRetriesFailedNode(), TestRunWithOptionsRunsIndependentNodesInSameWave(), TestValidateAllowsBoundedParallelism(), TestValidateRejectsCycle() (+13 more)
+Cohesion: 0.15
+Nodes (11): fakeGraphRunner, graphSink, Constitution, Context, DoctorResult, RunEvent, RunRequest, RunResult (+3 more)
 
 ### Community 41 - "Runtime Configuration Loading"
 Cohesion: 0.24
@@ -584,12 +591,12 @@ Cohesion: 0.22
 Nodes (16): TestAllowsSkill(), TestParse_IDStemMismatch(), TestParse_MissingFrontmatter(), TestParse_MissingRequiredFields(), TestParse_UnclosedFrontmatter(), TestParse_Valid(), TestResolveConstitution_Body(), TestResolveConstitution_Legacy() (+8 more)
 
 ### Community 43 - "Go Utility Skills"
-Cohesion: 0.22
-Nodes (18): configuredDownstreamMCPState(), TestWithConfiguredLinearMCPAddsServerFromURL(), TestWithConfiguredLinearMCPPreservesExplicitServer(), TestWithConfiguredLinearMCPRejectsInvalidURL(), withConfiguredLinearMCP(), newMCPCmd(), newMCPServeCmd(), newMCPServerAddCommandCmd() (+10 more)
+Cohesion: 0.40
+Nodes (12): configuredDownstreamMCPState(), newMCPCmd(), newMCPServeCmd(), newMCPServerAddCommandCmd(), newMCPServerAddSSECmd(), newMCPServerCallCmd(), newMCPServerCmd(), newMCPServerListCmd() (+4 more)
 
 ### Community 44 - "Core CLI Execution"
-Cohesion: 0.05
-Nodes (78): makeAgentDir(), TestRegistry_Get_NotFound(), TestRegistry_List_Sorted(), TestRegistry_Load_And_Get(), TestRegistry_Load_InvalidSpec(), TestRegistry_Load_MissingDir(), TestRegistry_Load_RealAgents(), writeFile() (+70 more)
+Cohesion: 0.15
+Nodes (21): Assertions, Assertions, Delegation, Scenario, readFile(), Synthesis, installInstructions(), instructionsBlock() (+13 more)
 
 ### Community 45 - "Event Store Persistence"
 Cohesion: 0.30
@@ -608,12 +615,12 @@ Cohesion: 0.12
 Nodes (16): Argo sync health, Command workflow (argocd), Guardrails, Inputs expected, Output requirements, Argo Sync Read-Only Guardrail, Argo workflow debug, Command workflow (argo) (+8 more)
 
 ### Community 49 - "CI and PR Diagnostics"
-Cohesion: 0.13
-Nodes (24): CancelFunc, ClientSession, Content, CallResult, Client, contentText(), New(), operationContext() (+16 more)
+Cohesion: 0.21
+Nodes (16): CancelFunc, ClientSession, Content, CallResult, Client, contentText(), New(), operationContext() (+8 more)
 
 ### Community 50 - "Notification Feature Benchmark"
-Cohesion: 0.41
-Nodes (10): fileExists(), lintSkills(), newSkillBenchmarkCmd(), newSkillCmd(), newSkillLintCmd(), newSkillTestCmd(), printSkillResults(), skillResult (+2 more)
+Cohesion: 0.24
+Nodes (13): BuildOptions, BuildRegistryManifest(), parsePrivateKey(), registryBundle(), sha256File(), SignRegistryManifest(), WriteRegistryManifest(), SignOptions (+5 more)
 
 ### Community 51 - "Graph Validation Tests"
 Cohesion: 0.25
@@ -648,8 +655,8 @@ Cohesion: 0.33
 Nodes (10): Mode, ModeResult, loadAllConstitutions(), loadAllSkillBodies(), RunOrchestratorOnly(), RunPrismDelegated(), RunOptions, Context (+2 more)
 
 ### Community 59 - "Events Dashboard CLI"
-Cohesion: 0.29
-Nodes (7): Downstream MCP clients, How it works, MCP host configuration, MCP server, Remote `--root` (git URL), Runtime plugins, Test without an MCP host
+Cohesion: 0.41
+Nodes (13): sha256BundleFile(), signedRegistry(), signRegistryManifest(), TestBuildAndSignRegistryManifest(), TestInstallVerifiedCopiesFilesAndRecordsState(), TestInstallVerifiedFailsClosedAndDoesNotRecordState(), TestInstallVerifiedFromRemoteManifest(), writeBundleFile() (+5 more)
 
 ### Community 60 - "GitHub Filesystem Tests"
 Cohesion: 0.14
@@ -668,8 +675,8 @@ Cohesion: 0.16
 Nodes (14): Client, Context, Pack, ToolCall, ToolResult, ToolSpec, ToolSummary, Client (+6 more)
 
 ### Community 64 - "Policy Test Suite Schema"
-Cohesion: 0.40
-Nodes (4): CLI, MCP, Prism, Workflow
+Cohesion: 0.45
+Nodes (12): writeFile(), chdir(), TestLoadDefaultsWithoutDotEnv(), TestLoadPrefersCanonicalGitHubToken(), TestLoadPrefersPrismEnvOverConfigFile(), TestLoadReadsDotEnvAndGitHubTokenAlias(), TestLoadReadsExplicitPrismConfigFile(), TestLoadReadsModelRuntimeConfig() (+4 more)
 
 ### Community 65 - "Policy Expected Outcomes Schema"
 Cohesion: 0.22
@@ -688,24 +695,24 @@ Cohesion: 0.23
 Nodes (13): Focused Specialist Delegation Model, Notification Feature Delivery Benchmark, Notification Preferences API Contract, Notification Preferences Implementation Plan, Read Defaults and Migration Backfill, Notification Preference Test Strategy, Deterministic Notification Preference Validation, Go Notification Package Scaffold Task (+5 more)
 
 ### Community 69 - "Agent Registry Tests"
-Cohesion: 0.40
-Nodes (4): Build, Drive the surfaces, Runtime environment gotchas, Verifying prism changes
+Cohesion: 0.36
+Nodes (12): IsURL(), T, Resolve(), initGitRepo(), runGit(), TestCloneFallback_ClonesLocalGitRepo(), TestResolveFSInterface(), TestResolveGitHubFallbackToClone() (+4 more)
 
 ### Community 70 - "Executive Token Flow Diagram"
-Cohesion: 0.83
-Nodes (3): Boundaries, Frontend Builder agent, Mission
+Cohesion: 0.30
+Nodes (10): graphDef(), TestRunWithOptionsEmitsGraphEventAndPassesPriorArtifacts(), TestRunWithOptionsPolicyPrecheckDeniesBeforeNodeExecution(), TestRunWithOptionsRetriesFailedNode(), TestRunWithOptionsRunsIndependentNodesInSameWave(), TestValidateAllowsBoundedParallelism(), TestValidateRejectsCycle(), TestValidateRejectsMissingVersionTask() (+2 more)
 
 ### Community 71 - "Structured Run Results"
 Cohesion: 0.23
 Nodes (13): Collect and Analyze Rollout, Kubernetes Rollout Investigation Graph, Summarize Incident Findings, Bundle Compatibility Contract, Kubernetes Core Triage Bundle, Read-Only Incident Offload, Bundle Registry Public Key, Agent Capability Allowlist (+5 more)
 
 ### Community 72 - "Router Suggestion Tests"
-Cohesion: 0.17
-Nodes (12): Adding agents and skills, Before you start, Benchmark comparison (no MCP vs MCP), Configuration, Creating a registry today, Full local control-plane setup, New agent, New skill (+4 more)
+Cohesion: 0.12
+Nodes (16): Adding agents and skills, Before you start, Benchmark comparison (no MCP vs MCP), Configuration, Creating a registry today, Full local control-plane setup, New agent, New skill (+8 more)
 
 ### Community 73 - "Agent Registry"
-Cohesion: 0.10
-Nodes (17): Boundaries, Evidence-backed GitHub Diagnostics, GitHub CLI agent, Input assumptions, Mission, Output contract, Boundaries, Documentation Citation Requirements (+9 more)
+Cohesion: 0.05
+Nodes (39): Argo agent, Boundaries, Input assumptions, Mission, Output contract, Read-only Argo Diagnostics, Boundaries, Evidence-backed GitHub Diagnostics (+31 more)
 
 ### Community 74 - "Planning and Frontend Agents"
 Cohesion: 0.18
@@ -756,12 +763,12 @@ Cohesion: 0.27
 Nodes (7): Pack, Plugin, NewRegistry(), Registry, ToolCall, ToolResult, ToolSpec
 
 ### Community 87 - "Prism Orchestration Guardrails"
-Cohesion: 0.50
-Nodes (4): `pkg/observe`, `pkg/registry`, `pkg/report`, Programmatic integrations
+Cohesion: 0.33
+Nodes (6): Spec, Parse(), stemFromName(), validate(), Summary, FS
 
 ### Community 88 - "Evidence Pack Model"
-Cohesion: 0.18
-Nodes (11): `doctor`, `explain_policy`, `get_constitution`, `list_agents`, `list_policies`, `list_prompts` / `get_prompt`, `list_resources` / `get_resource`, `run_agent` (+3 more)
+Cohesion: 0.11
+Nodes (18): `doctor`, Downstream MCP clients, `explain_policy`, `get_constitution`, How it works, `list_agents`, `list_policies`, `list_prompts` / `get_prompt` (+10 more)
 
 ### Community 89 - "CI Release Pipeline"
 Cohesion: 0.39
@@ -780,8 +787,8 @@ Cohesion: 0.18
 Nodes (10): Kubernetes Rollout Diagnostics Smoke Case, Command workflow (kubectl), Guardrails, Inputs expected, K8s rollout diagnostics, Output requirements, Kubernetes Revision Comparison, Version-Aware Rollout Evidence (+2 more)
 
 ### Community 93 - "Policy Allowlist Schema"
-Cohesion: 0.67
-Nodes (3): agents/README.md, sha256, size
+Cohesion: 0.42
+Nodes (10): mockGitHub(), newTestFS(), TestFS_NotFound(), TestFS_OpenDir(), TestFS_OpenFile(), TestIsURL(), TestParseURL(), FS (+2 more)
 
 ### Community 94 - "Policy Test Cases Schema"
 Cohesion: 0.24
@@ -816,12 +823,12 @@ Cohesion: 0.18
 Nodes (11): properties, minLength, type, name, request, want_decision, want_reason, $ref (+3 more)
 
 ### Community 102 - "Linear MCP Agent"
-Cohesion: 0.40
-Nodes (4): Frontend Builder constitution, Mission, Output contract, Scope
+Cohesion: 0.24
+Nodes (9): Boundaries, Bounded Vanilla Frontend Scope, Frontend Builder agent, Mission, Frontend Builder constitution, Mission, Output contract, Scope (+1 more)
 
 ### Community 103 - "Agent Runtime Doctor"
-Cohesion: 0.12
-Nodes (17): Kubernetes Agent, Native Kubernetes Evidence, Agent specifications, Migration note, Optional frontmatter, Registered agents, Required frontmatter, Run-time skill attachment (+9 more)
+Cohesion: 0.29
+Nodes (7): Agent specifications, Migration note, Optional frontmatter, Registered agents, Required frontmatter, Run-time skill attachment, Runtime Skill Attachment
 
 ### Community 104 - "Model Runtime Documentation"
 Cohesion: 0.20
@@ -856,12 +863,12 @@ Cohesion: 0.20
 Nodes (9): Artifact, Definition, Limits, Node, RunResult, ValidationResult, Node, Artifact (+1 more)
 
 ### Community 112 - "Configuration CLI Commands"
-Cohesion: 0.67
-Nodes (3): Benchmark view, Executive benchmark view, Proof it saves tokens
+Cohesion: 0.50
+Nodes (8): makeAgentDir(), TestRegistry_Get_NotFound(), TestRegistry_List_Sorted(), TestRegistry_Load_And_Get(), TestRegistry_Load_InvalidSpec(), TestRegistry_Load_MissingDir(), TestRegistry_Load_RealAgents(), T
 
 ### Community 113 - "Go Helper Function Skill"
-Cohesion: 0.67
-Nodes (3): version, minimum, type
+Cohesion: 0.39
+Nodes (7): T, CutBytes(), TestCutBytesMultiByteHeavy(), TestCutBytesNoTruncation(), TestCutBytesRuneSafe(), TestTruncateSuffix(), Truncate()
 
 ### Community 114 - "GitHub Transport Rewriting"
 Cohesion: 0.25
@@ -896,7 +903,7 @@ Cohesion: 0.22
 Nodes (9): 6.1 Keep the Editor in Charge, 6.2 Offload Narrow Work, 6.3 Local-First by Default, 6.4 Metadata Over Raw Prompts, 6.5 Govern Skills Like Software, 6.6 Make Safety Structural, 6.7 Measure Everything Useful, 6.8 Stay Open Source (+1 more)
 
 ### Community 122 - "Tool Call JSON Encoding"
-Cohesion: 0.33
+Cohesion: 0.39
 Nodes (5): Registry, NewRegistry(), FS, Spec, Summary
 
 ### Community 123 - "Doctor Result Model"
@@ -904,8 +911,8 @@ Cohesion: 0.24
 Nodes (11): TestHomelabReleaseIncident(), chatResult, ensureModel(), ollamaChat(), OllamaReachable(), ptr(), LoadScenario(), T (+3 more)
 
 ### Community 124 - "Policy Defaults Schema"
-Cohesion: 0.67
-Nodes (3): minimum, type, graph_depth
+Cohesion: 0.39
+Nodes (6): TestWithConfiguredLinearMCPAddsServerFromURL(), TestWithConfiguredLinearMCPPreservesExplicitServer(), TestWithConfiguredLinearMCPRejectsInvalidURL(), withConfiguredLinearMCP(), State, T
 
 ### Community 125 - "Graph Depth Limit Schema"
 Cohesion: 0.52
@@ -928,8 +935,8 @@ Cohesion: 0.54
 Nodes (7): OpenAICompatibleRuntime, T, contractRuntime(), TestContractChat(), TestContractHealth(), TestContractStream(), TestContractStructured()
 
 ### Community 130 - "Local Acceptance Tests"
-Cohesion: 0.36
-Nodes (5): Engine, Error, ErrorKind, Kind(), KindFromStatus()
+Cohesion: 0.38
+Nodes (4): Engine, Error, ErrorKind, Kind()
 
 ### Community 131 - "Documentation Harvest Collector"
 Cohesion: 0.57
@@ -942,6 +949,10 @@ Nodes (6): Metadata, NoopSink, RunEvent, Sink, Context, Time
 ### Community 133 - "Frontend README Collector"
 Cohesion: 0.22
 Nodes (8): Activation rule, Fail-closed evidence gate, First-party skill precedence, Minimal call template, Parent output contract, Prism MCP orchestrator skill, Required sequence (must follow), run_agent shaping
+
+### Community 134 - "Vanilla SPA Collector"
+Cohesion: 0.38
+Nodes (4): Context, FS, cloneFallback(), probe()
 
 ### Community 135 - "Go Helper Collector"
 Cohesion: 0.29
@@ -1015,6 +1026,10 @@ Nodes (7): Agent skills, Authoring baseline, Directory layout, How Prism uses sk
 Cohesion: 0.33
 Nodes (5): Boundaries, Input assumptions, Kubernetes kubectl agent, Mission, Output contract
 
+### Community 153 - "Community 153"
+Cohesion: 0.60
+Nodes (4): T, TestBuilderOutputIsDeterministic(), TestBuilderRendersStableBeforeVolatile(), TestBuilderSkipsEmptySectionsAndRendersTitles()
+
 ### Community 155 - "Community 155"
 Cohesion: 0.73
 Nodes (5): newGraphCmd(), newGraphRunCmd(), newGraphShowCmd(), newGraphValidateCmd(), Command
@@ -1076,8 +1091,8 @@ Cohesion: 0.60
 Nodes (4): T, TestMCPContextExtractsIssueKeysAndAction(), TestMCPContextFallsBackToDefaultURL(), TestMCPContextInfersDraftIssueAsCreate()
 
 ### Community 170 - "Community 170"
-Cohesion: 0.33
-Nodes (10): linearSkill(), linearSpec(), TestRunner_Run_MCPToolLoopExecutesDownstreamCall(), TestRunner_Run_MCPToolLoopUsesInjectedModelRuntime(), TestMapArg(), TestNormalizeToolCallIDs(), TestParseTextToolCall(), TestRunner_Run_MCPToolLoopExhaustionSynthesizes() (+2 more)
+Cohesion: 0.60
+Nodes (5): linearSkill(), linearSpec(), TestRunner_Run_MCPToolLoopExecutesDownstreamCall(), TestRunner_Run_MCPToolLoopUsesInjectedModelRuntime(), TestRunner_Run_MCPToolLoopExhaustionSynthesizes()
 
 ### Community 171 - "Community 171"
 Cohesion: 0.40
@@ -1094,6 +1109,10 @@ Nodes (3): Breaking changes, Fixes, Platform v2.4.0 release notes (excerpt)
 ### Community 174 - "Community 174"
 Cohesion: 0.50
 Nodes (3): Deliverable, Feature brief — Notification Preferences Center, Requested scope
+
+### Community 175 - "Community 175"
+Cohesion: 0.50
+Nodes (3): rewriteTransport, Request, Response
 
 ### Community 176 - "Community 176"
 Cohesion: 0.50
@@ -1346,6 +1365,10 @@ Nodes (3): internal/dashboard/server.go, sha256, size
 ### Community 245 - "Community 245"
 Cohesion: 0.67
 Nodes (3): internal/downstreammcp/client.go, sha256, size
+
+### Community 246 - "Community 246"
+Cohesion: 0.67
+Nodes (3): internal/downstreammcp/state.go, sha256, size
 
 ### Community 247 - "Community 247"
 Cohesion: 0.67
@@ -1659,9 +1682,17 @@ Nodes (3): additionalProperties, type, defaults
 Cohesion: 0.67
 Nodes (3): minimum, type, max_graph_depth
 
+### Community 327 - "Community 327"
+Cohesion: 0.60
+Nodes (4): WriteCSV(), WriteJSON(), RunEvent, Writer
+
+### Community 339 - "Community 339"
+Cohesion: 0.83
+Nodes (3): newConfigCmd(), newDoctorCmd(), Command
+
 ### Community 402 - "Community 402"
-Cohesion: 0.33
-Nodes (6): Bounded Vanilla Frontend Scope, Suggestion-only Frontend Output, Suggestion-only Implementation Changes, Agent Constitutions, Shared Result Envelope, Shared Agent Rules
+Cohesion: 0.50
+Nodes (4): Suggestion-only Implementation Changes, Agent Constitutions, Shared Result Envelope, Shared Agent Rules
 
 ### Community 403 - "Community 403"
 Cohesion: 0.50
@@ -1671,12 +1702,16 @@ Nodes (4): Initial agents, Prism agent constitutions, Shared rules, Suggested ou
 Cohesion: 0.67
 Nodes (3): internal/cli/benchmark_project.go, sha256, size
 
+### Community 407 - "Community 407"
+Cohesion: 0.67
+Nodes (3): minimum, type, graph_nodes
+
 ## Ambiguous Edges - Review These
 - `Argo Sync Wave Annotations` → `Upgrade Configuration Mismatch`  [AMBIGUOUS]
   testdata/benchmarks/scenarios/homelab-release-incident/responses/docs-harvest.txt · relation: rationale_for
 
 ## Knowledge Gaps
-- **1238 isolated node(s):** `$schema`, `$id`, `title`, `type`, `required` (+1233 more)
+- **1236 isolated node(s):** `$schema`, `$id`, `title`, `type`, `required` (+1231 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **51 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -1685,14 +1720,14 @@ _Questions this graph is uniquely positioned to answer:_
 
 - **What is the exact relationship between `Argo Sync Wave Annotations` and `Upgrade Configuration Mismatch`?**
   _Edge tagged AMBIGUOUS (relation: rationale_for) - confidence is low._
-- **Why does `readFile()` connect `Core CLI Execution` to `MCP Server and Resources`, `Bundle Installation and State`, `Skill Management and Reports`, `Kubernetes Diagnostics Plugin`, `OpenAI Compatible Runtime`, `Evidence Handoff Summaries`, `DAG Execution Engine`, `Ollama Model Runtime`, `Scaled Incident Context`, `Policy Resource Schema`, `Parallel Graph Execution Tests`, `Agent Specification Tests`, `Notification Feature Benchmark`, `Runtime Plugin Test Double`, `Bundle Data Model`, `Bundle Provenance Resolution`, `Policy Test Cases Schema`, `Event Export Formats`, `Tool Call JSON Encoding`, `Doctor Result Model`?**
-  _High betweenness centrality (0.033) - this node is a cross-community bridge._
-- **Why does `NewError()` connect `Runtime Fallback Tests` to `Local Acceptance Tests`, `Runtime Evidence Collection`, `Bundle Registry Lifecycle`, `Agent Runner Tests`, `GitHub Filesystem Adapter`?**
-  _High betweenness centrality (0.028) - this node is a cross-community bridge._
-- **Why does `contains()` connect `Policy Limit Schema` to `MCP Server and Resources`, `Skill Management and Reports`, `Kubernetes Diagnostics Plugin`, `Benchmark Fixtures and Scenarios`, `Model Runtime Factory`, `Evidence Handoff Summaries`, `DAG Execution Engine`, `Kubernetes Plugin Tests`, `Ollama API Client`, `Community 157`, `Community 163`, `Benchmark Scenario Assembly`, `Community 170`, `Core CLI Execution`, `Notification Feature Benchmark`, `MCP Runner Test Double`, `Runtime Plugin Test Double`, `Bundle Provenance Resolution`, `Policy Test Cases Schema`?**
+- **Why does `NewError()` connect `GitHub Filesystem Adapter` to `Local Acceptance Tests`, `Runtime Evidence Collection`, `Bundle Registry Lifecycle`, `Agent Runner Tests`, `Runtime Fallback Tests`?**
+  _High betweenness centrality (0.032) - this node is a cross-community bridge._
+- **Why does `readFile()` connect `Core CLI Execution` to `Bundle Installation and State`, `Skill Management and Reports`, `Vanilla SPA Collector`, `OpenAI Compatible Runtime`, `DAG Execution Engine`, `Ollama Model Runtime`, `Scaled Incident Context`, `GitHub File Metadata`, `Agent Specification Tests`, `Notification Feature Benchmark`, `Events Dashboard CLI`, `Agent Registry Tests`, `Runtime Plugin Test Double`, `Bundle Data Model`, `Bundle Provenance Resolution`, `Prism Orchestration Guardrails`, `Policy Allowlist Schema`, `Policy Test Cases Schema`, `Event Export Formats`, `Doctor Result Model`?**
+  _High betweenness centrality (0.030) - this node is a cross-community bridge._
+- **Why does `contains()` connect `Policy Limit Schema` to `Community 163`, `Parallel Graph Execution Tests`, `Skill Management and Reports`, `Executive Token Flow Diagram`, `Community 170`, `Benchmark Fixtures and Scenarios`, `Core CLI Execution`, `Model Runtime Factory`, `DAG Execution Engine`, `Runtime Plugin Test Double`, `Ollama Model Runtime`, `Bundle Provenance Resolution`, `Kubernetes Plugin Tests`, `MCP Runner Test Double`, `Community 153`, `Ollama API Client`, `Community 157`, `Policy Test Cases Schema`?**
   _High betweenness centrality (0.023) - this node is a cross-community bridge._
-- **Are the 62 inferred relationships involving `contains()` (e.g. with `TestParse_IDStemMismatch()` and `TestParse_MissingRequiredFields()`) actually correct?**
-  _`contains()` has 62 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 61 inferred relationships involving `contains()` (e.g. with `TestParse_IDStemMismatch()` and `TestParse_MissingRequiredFields()`) actually correct?**
+  _`contains()` has 61 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 48 inferred relationships involving `readFile()` (e.g. with `.Load()` and `.ResolveConstitution()`) actually correct?**
   _`readFile()` has 48 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 38 inferred relationships involving `writeFile()` (e.g. with `makeAgentDir()` and `TestResolveConstitution_Legacy()`) actually correct?**

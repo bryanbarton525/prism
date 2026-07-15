@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -103,10 +104,20 @@ func newMCPServerAddCommandCmd() *cobra.Command {
 	var timeoutMS int
 	var maxBytes int
 	cmd := &cobra.Command{
-		Use:   "add-command <name> <command> [args...]",
+		Use:   "add-command [flags] <name> <command> [args...]",
 		Short: "Add a downstream MCP server launched as a command",
-		Args:  cobra.MinimumNArgs(2),
+		Long: `Add a downstream MCP server launched as a command.
+
+Everything after <command> is passed to the downstream server verbatim
+(so wrappers like "npx -y mcp-remote ..." work). Because of that, prism
+flags such as --timeout-ms and --max-bytes must come BEFORE <name>:
+
+  prism mcp server add-command --timeout-ms 1500 linear npx -y mcp-remote https://mcp.linear.app/mcp`,
+		Args: cobra.MinimumNArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
+			if err := rejectMisplacedPrismFlags(args); err != nil {
+				return err
+			}
 			state, err := downstreammcp.Load(mcpServersPath())
 			if err != nil {
 				return err
@@ -134,6 +145,24 @@ func newMCPServerAddCommandCmd() *cobra.Command {
 	cmd.Flags().IntVar(&maxBytes, "max-bytes", downstreammcp.DefaultMaxBytes, "Maximum returned content bytes")
 	cmd.Flags().SetInterspersed(false)
 	return cmd
+}
+
+// rejectMisplacedPrismFlags catches prism's own flags appearing after the
+// positional args. Flag parsing is non-interspersed here so downstream
+// command flags (e.g. "npx -y") pass through verbatim — which means a
+// trailing --timeout-ms would silently become an argument to the downstream
+// command while the default timeout stayed in effect.
+func rejectMisplacedPrismFlags(args []string) error {
+	for _, a := range args {
+		for _, flag := range []string{"--timeout-ms", "--max-bytes"} {
+			if a == flag || strings.HasPrefix(a, flag+"=") {
+				return fmt.Errorf(
+					"%s appears after the command arguments and would be passed to the downstream server instead of prism; place it before <name>: prism mcp server add-command %s ... <name> <command> [args...]",
+					flag, a)
+			}
+		}
+	}
+	return nil
 }
 
 func newMCPServerAddSSECmd() *cobra.Command {

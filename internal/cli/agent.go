@@ -116,7 +116,11 @@ func agentShow(ctx context.Context, agentID string, jsonOut bool) error {
 	fmt.Printf("Model:           %s\n", spec.Model)
 	fmt.Printf("Context budget:  %d\n", spec.ContextBudget)
 	fmt.Printf("Latency budget:  %d ms\n", spec.LatencyBudgetMS)
-	fmt.Printf("Temperature:     %.2f\n", spec.Temperature)
+	if spec.Temperature != nil {
+		fmt.Printf("Temperature:     %.2f\n", *spec.Temperature)
+	} else {
+		fmt.Printf("Temperature:     (engine default)\n")
+	}
 	fmt.Printf("Allowed skills:  %s\n", strings.Join(spec.AllowedSkills, ", "))
 	if len(spec.Tools) > 0 {
 		fmt.Printf("Tools:           %s\n", strings.Join(spec.Tools, ", "))

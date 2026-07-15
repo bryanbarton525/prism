@@ -30,12 +30,20 @@ func (r *OllamaRuntime) Health(ctx context.Context) (*runtime.HealthStatus, erro
 }
 
 func (r *OllamaRuntime) Chat(ctx context.Context, req runtime.ChatRequest) (*runtime.ChatResponse, error) {
+	return r.chat(ctx, req, nil)
+}
+
+func (r *OllamaRuntime) chat(ctx context.Context, req runtime.ChatRequest, format json.RawMessage) (*runtime.ChatResponse, error) {
 	messages := make([]ollama.Message, 0, len(req.Messages))
 	for _, msg := range req.Messages {
+		toolName := msg.ToolName
+		if toolName == "" {
+			toolName = msg.ToolCallID
+		}
 		messages = append(messages, ollama.Message{
 			Role:      msg.Role,
 			Content:   msg.Content,
-			ToolName:  msg.ToolCallID,
+			ToolName:  toolName,
 			ToolCalls: runtimeToolCallsToOllama(msg.ToolCalls),
 		})
 	}
@@ -50,14 +58,14 @@ func (r *OllamaRuntime) Chat(ctx context.Context, req runtime.ChatRequest) (*run
 			},
 		})
 	}
-	opts := &ollama.Options{NumPredict: req.MaxTokens, NumCtx: req.ContextLength}
-	if req.Temperature != nil {
-		opts.Temperature = *req.Temperature
-	}
+	opts := &ollama.Options{NumPredict: req.MaxTokens, NumCtx: req.ContextLength, Temperature: req.Temperature}
 	resp, err := r.client.Chat(ctx, ollama.ChatRequest{
+		// Config model deliberately wins over the per-request model so one
+		// pinned runtime model serves all agents (docs/model-runtime.md).
 		Model:    firstNonEmpty(r.cfg.Model, req.Model),
 		Messages: messages,
 		Tools:    tools,
+		Format:   format,
 		Options:  opts,
 	})
 	if err != nil {
@@ -88,13 +96,16 @@ func (r *OllamaRuntime) GenerateStructured(ctx context.Context, req runtime.Stru
 	if err != nil {
 		return nil, runtime.NewError(r.Engine(), runtime.ErrorKindInvalidRequest, 0, "marshalling structured schema", err)
 	}
+	// The schema is enforced server-side via Ollama's structured-output
+	// `format` parameter; the system instruction stays as a belt-and-braces
+	// hint for models that respond better with the schema in context.
 	structuredInstruction := runtime.Message{
 		Role: "system",
 		Content: fmt.Sprintf("Return only valid JSON matching this schema named %q. Do not include markdown fences.\n%s",
 			req.Name, string(userSchema)),
 	}
 	req.Messages = append([]runtime.Message{structuredInstruction}, req.Messages...)
-	resp, err := r.Chat(ctx, req.ChatRequest)
+	resp, err := r.chat(ctx, req.ChatRequest, json.RawMessage(userSchema))
 	if err != nil {
 		return nil, err
 	}

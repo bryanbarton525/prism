@@ -70,8 +70,8 @@
     "semantic_hash": ""
   },
   "internal/app/tool_loop.go": {
-    "mtime": 1784084362.5480587,
-    "ast_hash": "ee7e9ce12042497765c73b89056f1ef5",
+    "mtime": 1784082774.5572703,
+    "ast_hash": "0ed5a3c21ef687358814e8fbe215cde3",
     "semantic_hash": ""
   },
   "internal/benchmark/benchmark_mock_test.go": {
@@ -220,9 +220,9 @@
     "semantic_hash": "133e90043e7e7bf11fedef55434c32ed"
   },
   "internal/cli/mcp.go": {
-    "mtime": 1784084543.6972537,
-    "ast_hash": "7fb98b7e4c443fdcda994eec644c8aa6",
-    "semantic_hash": ""
+    "mtime": 1782437129.8707833,
+    "ast_hash": "167e43d2d1ae7bd18a883306e7437700",
+    "semantic_hash": "167e43d2d1ae7bd18a883306e7437700"
   },
   "internal/cli/model_runtime.go": {
     "mtime": 1781577529.3222048,
@@ -1775,8 +1775,8 @@
     "semantic_hash": ""
   },
   "internal/app/tool_loop_test.go": {
-    "mtime": 1784084404.6937444,
-    "ast_hash": "347e8916e638e9e008b8a8e50a0a6dac",
+    "mtime": 1784082402.4206064,
+    "ast_hash": "521dcc6a3361d4723c885bec10cb9e10",
     "semantic_hash": ""
   },
   "internal/textutil/truncate.go": {
@@ -1787,11 +1787,6 @@
   "internal/textutil/truncate_test.go": {
     "mtime": 1784082185.518736,
     "ast_hash": "31fc030738bd5d4f0936e4ae34c2d1b9",
-    "semantic_hash": ""
-  },
-  ".claude/skills/verify/SKILL.md": {
-    "mtime": 1784084170.352198,
-    "ast_hash": "19f2d7ff8a9bcaa962d5e103a5af4d63",
     "semantic_hash": ""
   }
 }
