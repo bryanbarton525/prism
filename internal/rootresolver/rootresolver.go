@@ -80,7 +80,7 @@ func cloneFallback(ctx context.Context, url string) (fs.FS, func(), error) {
 	rmCleanup := func() { os.RemoveAll(tmpDir) }
 
 	//nolint:gosec // url comes from the operator-controlled --root flag
-	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", url, tmpDir)
+	cmd := exec.CommandContext(ctx, "git", cloneArgs(url, tmpDir)...)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -89,4 +89,8 @@ func cloneFallback(ctx context.Context, url string) (fs.FS, func(), error) {
 	}
 
 	return os.DirFS(tmpDir), rmCleanup, nil
+}
+
+func cloneArgs(url, dest string) []string {
+	return []string{"clone", "--depth", "1", "--", url, dest}
 }

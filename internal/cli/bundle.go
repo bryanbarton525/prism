@@ -234,10 +234,14 @@ func newBundleDeprecateCmd() *cobra.Command {
 }
 
 func resolveRegistrySourceArg(sourceName, manifestArg, sourceRoot string) (string, string, error) {
+	return resolveRegistrySourceArgFrom(registrySourcesPath(), sourceName, manifestArg, sourceRoot)
+}
+
+func resolveRegistrySourceArgFrom(sourcesPath, sourceName, manifestArg, sourceRoot string) (string, string, error) {
 	if strings.TrimSpace(sourceName) == "" {
 		return manifestArg, sourceRoot, nil
 	}
-	state, err := bundles.LoadSources(registrySourcesPath())
+	state, err := bundles.LoadSources(sourcesPath)
 	if err != nil {
 		return "", "", err
 	}

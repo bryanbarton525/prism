@@ -11,16 +11,15 @@ import (
 )
 
 func TestResolveRegistrySourceArgLocal(t *testing.T) {
-	old := gf
-	t.Cleanup(func() { gf = old })
-	gf.stateDir = t.TempDir()
-	if err := bundles.SaveSources(registrySourcesPath(), bundles.RegistrySources{
+	t.Parallel()
+	sourcesPath := filepath.Join(t.TempDir(), "registry-sources.yaml")
+	if err := bundles.SaveSources(sourcesPath, bundles.RegistrySources{
 		Sources: []bundles.RegistrySource{{Name: "local", URL: "/repo/registry"}},
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	manifest, sourceRoot, err := resolveRegistrySourceArg("local", "k8s/registry.json", "")
+	manifest, sourceRoot, err := resolveRegistrySourceArgFrom(sourcesPath, "local", "k8s/registry.json", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,16 +32,15 @@ func TestResolveRegistrySourceArgLocal(t *testing.T) {
 }
 
 func TestResolveRegistrySourceArgRemote(t *testing.T) {
-	old := gf
-	t.Cleanup(func() { gf = old })
-	gf.stateDir = t.TempDir()
-	if err := bundles.SaveSources(registrySourcesPath(), bundles.RegistrySources{
+	t.Parallel()
+	sourcesPath := filepath.Join(t.TempDir(), "registry-sources.yaml")
+	if err := bundles.SaveSources(sourcesPath, bundles.RegistrySources{
 		Sources: []bundles.RegistrySource{{Name: "remote", URL: "https://example.com/prism-registry"}},
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	manifest, sourceRoot, err := resolveRegistrySourceArg("remote", "k8s-core-triage/registry.json", "")
+	manifest, sourceRoot, err := resolveRegistrySourceArgFrom(sourcesPath, "remote", "k8s-core-triage/registry.json", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,16 +53,15 @@ func TestResolveRegistrySourceArgRemote(t *testing.T) {
 }
 
 func TestResolveRegistrySourceArgRejectsEscapingPath(t *testing.T) {
-	old := gf
-	t.Cleanup(func() { gf = old })
-	gf.stateDir = t.TempDir()
-	if err := bundles.SaveSources(registrySourcesPath(), bundles.RegistrySources{
+	t.Parallel()
+	sourcesPath := filepath.Join(t.TempDir(), "registry-sources.yaml")
+	if err := bundles.SaveSources(sourcesPath, bundles.RegistrySources{
 		Sources: []bundles.RegistrySource{{Name: "local", URL: "/repo/registry"}},
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	_, _, err := resolveRegistrySourceArg("local", "../registry.json", "")
+	_, _, err := resolveRegistrySourceArgFrom(sourcesPath, "local", "../registry.json", "")
 	if err == nil {
 		t.Fatal("expected escaping path error")
 	}

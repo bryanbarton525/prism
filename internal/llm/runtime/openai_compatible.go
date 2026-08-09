@@ -206,7 +206,6 @@ func (r *OpenAICompatibleRuntime) parseSSE(ctx context.Context, body io.Reader, 
 	for scanner.Scan() {
 		select {
 		case <-ctx.Done():
-			sendStreamEvent(out, StreamEvent{Kind: StreamEventError, Err: NewError(r.cfg.Engine, ErrorKindTimeout, 0, "stream context canceled", ctx.Err())})
 			return
 		default:
 		}
@@ -219,40 +218,50 @@ func (r *OpenAICompatibleRuntime) parseSSE(ctx context.Context, body io.Reader, 
 		}
 		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 		if data == "[DONE]" {
-			sendStreamEvent(out, StreamEvent{Kind: StreamEventDone})
+			sendStreamEvent(ctx, out, StreamEvent{Kind: StreamEventDone})
 			return
 		}
 		var chunk openAIStreamChunk
 		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
-			sendStreamEvent(out, StreamEvent{Kind: StreamEventError, Err: NewError(r.cfg.Engine, ErrorKindParse, 0, "parsing stream event", err)})
+			sendStreamEvent(ctx, out, StreamEvent{Kind: StreamEventError, Err: NewError(r.cfg.Engine, ErrorKindParse, 0, "parsing stream event", err)})
 			return
 		}
 		if chunk.Error != nil {
-			sendStreamEvent(out, StreamEvent{Kind: StreamEventError, Err: NewError(r.cfg.Engine, ErrorKindProvider, 0, chunk.Error.Message, nil)})
+			sendStreamEvent(ctx, out, StreamEvent{Kind: StreamEventError, Err: NewError(r.cfg.Engine, ErrorKindProvider, 0, chunk.Error.Message, nil)})
 			return
 		}
 		for _, choice := range chunk.Choices {
 			// Streaming has no accumulation path for tool calls; dropping them
 			// silently would let the model's tool requests vanish. Fail loud.
 			if len(choice.Delta.ToolCalls) > 0 || len(choice.Message.ToolCalls) > 0 {
-				sendStreamEvent(out, StreamEvent{Kind: StreamEventError, Err: NewError(r.cfg.Engine, ErrorKindInvalidRequest, 0, "stream returned tool calls, which streaming does not support; use Chat for tool-enabled requests", nil)})
+				sendStreamEvent(ctx, out, StreamEvent{Kind: StreamEventError, Err: NewError(r.cfg.Engine, ErrorKindInvalidRequest, 0, "stream returned tool calls, which streaming does not support; use Chat for tool-enabled requests", nil)})
 				return
 			}
 			content := firstNonEmpty(choice.Delta.Content, choice.Message.Content)
 			if content != "" {
-				sendStreamEvent(out, StreamEvent{Kind: StreamEventDelta, Delta: content})
+				if !sendStreamEvent(ctx, out, StreamEvent{Kind: StreamEventDelta, Delta: content}) {
+					return
+				}
 			}
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		sendStreamEvent(out, StreamEvent{Kind: StreamEventError, Err: NewError(r.cfg.Engine, ErrorKindUnavailable, 0, "reading stream", err)})
+	if ctx.Err() != nil {
 		return
 	}
-	sendStreamEvent(out, StreamEvent{Kind: StreamEventDone})
+	if err := scanner.Err(); err != nil {
+		sendStreamEvent(ctx, out, StreamEvent{Kind: StreamEventError, Err: NewError(r.cfg.Engine, ErrorKindUnavailable, 0, "reading stream", err)})
+		return
+	}
+	sendStreamEvent(ctx, out, StreamEvent{Kind: StreamEventDone})
 }
 
-func sendStreamEvent(out chan<- StreamEvent, event StreamEvent) {
-	out <- event
+func sendStreamEvent(ctx context.Context, out chan<- StreamEvent, event StreamEvent) bool {
+	select {
+	case out <- event:
+		return true
+	case <-ctx.Done():
+		return false
+	}
 }
 
 func (r *OpenAICompatibleRuntime) setHeaders(req *http.Request) {

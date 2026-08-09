@@ -52,13 +52,16 @@ func (p *Plugin) Call(ctx context.Context, call plugins.ToolCall) (plugins.ToolR
 		if err != nil || ctx.Err() != nil {
 			return err
 		}
+		if count >= maxFiles {
+			return fs.SkipAll
+		}
 		if d.IsDir() {
 			if path == ".git" || path == "vendor" || path == "node_modules" || strings.HasPrefix(path, ".tmp") {
 				return fs.SkipDir
 			}
 			return nil
 		}
-		if count >= maxFiles || !isTextPath(path) {
+		if !isTextPath(path) {
 			return nil
 		}
 		data, err := fs.ReadFile(p.root, path)
