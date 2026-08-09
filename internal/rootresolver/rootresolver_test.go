@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"testing"
 	"testing/fstest"
 
@@ -169,6 +170,14 @@ func TestCloneFallback_ClonesLocalGitRepo(t *testing.T) {
 	cleanup()
 	if _, err := fs.ReadFile(fsys, "README.md"); err == nil {
 		t.Fatal("expected cloned temp dir to be removed after cleanup")
+	}
+}
+
+func TestCloneArgsSeparateOptionsFromRepository(t *testing.T) {
+	got := cloneArgs("--upload-pack=malicious", "/tmp/dest")
+	want := []string{"clone", "--depth", "1", "--", "--upload-pack=malicious", "/tmp/dest"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("cloneArgs() = %q, want %q", got, want)
 	}
 }
 
