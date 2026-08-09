@@ -22,7 +22,7 @@ Prism is evolving into a local-first AI offload control plane for engineering te
 
 ## Quick start
 
-**Requires:** Go 1.25+ and a model runtime. The simplest path is [Ollama](https://ollama.com/) at `http://127.0.0.1:11434` with the model from agent specs (default `qwen3.5:9b`). Set `PRISM_MODEL_RUNTIME_*` to target Ollama explicitly, SGLang, vLLM, or another OpenAI-compatible endpoint.
+**Requires:** Go 1.25+ and a model runtime. The simplest path is [Ollama](https://ollama.com/) at `http://127.0.0.1:11434` with the model from agent specs (default `qwen3.5:9b`); Prism routes that default through the same runtime abstraction used for SGLang and vLLM. Set `PRISM_MODEL_RUNTIME_*` to target Ollama explicitly, SGLang, vLLM, or another OpenAI-compatible endpoint.
 
 ```bash
 go install ./cmd/prism
@@ -68,7 +68,7 @@ scripts/local-acceptance.sh
 
 Register Prism as an MCP server in your AI editor. Example for Cursor (`~/.cursor/mcp.json`; other MCP hosts use equivalent config — see [docs/usage.md](docs/usage.md)):
 
-Use the full path to your `prism` binary. This example targets Ollama through the runtime registry:
+Use the full path to your `prism` binary. This example pins the default runtime to Ollama explicitly:
 
 ```json
 {

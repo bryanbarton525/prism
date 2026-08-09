@@ -149,8 +149,33 @@ func TestTruncateToTokenBudget_ExceedsBudget(t *testing.T) {
 }
 
 func TestTruncateToTokenBudget_ZeroBudget(t *testing.T) {
-	text := "some text"
-	if truncateToTokenBudget(text, 0) != text {
-		t.Error("zero budget should return text unchanged")
+	// A non-positive budget means the user prompt alone blew the budget; the
+	// system prompt must still be truncated hard, keeping only the notice
+	// (and the response-format block when present).
+	text := strings.Repeat("a", 500)
+	result := truncateToTokenBudget(text, 0)
+	if strings.Contains(result, "aaaa") {
+		t.Errorf("zero budget must drop body text, got %q", result)
+	}
+	if !strings.Contains(result, "truncated") {
+		t.Error("result should contain the truncation notice")
+	}
+}
+
+func TestTruncateToTokenBudget_PreservesResponseFormat(t *testing.T) {
+	format := outputFormatInstruction()
+	text := strings.Repeat("skill body text ", 500) + format
+	result := truncateToTokenBudget(text, 100) // 400 chars, far below len(format)
+	if !strings.Contains(result, responseFormatHeading) {
+		t.Fatal("response format heading must survive truncation")
+	}
+	if !strings.Contains(result, `"confidence": "low|medium|high"`) {
+		t.Fatal("response format body must survive truncation")
+	}
+	if !strings.Contains(result, "truncated") {
+		t.Fatal("result should contain the truncation notice")
+	}
+	if strings.Index(result, "truncated") > strings.Index(result, responseFormatHeading) {
+		t.Fatal("notice must precede the preserved response-format block")
 	}
 }

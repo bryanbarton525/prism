@@ -26,6 +26,38 @@ func TestEngineDeniesDisallowedSkill(t *testing.T) {
 	}
 }
 
+func TestEngineExplicitEmptySkillsDeniesAllSkills(t *testing.T) {
+	engine := New(policypkg.Policy{
+		Version: 1,
+		Agents: map[string]policypkg.Agent{
+			"reviewer": {Allowed: true, Skills: []string{}},
+		},
+	})
+	decision := engine.Explain(policypkg.Request{
+		AgentID: "reviewer",
+		Skills:  []string{"go-review"},
+	})
+	if decision.Decision != policypkg.DecisionDeny {
+		t.Fatalf("decision = %s, want deny", decision.Decision)
+	}
+}
+
+func TestEngineNilSkillsRemainsUnconstrained(t *testing.T) {
+	engine := New(policypkg.Policy{
+		Version: 1,
+		Agents: map[string]policypkg.Agent{
+			"reviewer": {Allowed: true},
+		},
+	})
+	decision := engine.Explain(policypkg.Request{
+		AgentID: "reviewer",
+		Skills:  []string{"go-review"},
+	})
+	if decision.Decision != policypkg.DecisionAllow {
+		t.Fatalf("decision = %s, want allow", decision.Decision)
+	}
+}
+
 func TestNilEngineAllowsCompatibility(t *testing.T) {
 	decision := (*Engine)(nil).Explain(policypkg.Request{AgentID: "kubectl"})
 	if decision.Decision != policypkg.DecisionAllow {

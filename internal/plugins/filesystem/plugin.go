@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bryanbarton525/prism/internal/plugins"
+	"github.com/bryanbarton525/prism/internal/textutil"
 	"github.com/bryanbarton525/prism/pkg/evidence"
 )
 
@@ -51,13 +52,16 @@ func (p *Plugin) Call(ctx context.Context, call plugins.ToolCall) (plugins.ToolR
 		if err != nil || ctx.Err() != nil {
 			return err
 		}
+		if count >= maxFiles {
+			return fs.SkipAll
+		}
 		if d.IsDir() {
 			if path == ".git" || path == "vendor" || path == "node_modules" || strings.HasPrefix(path, ".tmp") {
 				return fs.SkipDir
 			}
 			return nil
 		}
-		if count >= maxFiles || !isTextPath(path) {
+		if !isTextPath(path) {
 			return nil
 		}
 		data, err := fs.ReadFile(p.root, path)
@@ -100,8 +104,5 @@ func isTextPath(path string) bool {
 }
 
 func trim(s string, limit int) string {
-	if len(s) <= limit {
-		return s
-	}
-	return s[:limit] + "..."
+	return textutil.Truncate(s, limit, "...")
 }

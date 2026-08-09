@@ -17,20 +17,29 @@ type HealthStatus struct {
 }
 
 type ChatRequest struct {
-	Model       string            `json:"model,omitempty"`
-	Messages    []Message         `json:"messages"`
-	Tools       []Tool            `json:"tools,omitempty"`
-	Temperature *float64          `json:"temperature,omitempty"`
-	MaxTokens   int               `json:"max_tokens,omitempty"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
+	Model       string    `json:"model,omitempty"`
+	Messages    []Message `json:"messages"`
+	Tools       []Tool    `json:"tools,omitempty"`
+	Temperature *float64  `json:"temperature,omitempty"`
+	MaxTokens   int       `json:"max_tokens,omitempty"`
+	// ContextLength is an optional context-window hint in tokens. Runtimes
+	// that manage their own context (OpenAI-compatible servers) ignore it;
+	// the Ollama runtime maps it to num_ctx.
+	ContextLength int               `json:"context_length,omitempty"`
+	Metadata      map[string]string `json:"metadata,omitempty"`
 }
 
 type Message struct {
-	Role             string     `json:"role"`
-	Content          string     `json:"content,omitempty"`
-	ReasoningContent string     `json:"reasoning_content,omitempty"`
-	ToolCallID       string     `json:"tool_call_id,omitempty"`
-	ToolCalls        []ToolCall `json:"tool_calls,omitempty"`
+	Role             string `json:"role"`
+	Content          string `json:"content,omitempty"`
+	ReasoningContent string `json:"reasoning_content,omitempty"`
+	// ToolCallID correlates a role:"tool" message with the assistant tool call
+	// it answers (OpenAI-compatible servers).
+	ToolCallID string `json:"tool_call_id,omitempty"`
+	// ToolName is the function name for a role:"tool" message. Runtimes that
+	// key tool results by name (Ollama) use this instead of ToolCallID.
+	ToolName  string     `json:"-"`
+	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
 }
 
 type Tool struct {

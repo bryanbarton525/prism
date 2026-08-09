@@ -17,6 +17,7 @@ import (
 
 	"github.com/bryanbarton525/prism/internal/agent"
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
+	"github.com/bryanbarton525/prism/internal/llm"
 	llmruntime "github.com/bryanbarton525/prism/internal/llm/runtime"
 	"github.com/bryanbarton525/prism/internal/ollama"
 	"github.com/bryanbarton525/prism/internal/plugins"
@@ -88,8 +89,9 @@ type Config struct {
 	// DownstreamMCP is an optional client for configured MCP servers that
 	// specialists can inspect and call through bounded Prism bridge tools.
 	DownstreamMCP DownstreamMCPClient
-	// ModelRuntime is an optional provider-neutral runtime used by non-MCP
-	// specialist calls. When nil, Prism uses the existing Ollama client path.
+	// ModelRuntime is an optional provider-neutral runtime used for all
+	// specialist model calls. When nil, Prism builds an Ollama-backed
+	// runtime targeting OllamaHost.
 	ModelRuntime llmruntime.ModelRuntime
 	// EventSink receives one stable RunEvent after each Run call. Defaults to a
 	// no-op sink so OSS behavior is unchanged when observability is not enabled.
@@ -177,23 +179,25 @@ type RunRequest struct {
 	GraphNodeID   string
 }
 
-// Runner implements AgentRunner using a local Ollama server.
+// Runner implements AgentRunner on top of a provider-neutral ModelRuntime.
 type Runner struct {
 	cfg      Config
 	rootFS   fs.FS // resolved root FS (cached from cfg)
 	skillsFS fs.FS // resolved skills FS (cached from cfg)
 	registry *agent.Registry
 	plugins  *plugins.Registry
-	ollama   *ollama.Client
-	llm      llmruntime.ModelRuntime
-	downmcp  DownstreamMCPClient
-	events   observe.Sink
-	policy   *internalpolicy.Engine
+	// ollama is retained for Ollama-specific diagnostics (doctor). All chat
+	// traffic goes through llm.
+	ollama  *ollama.Client
+	llm     llmruntime.ModelRuntime
+	downmcp DownstreamMCPClient
+	events  observe.Sink
+	policy  *internalpolicy.Engine
 }
 
 type DownstreamMCPClient interface {
 	Servers() []downstreammcp.Server
-	ListTools(context.Context, string, downstreammcp.ListToolsOptions) ([]downstreammcp.ToolSummary, error)
+	ListTools(context.Context, string, downstreammcp.ListToolsOptions) (downstreammcp.ListToolsResult, error)
 	CallTool(context.Context, string, string, map[string]any) (downstreammcp.CallResult, error)
 }
 
@@ -217,6 +221,14 @@ func New(cfg Config) (*Runner, error) {
 		eventSink = observe.NoopSink{}
 	}
 	oc := ollama.NewClient(cfg.OllamaHost)
+	modelRuntime := cfg.ModelRuntime
+	if modelRuntime == nil {
+		rt, err := llm.NewOllamaRuntime(llmruntime.Config{Engine: llmruntime.EngineOllama, BaseURL: cfg.OllamaHost})
+		if err != nil {
+			return nil, fmt.Errorf("building default ollama runtime: %w", err)
+		}
+		modelRuntime = rt
+	}
 	return &Runner{
 		cfg:      cfg,
 		rootFS:   cfg.rootFS(),
@@ -224,7 +236,7 @@ func New(cfg Config) (*Runner, error) {
 		registry: reg,
 		plugins:  pluginRegistry,
 		ollama:   oc,
-		llm:      cfg.ModelRuntime,
+		llm:      modelRuntime,
 		downmcp:  cfg.DownstreamMCP,
 		events:   eventSink,
 		policy:   cfg.PolicyEngine,
@@ -293,10 +305,10 @@ func (r *Runner) GetConstitution(_ context.Context, agentID string) (Constitutio
 //  3. Validate each requested skill against the agent's allowed_skills.
 //  4. Load the constitution (via constitution_path, inline body, or legacy path).
 //  5. Load each skill's full SKILL.md content.
-//  6. Assemble the Ollama prompt with progressive disclosure.
+//  6. Assemble the model prompt with progressive disclosure.
 //  7. Enforce the per-agent context budget (warn if exceeded).
 //  8. Apply the agent's latency_budget_ms as a context deadline if none is set.
-//  9. Call Ollama.
+//  9. Call the configured model runtime.
 //  10. Return a normalized RunResult with usage and provenance metadata.
 func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, error) {
 	start := time.Now()
@@ -435,17 +447,18 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 		}
 	}
 
-	// ── 10. Call Ollama ───────────────────────────────────────────────────
-	chatReq := ollama.ChatRequest{
+	// ── 10. Call the model runtime ────────────────────────────────────────
+	chatReq := llmruntime.ChatRequest{
 		Model: spec.Model,
-		Messages: []ollama.Message{
+		Messages: []llmruntime.Message{
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: userPrompt},
 		},
-		Options: &ollama.Options{
-			Temperature: spec.Temperature,
-			NumCtx:      spec.ContextBudget,
-		},
+		ContextLength: spec.ContextBudget,
+	}
+	if spec.Temperature != nil {
+		temperature := *spec.Temperature
+		chatReq.Temperature = &temperature
 	}
 
 	toolChat, err := r.chatWithTools(ctx, chatReq, spec)
