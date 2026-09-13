@@ -171,3 +171,52 @@ func TestBuildPlanDryRunDoesNotWrite(t *testing.T) {
 		t.Fatalf("dry run wrote manifest: %v", err)
 	}
 }
+
+func TestInstallMCPIncludesRuntimeStateDirInCommands(t *testing.T) {
+	root := t.TempDir()
+	stateDir := filepath.Join(root, ".prism-runtime")
+	_, err := Install(Options{
+		Scope:           Project,
+		Root:            root,
+		Targets:         []string{"copilot", "codex", "opencode", "claude"},
+		Skills:          []string{"gh-pr-triage"},
+		Specialists:     []string{"github-cli"},
+		RuntimeStateDir: stateDir,
+		Binary:          "/opt/prism",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	copilotData, err := os.ReadFile(filepath.Join(root, ".vscode", "mcp.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(copilotData), "--state-dir") || !strings.Contains(string(copilotData), stateDir) {
+		t.Fatalf("copilot config missing runtime state dir: %s", copilotData)
+	}
+
+	codexData, err := os.ReadFile(filepath.Join(root, ".codex", "config.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(codexData), "--state-dir") || !strings.Contains(string(codexData), stateDir) {
+		t.Fatalf("codex config missing runtime state dir: %s", codexData)
+	}
+
+	opencodeData, err := os.ReadFile(filepath.Join(root, "opencode.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(opencodeData), "--state-dir") || !strings.Contains(string(opencodeData), stateDir) {
+		t.Fatalf("opencode config missing runtime state dir: %s", opencodeData)
+	}
+
+	claudeData, err := os.ReadFile(filepath.Join(root, ".mcp.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(claudeData), "--state-dir") || !strings.Contains(string(claudeData), stateDir) {
+		t.Fatalf("claude config missing runtime state dir: %s", claudeData)
+	}
+}

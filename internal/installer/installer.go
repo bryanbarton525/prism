@@ -30,15 +30,16 @@ const (
 var Targets = []string{"codex", "copilot", "antigravity", "claude", "opencode"}
 
 type Options struct {
-	Scope       Scope
-	Root        string
-	Targets     []string
-	Skills      []string
-	Specialists []string
-	Copy        bool
-	Force       bool
-	DryRun      bool
-	Binary      string
+	Scope           Scope
+	Root            string
+	Targets         []string
+	Skills          []string
+	Specialists     []string
+	RuntimeStateDir string
+	Copy            bool
+	Force           bool
+	DryRun          bool
+	Binary          string
 }
 
 type Entry struct {
@@ -180,7 +181,7 @@ func Install(opts Options) (Plan, error) {
 			}
 			entries = append(entries, entryForBytes(dest, "specialist", data))
 		}
-		if err = installMCP(tx, target, layout.config, opts.Binary, managed, opts.Force); err != nil {
+		if err = installMCP(tx, target, layout.config, opts.Binary, opts.RuntimeStateDir, managed, opts.Force); err != nil {
 			return plan, fmt.Errorf("%s MCP configuration: %w", target, err)
 		}
 		entries = append(entries, entryFor(layout.config, "mcp-config"))
@@ -360,7 +361,7 @@ func lookupAgent(id string) (*agent.Spec, error) {
 	return registry.Get(id)
 }
 
-func installMCP(tx *transaction, target, path, binary string, managed map[string]bool, force bool) error {
+func installMCP(tx *transaction, target, path, binary, runtimeStateDir string, managed map[string]bool, force bool) error {
 	if binary == "" {
 		var err error
 		binary, err = os.Executable()
@@ -368,9 +369,13 @@ func installMCP(tx *transaction, target, path, binary string, managed map[string
 			return err
 		}
 	}
+	args := []string{"mcp", "serve"}
+	if strings.TrimSpace(runtimeStateDir) != "" {
+		args = append(args, "--state-dir", runtimeStateDir)
+	}
 	if target == "codex" {
 		const begin, end = "# BEGIN PRISM MCP", "# END PRISM MCP"
-		block := fmt.Sprintf("%s\n[mcp_servers.prism]\ncommand = %q\nargs = [\"mcp\", \"serve\"]\n%s\n", begin, binary, end)
+		block := fmt.Sprintf("%s\n[mcp_servers.prism]\ncommand = %q\nargs = %s\n%s\n", begin, binary, tomlStringArray(args), end)
 		old, _ := os.ReadFile(path)
 		updated := replaceBlock(string(old), begin, end, block)
 		return tx.writeConfig(path, []byte(updated), managed, force)
@@ -387,16 +392,25 @@ func installMCP(tx *transaction, target, path, binary string, managed map[string
 	switch target {
 	case "copilot":
 		servers := object(root, "servers")
-		servers["prism"] = map[string]any{"type": "stdio", "command": binary, "args": []string{"mcp", "serve"}}
+		servers["prism"] = map[string]any{"type": "stdio", "command": binary, "args": args}
 	case "opencode":
 		servers := object(root, "mcp")
-		servers["prism"] = map[string]any{"type": "local", "command": []string{binary, "mcp", "serve"}, "enabled": true}
+		command := append([]string{binary}, args...)
+		servers["prism"] = map[string]any{"type": "local", "command": command, "enabled": true}
 	default:
 		servers := object(root, "mcpServers")
-		servers["prism"] = map[string]any{"command": binary, "args": []string{"mcp", "serve"}}
+		servers["prism"] = map[string]any{"command": binary, "args": args}
 	}
 	data, _ := json.MarshalIndent(root, "", "  ")
 	return tx.writeConfig(path, append(data, '\n'), managed, force)
+}
+
+func tomlStringArray(values []string) string {
+	quoted := make([]string, 0, len(values))
+	for _, value := range values {
+		quoted = append(quoted, fmt.Sprintf("%q", value))
+	}
+	return "[" + strings.Join(quoted, ", ") + "]"
 }
 
 func removeMCP(tx *transaction, path string) error {

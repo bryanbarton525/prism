@@ -41,7 +41,7 @@ func newInstallCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&flags.project, "project", false, "Install into the current project")
 	cmd.Flags().BoolVar(&flags.global, "global", false, "Install into user-global host directories")
 	cmd.Flags().BoolVar(&flags.runtimeOnly, "runtime-only", false, "Configure runtime extension state only (skip host installer changes)")
-	cmd.Flags().StringVar(&flags.runtimeScope, "runtime-scope", "project", "Runtime extension scope: user|project")
+	cmd.Flags().StringVar(&flags.runtimeScope, "runtime-scope", "user", "Runtime extension scope: user|project")
 	cmd.Flags().StringSliceVar(&flags.targets, "target", nil, "Host target: codex, copilot, antigravity, claude, or opencode")
 	cmd.Flags().StringSliceVar(&flags.skills, "skill", nil, "Bundled skill to install")
 	cmd.Flags().StringSliceVar(&flags.specialists, "specialist", nil, "Bundled specialist wrapper to install")
@@ -155,7 +155,7 @@ func runInstall(cmd *cobra.Command, flags installFlags) error {
 	if err != nil {
 		return err
 	}
-	opts := installer.Options{Scope: scope, Targets: flags.targets, Skills: flags.skills, Specialists: flags.specialists, Copy: flags.copyMode, Force: flags.force, DryRun: flags.dryRun, Binary: binary}
+	opts := installer.Options{Scope: scope, Targets: flags.targets, Skills: flags.skills, Specialists: flags.specialists, RuntimeStateDir: runtimeStateDir, Copy: flags.copyMode, Force: flags.force, DryRun: flags.dryRun, Binary: binary}
 	plan, err := installer.BuildPlan(opts)
 	if err != nil {
 		return err
