@@ -536,8 +536,7 @@ func (t *transaction) writeFile(path string, data []byte, mode fs.FileMode, mana
 		return err
 	}
 	stagePath := stage.Name()
-	defer os := func() { _ = os.Remove(stagePath) }
-	 deferRemember()
+	defer func() { _ = os.Remove(stagePath) }()
 	if err := stage.Chmod(mode); err != nil {
 		_ = stage.Close()
 		return err
