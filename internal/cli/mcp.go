@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
+	"github.com/bryanbarton525/prism/internal/extensions"
 	"github.com/bryanbarton525/prism/internal/mcp"
 )
 
@@ -28,8 +29,131 @@ func newMCPCmd() *cobra.Command {
 	cmd.AddCommand(newMCPRemoveCmd())
 	cmd.AddCommand(newMCPToolsCmd())
 	cmd.AddCommand(newMCPCallCmd())
+	cmd.AddCommand(newMCPAccessCmd())
 	cmd.AddCommand(newMCPServerCmd())
 	return cmd
+}
+
+func newMCPAccessCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "access",
+		Short: "Configure per-agent downstream MCP access",
+	}
+	cmd.AddCommand(newMCPAccessDefaultSetCmd(), newMCPAccessDefaultShowCmd(), newMCPAccessAgentSetCmd(), newMCPAccessAgentShowCmd())
+	return cmd
+}
+
+func newMCPAccessDefaultSetCmd() *cobra.Command {
+	var servers []string
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "default set",
+		Short: "Set shared default downstream server allowlist",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			state, _, err := extensions.LoadMCPAccess(gf.stateDir)
+			if err != nil {
+				return err
+			}
+			state.DefaultServers = servers
+			if dryRun {
+				fmt.Printf("would set default MCP access servers: %v\n", state.DefaultServers)
+				return nil
+			}
+			if err := extensions.SaveMCPAccess(gf.stateDir, state); err != nil {
+				return err
+			}
+			fmt.Printf("set default MCP access servers: %v\n", state.DefaultServers)
+			return nil
+		},
+	}
+	cmd.Flags().StringSliceVar(&servers, "server", nil, "Allowed downstream server name (repeatable)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without mutation")
+	return cmd
+}
+
+func newMCPAccessDefaultShowCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "default show",
+		Short: "Show shared default downstream server allowlist",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			state, configured, err := extensions.LoadMCPAccess(gf.stateDir)
+			if err != nil {
+				return err
+			}
+			if gf.jsonOut {
+				out := map[string]any{"configured": configured, "default_servers": state.DefaultServers}
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(out)
+			}
+			fmt.Printf("configured: %t\n", configured)
+			fmt.Printf("default servers: %v\n", state.DefaultServers)
+			return nil
+		},
+	}
+}
+
+func newMCPAccessAgentSetCmd() *cobra.Command {
+	var mode string
+	var servers []string
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "agent set <agent-id>",
+		Short: "Set per-agent downstream MCP access mode",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			agentID := strings.ToLower(strings.TrimSpace(args[0]))
+			state, _, err := extensions.LoadMCPAccess(gf.stateDir)
+			if err != nil {
+				return err
+			}
+			if state.Agents == nil {
+				state.Agents = map[string]extensions.MCPAccessRule{}
+			}
+			rule := extensions.MCPAccessRule{Mode: mode, Servers: servers}
+			if dryRun {
+				fmt.Printf("would set agent %s MCP access: mode=%s servers=%v\n", agentID, rule.Mode, rule.Servers)
+				return nil
+			}
+			state.Agents[agentID] = rule
+			if err := extensions.SaveMCPAccess(gf.stateDir, state); err != nil {
+				return err
+			}
+			fmt.Printf("set agent %s MCP access: mode=%s servers=%v\n", agentID, rule.Mode, rule.Servers)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&mode, "mode", extensions.MCPAccessModeDefault, "Access mode: default|custom|none")
+	cmd.Flags().StringSliceVar(&servers, "server", nil, "Allowed server for mode=custom (repeatable)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without mutation")
+	return cmd
+}
+
+func newMCPAccessAgentShowCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "agent show <agent-id>",
+		Short: "Show per-agent downstream MCP access configuration",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			agentID := strings.ToLower(strings.TrimSpace(args[0]))
+			state, configured, err := extensions.LoadMCPAccess(gf.stateDir)
+			if err != nil {
+				return err
+			}
+			rule := extensions.MCPAccessRule{Mode: extensions.MCPAccessModeDefault}
+			if cfgRule, ok := state.Agents[agentID]; ok {
+				rule = cfgRule
+			}
+			if gf.jsonOut {
+				out := map[string]any{"configured": configured, "agent_id": agentID, "rule": rule, "default_servers": state.DefaultServers}
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(out)
+			}
+			fmt.Printf("configured: %t\nagent: %s\nmode: %s\nservers: %v\ndefault servers: %v\n", configured, agentID, rule.Mode, rule.Servers, state.DefaultServers)
+			return nil
+		},
+	}
 }
 
 func newMCPServeCmd() *cobra.Command {

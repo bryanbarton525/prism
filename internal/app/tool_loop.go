@@ -30,10 +30,10 @@ func (r *Runner) chatWithTools(ctx context.Context, req llmruntime.ChatRequest, 
 		}
 		return &chatToolResult{response: resp, promptTokens: resp.Usage.PromptTokens, completionTokens: resp.Usage.CompletionTokens}, nil
 	}
-	return r.chatWithMCPToolLoop(ctx, req)
+	return r.chatWithMCPToolLoop(ctx, req, spec.ID)
 }
 
-func (r *Runner) chatWithMCPToolLoop(ctx context.Context, req llmruntime.ChatRequest) (*chatToolResult, error) {
+func (r *Runner) chatWithMCPToolLoop(ctx context.Context, req llmruntime.ChatRequest, agentID string) (*chatToolResult, error) {
 	req.Tools = prismMCPTools()
 	offered := make(map[string]bool, len(req.Tools))
 	for _, tool := range req.Tools {
@@ -70,7 +70,7 @@ func (r *Runner) chatWithMCPToolLoop(ctx context.Context, req llmruntime.ChatReq
 		normalizeToolCallIDs(resp.Message.ToolCalls, round)
 		req.Messages = append(req.Messages, resp.Message)
 		for _, call := range resp.Message.ToolCalls {
-			content, artifact := r.executeMCPToolCall(ctx, call.Function.Name, call.Function.Arguments)
+			content, artifact := r.executeMCPToolCall(ctx, agentID, call.Function.Name, call.Function.Arguments)
 			artifacts = append(artifacts, artifact)
 			req.Messages = append(req.Messages, llmruntime.Message{
 				Role:       "tool",
@@ -224,11 +224,11 @@ func functionTool(name, description string, parameters map[string]any) llmruntim
 	}
 }
 
-func (r *Runner) executeMCPToolCall(ctx context.Context, name string, args map[string]any) (string, result.Artifact) {
+func (r *Runner) executeMCPToolCall(ctx context.Context, agentID string, name string, args map[string]any) (string, result.Artifact) {
 	if args == nil {
 		args = map[string]any{}
 	}
-	content, label, err := r.dispatchMCPToolCall(ctx, name, args)
+	content, label, err := r.dispatchMCPToolCall(ctx, agentID, name, args)
 	if err != nil {
 		content = marshalToolResult(map[string]any{"error": err.Error()})
 		label = "mcp-tool:" + name
@@ -240,14 +240,32 @@ func (r *Runner) executeMCPToolCall(ctx context.Context, name string, args map[s
 	}
 }
 
-func (r *Runner) dispatchMCPToolCall(ctx context.Context, name string, args map[string]any) (string, string, error) {
+func (r *Runner) dispatchMCPToolCall(ctx context.Context, agentID string, name string, args map[string]any) (string, string, error) {
+	serverNames := []string{}
+	for _, s := range r.downmcp.Servers() {
+		serverNames = append(serverNames, s.Name)
+	}
+	allowed := r.mcpAccess.AllowedServers(agentID, serverNames, r.mcpAccessConfigured)
+	allowedSet := map[string]struct{}{}
+	for _, s := range allowed {
+		allowedSet[strings.ToLower(strings.TrimSpace(s))] = struct{}{}
+	}
 	switch name {
 	case "list_mcp_servers":
-		return marshalToolResult(map[string]any{"servers": r.downmcp.Servers()}), "mcp-tool:list_mcp_servers", nil
+		filtered := []downstreammcp.Server{}
+		for _, server := range r.downmcp.Servers() {
+			if _, ok := allowedSet[strings.ToLower(strings.TrimSpace(server.Name))]; ok {
+				filtered = append(filtered, server)
+			}
+		}
+		return marshalToolResult(map[string]any{"servers": filtered}), "mcp-tool:list_mcp_servers", nil
 	case "list_mcp_server_tools":
 		server, err := stringArg(args, "server")
 		if err != nil {
 			return "", "", err
+		}
+		if _, ok := allowedSet[strings.ToLower(strings.TrimSpace(server))]; !ok {
+			return "", "", fmt.Errorf("downstream MCP server %q is not authorized for agent %q", server, agentID)
 		}
 		includeSchema, _ := boolArg(args, "include_schema")
 		maxTools, _ := intArg(args, "max_tools")
@@ -260,6 +278,9 @@ func (r *Runner) dispatchMCPToolCall(ctx context.Context, name string, args map[
 		server, err := stringArg(args, "server")
 		if err != nil {
 			return "", "", err
+		}
+		if _, ok := allowedSet[strings.ToLower(strings.TrimSpace(server))]; !ok {
+			return "", "", fmt.Errorf("downstream MCP server %q is not authorized for agent %q", server, agentID)
 		}
 		tool, err := stringArg(args, "tool")
 		if err != nil {

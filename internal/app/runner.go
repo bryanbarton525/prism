@@ -129,6 +129,9 @@ type Config struct {
 	ExtensionsStateDir string
 	// ExtensionSnapshot can be precomputed by callers; when nil New composes one.
 	ExtensionSnapshot *extensions.CatalogSnapshot
+	// MCPAccess controls per-agent downstream MCP visibility and authorization.
+	MCPAccess           extensions.MCPAccessState
+	MCPAccessConfigured bool
 }
 
 // bundleFS returns the immutable runtime definitions. RootFS/RootDir remain a
@@ -251,12 +254,14 @@ type Runner struct {
 	plugins  *plugins.Registry
 	// ollama is retained for Ollama-specific diagnostics (doctor). All chat
 	// traffic goes through llm.
-	ollama  *ollama.Client
-	llm     llmruntime.ModelRuntime
-	downmcp DownstreamMCPClient
-	events  observe.Sink
-	policy  *internalpolicy.Engine
-	catalog extensions.CatalogSnapshot
+	ollama              *ollama.Client
+	llm                 llmruntime.ModelRuntime
+	downmcp             DownstreamMCPClient
+	events              observe.Sink
+	policy              *internalpolicy.Engine
+	catalog             extensions.CatalogSnapshot
+	mcpAccess           extensions.MCPAccessState
+	mcpAccessConfigured bool
 }
 
 type DownstreamMCPClient interface {
@@ -312,17 +317,19 @@ func New(cfg Config) (*Runner, error) {
 		modelRuntime = rt
 	}
 	return &Runner{
-		cfg:      cfg,
-		bundleFS: cfg.bundleFS(),
-		skillsFS: cfg.skillsFS(),
-		registry: reg,
-		plugins:  pluginRegistry,
-		ollama:   oc,
-		llm:      modelRuntime,
-		downmcp:  cfg.DownstreamMCP,
-		events:   eventSink,
-		policy:   cfg.PolicyEngine,
-		catalog:  catalog,
+		cfg:                 cfg,
+		bundleFS:            cfg.bundleFS(),
+		skillsFS:            cfg.skillsFS(),
+		registry:            reg,
+		plugins:             pluginRegistry,
+		ollama:              oc,
+		llm:                 modelRuntime,
+		downmcp:             cfg.DownstreamMCP,
+		events:              eventSink,
+		policy:              cfg.PolicyEngine,
+		catalog:             catalog,
+		mcpAccess:           cfg.MCPAccess,
+		mcpAccessConfigured: cfg.MCPAccessConfigured,
 	}, nil
 }
 

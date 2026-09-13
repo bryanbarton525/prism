@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/bryanbarton525/prism/internal/extensions"
 	llmruntime "github.com/bryanbarton525/prism/internal/llm/runtime"
 )
 
@@ -201,6 +202,7 @@ func TestRunner_Run_MCPToolLoopExhaustionSynthesizes(t *testing.T) {
 		},
 		Usage: llmruntime.Usage{PromptTokens: 5, CompletionTokens: 1},
 	}
+
 	finalResp := llmruntime.ChatResponse{
 		Model: "openai/gpt-oss-20b",
 		Message: llmruntime.Message{
@@ -248,5 +250,69 @@ func TestRunner_Run_MCPToolLoopExhaustionSynthesizes(t *testing.T) {
 	}
 	if !foundMarker {
 		t.Fatal("missing max-rounds artifact")
+	}
+}
+
+func TestRunner_Run_MCPToolLoopBlocksUnauthorizedServer(t *testing.T) {
+	root := makeTestRoot(t,
+		map[string]string{"linear.md": linearSpec()},
+		map[string]string{"linear-issue-management": linearSkill()},
+	)
+	downstream := &fakeDownstreamMCP{}
+	modelRuntime := &fakeModelRuntime{responses: []llmruntime.ChatResponse{
+		{
+			Model: "openai/gpt-oss-20b",
+			Message: llmruntime.Message{
+				Role: "assistant",
+				ToolCalls: []llmruntime.ToolCall{{
+					Type: "function",
+					Function: llmruntime.ToolCallFunction{
+						Name:      "call_mcp_tool",
+						Arguments: map[string]any{"server": "linear", "tool": "create_issue", "arguments": map[string]any{"title": "x"}},
+					},
+				}},
+			},
+			Usage: llmruntime.Usage{PromptTokens: 5, CompletionTokens: 1},
+		},
+		{
+			Model: "openai/gpt-oss-20b",
+			Message: llmruntime.Message{
+				Role:    "assistant",
+				Content: `{"summary":"access denied handled","confidence":"medium"}`,
+			},
+			Usage: llmruntime.Usage{PromptTokens: 6, CompletionTokens: 2},
+		},
+	}}
+	runner, err := New(Config{
+		RootDir:       root,
+		ModelRuntime:  modelRuntime,
+		DownstreamMCP: downstream,
+		MCPAccess: extensions.MCPAccessState{
+			DefaultServers: []string{},
+		},
+		MCPAccessConfigured: true,
+	})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+	res, err := runner.Run(t.Context(), RunRequest{
+		AgentID:    "linear",
+		Task:       "Create issue.",
+		SkillNames: []string{"linear-issue-management"},
+	})
+	if err != nil {
+		t.Fatalf("Run(): %v", err)
+	}
+	if len(downstream.calls) != 0 {
+		t.Fatalf("downstream calls = %#v, want none", downstream.calls)
+	}
+	found := false
+	for _, a := range res.Artifacts {
+		if strings.Contains(a.Content, "not authorized") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected unauthorized artifact, got %#v", res.Artifacts)
 	}
 }

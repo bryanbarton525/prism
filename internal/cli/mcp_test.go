@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
+	"github.com/bryanbarton525/prism/internal/extensions"
 )
 
 func TestPrintDownstreamMCPMutationConflict(t *testing.T) {
@@ -170,5 +171,36 @@ func TestMCPAddRejectsMalformedInputs(t *testing.T) {
 	cmd.SetArgs([]string{"bad", "--timeout-ms", "0", "--", "echo"})
 	if err := cmd.Execute(); err == nil {
 		t.Fatal("expected non-positive timeout error")
+	}
+}
+
+func TestMCPAccessCommandsPersistState(t *testing.T) {
+	orig := gf.stateDir
+	gf.stateDir = t.TempDir()
+	defer func() { gf.stateDir = orig }()
+
+	cmd := newMCPAccessDefaultSetCmd()
+	cmd.SetArgs([]string{"--server", "linear", "--server", "docs"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	cmd = newMCPAccessAgentSetCmd()
+	cmd.SetArgs([]string{"github-cli", "--mode", "custom", "--server", "docs"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	state, configured, err := extensions.LoadMCPAccess(gf.stateDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !configured {
+		t.Fatal("expected configured state")
+	}
+	if len(state.DefaultServers) != 2 {
+		t.Fatalf("defaults = %#v", state.DefaultServers)
+	}
+	rule, ok := state.Agents["github-cli"]
+	if !ok || rule.Mode != extensions.MCPAccessModeCustom || len(rule.Servers) != 1 || rule.Servers[0] != "docs" {
+		t.Fatalf("rule = %#v", rule)
 	}
 }

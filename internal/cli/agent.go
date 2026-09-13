@@ -389,6 +389,11 @@ func newRunnerWithControls(ctx context.Context, sink observe.Sink, policyEngine 
 		cleanup()
 		return nil, func() {}, fmt.Errorf("loading downstream MCP servers: %w", err)
 	}
+	mcpAccess, mcpAccessConfigured, err := extensions.LoadMCPAccess(gf.stateDir)
+	if err != nil {
+		cleanup()
+		return nil, func() {}, fmt.Errorf("loading MCP access policy: %w", err)
+	}
 	modelRuntime, err := configuredModelRuntime()
 	if err != nil {
 		cleanup()
@@ -411,20 +416,22 @@ func newRunnerWithControls(ctx context.Context, sink observe.Sink, policyEngine 
 		bundleDigest = prismbundle.DigestParts(map[string]fs.FS{"agents": agentsFS, "skills": skillsFS, "constitutions": constitutionsFS})
 	}
 	runner, err := app.New(app.Config{
-		BundleFS:           prismbundle.BundleFS(),
-		BundleDigest:       bundleDigest,
-		BundleMode:         bundleMode,
-		WorkspaceFS:        workspaceFS,
-		WorkspaceLabel:     workspaceRoot,
-		GitHubToken:        cfg.GitHubToken,
-		AgentDir:           gf.agentDir,
-		SkillsDir:          gf.skillsDir,
-		OllamaHost:         gf.ollamaHost,
-		EventSink:          sink,
-		PolicyEngine:       policyEngine,
-		DownstreamMCP:      downstreammcp.New(mcpState),
-		ModelRuntime:       modelRuntime,
-		ExtensionsStateDir: gf.stateDir,
+		BundleFS:            prismbundle.BundleFS(),
+		BundleDigest:        bundleDigest,
+		BundleMode:          bundleMode,
+		WorkspaceFS:         workspaceFS,
+		WorkspaceLabel:      workspaceRoot,
+		GitHubToken:         cfg.GitHubToken,
+		AgentDir:            gf.agentDir,
+		SkillsDir:           gf.skillsDir,
+		OllamaHost:          gf.ollamaHost,
+		EventSink:           sink,
+		PolicyEngine:        policyEngine,
+		DownstreamMCP:       downstreammcp.New(mcpState),
+		ModelRuntime:        modelRuntime,
+		ExtensionsStateDir:  gf.stateDir,
+		MCPAccess:           mcpAccess,
+		MCPAccessConfigured: mcpAccessConfigured,
 	})
 	if err != nil {
 		cleanup()
