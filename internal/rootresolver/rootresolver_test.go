@@ -14,13 +14,14 @@ import (
 )
 
 func TestResolveLocal(t *testing.T) {
+	temp := t.TempDir()
 	cases := []struct {
 		name string
 		root string
 	}{
-		{"absolute path", "/some/local/path"},
+		{"absolute path", temp},
 		{"dot", "."},
-		{"relative", "../prism"},
+		{"relative", ".."},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

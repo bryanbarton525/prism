@@ -15,7 +15,9 @@ import (
 	"strings"
 	"time"
 
+	prismbundle "github.com/bryanbarton525/prism"
 	"github.com/bryanbarton525/prism/internal/agent"
+	"github.com/bryanbarton525/prism/internal/buildinfo"
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
 	"github.com/bryanbarton525/prism/internal/llm"
 	llmruntime "github.com/bryanbarton525/prism/internal/llm/runtime"
@@ -30,6 +32,7 @@ import (
 	"github.com/bryanbarton525/prism/internal/plugins/mcpbridge"
 	internalpolicy "github.com/bryanbarton525/prism/internal/policy"
 	"github.com/bryanbarton525/prism/internal/result"
+	"github.com/bryanbarton525/prism/internal/rootresolver"
 	"github.com/bryanbarton525/prism/internal/skill"
 	"github.com/bryanbarton525/prism/pkg/observe"
 	policypkg "github.com/bryanbarton525/prism/pkg/policy"
@@ -52,6 +55,17 @@ type AgentRunner interface {
 	Doctor(ctx context.Context) (result.DoctorResult, error)
 }
 
+// RequiresWorkspace reports whether an agent declares a repository-scoped
+// runtime plugin. MCP adapters use it to avoid asking hosts for roots when the
+// selected specialist does not need repository access.
+func (r *Runner) RequiresWorkspace(agentID string) (bool, error) {
+	spec, err := r.registry.Get(agentID)
+	if err != nil {
+		return false, err
+	}
+	return agentRequiresWorkspace(spec), nil
+}
+
 // Constitution holds the resolved constitution text and provenance.
 type Constitution struct {
 	AgentID string `json:"agent_id"`
@@ -64,6 +78,17 @@ type Constitution struct {
 
 // Config holds runtime configuration for a Runner.
 type Config struct {
+	// BundleFS contains agents/, skills/, and constitutions/. Production callers
+	// use Prism's embedded bundle; tests and development overrides may supply one.
+	BundleFS fs.FS
+	// Bundle metadata is stamped onto every result and event.
+	BundleVersion string
+	BundleDigest  string
+	BundleMode    string
+	// WorkspaceFS is visible only to repository-aware runtime plugins.
+	WorkspaceFS    fs.FS
+	WorkspaceLabel string
+	GitHubToken    string
 	// RootFS is the resolved fs.FS for the project root. When set it takes
 	// priority over RootDir. Set by the CLI via rootresolver after resolving
 	// the --root flag (local path or remote GitHub URL).
@@ -101,12 +126,34 @@ type Config struct {
 	PolicyEngine *internalpolicy.Engine
 }
 
-// rootFS returns the effective root FS: RootFS if set, else os.DirFS(RootDir).
-func (c *Config) rootFS() fs.FS {
+// bundleFS returns the immutable runtime definitions. RootFS/RootDir remain a
+// compatibility fallback for programmatic callers that provide fixture roots.
+func (c *Config) bundleFS() fs.FS {
+	if c.BundleFS != nil {
+		return c.BundleFS
+	}
 	if c.RootFS != nil {
 		return c.RootFS
 	}
-	return os.DirFS(c.RootDir)
+	if c.RootDir != "" {
+		return os.DirFS(c.RootDir)
+	}
+	return prismbundle.BundleFS()
+}
+
+func (c *Config) workspaceFS() fs.FS {
+	if c.WorkspaceFS != nil {
+		return c.WorkspaceFS
+	}
+	if c.BundleFS == nil {
+		if c.RootFS != nil {
+			return c.RootFS
+		}
+		if c.RootDir != "" {
+			return os.DirFS(c.RootDir)
+		}
+	}
+	return nil
 }
 
 // agentFS returns the FS to use for reading agent specs.
@@ -114,10 +161,10 @@ func (c *Config) agentFS() fs.FS {
 	if c.AgentDir != "" {
 		return os.DirFS(c.AgentDir)
 	}
-	sub, err := fs.Sub(c.rootFS(), "agents")
+	sub, err := fs.Sub(c.bundleFS(), "agents")
 	if err != nil {
 		// Should never happen for valid paths; fall back to root.
-		return c.rootFS()
+		return c.bundleFS()
 	}
 	return sub
 }
@@ -127,9 +174,9 @@ func (c *Config) skillsFS() fs.FS {
 	if c.SkillsDir != "" {
 		return os.DirFS(c.SkillsDir)
 	}
-	sub, err := fs.Sub(c.rootFS(), "skills")
+	sub, err := fs.Sub(c.bundleFS(), "skills")
 	if err != nil {
-		return c.rootFS()
+		return c.bundleFS()
 	}
 	return sub
 }
@@ -138,6 +185,9 @@ func (c *Config) skillsFS() fs.FS {
 func (c *Config) agentDirLabel() string {
 	if c.AgentDir != "" {
 		return c.AgentDir
+	}
+	if c.BundleFS != nil {
+		return "embedded://agents"
 	}
 	label := c.RootLabel
 	if label == "" {
@@ -150,6 +200,9 @@ func (c *Config) agentDirLabel() string {
 func (c *Config) skillsDirLabel() string {
 	if c.SkillsDir != "" {
 		return c.SkillsDir
+	}
+	if c.BundleFS != nil {
+		return "embedded://skills"
 	}
 	label := c.RootLabel
 	if label == "" {
@@ -172,17 +225,22 @@ type RunRequest struct {
 	Format string
 	// Metadata is optional caller context used by team dashboards and reports.
 	Metadata observe.Metadata
-	// Optional provenance fields for observability.
-	BundleID      string
-	BundleVersion string
-	GraphID       string
-	GraphNodeID   string
+	// Workspace selects repository evidence for this invocation. It is optional
+	// for agents that do not use repository-aware plugins.
+	Workspace Workspace
+	// Optional graph provenance fields.
+	GraphID     string
+	GraphNodeID string
+}
+
+type Workspace struct {
+	Root string `json:"root"`
 }
 
 // Runner implements AgentRunner on top of a provider-neutral ModelRuntime.
 type Runner struct {
 	cfg      Config
-	rootFS   fs.FS // resolved root FS (cached from cfg)
+	bundleFS fs.FS // resolved agent/skill/constitution bundle
 	skillsFS fs.FS // resolved skills FS (cached from cfg)
 	registry *agent.Registry
 	plugins  *plugins.Registry
@@ -207,6 +265,15 @@ var _ AgentRunner = (*Runner)(nil)
 // New creates a Runner from cfg, loads all agent specs, and returns.
 // It fails fast if the agent directory cannot be read or any spec is invalid.
 func New(cfg Config) (*Runner, error) {
+	if cfg.BundleVersion == "" {
+		cfg.BundleVersion = buildinfo.Current().Version
+	}
+	if cfg.BundleMode == "" {
+		cfg.BundleMode = "embedded"
+	}
+	if cfg.BundleDigest == "" {
+		cfg.BundleDigest = prismbundle.DigestFS(cfg.bundleFS())
+	}
 	agentFS := cfg.agentFS()
 	reg := agent.NewRegistry(agentFS)
 	if err := reg.Load(); err != nil {
@@ -214,7 +281,7 @@ func New(cfg Config) (*Runner, error) {
 	}
 	pluginRegistry := cfg.RuntimePlugins
 	if pluginRegistry == nil {
-		pluginRegistry = defaultRuntimePlugins(cfg.rootFS(), cfg.DownstreamMCP)
+		pluginRegistry = defaultRuntimePlugins(cfg.workspaceFS(), cfg.DownstreamMCP)
 	}
 	eventSink := cfg.EventSink
 	if eventSink == nil {
@@ -231,7 +298,7 @@ func New(cfg Config) (*Runner, error) {
 	}
 	return &Runner{
 		cfg:      cfg,
-		rootFS:   cfg.rootFS(),
+		bundleFS: cfg.bundleFS(),
 		skillsFS: cfg.skillsFS(),
 		registry: reg,
 		plugins:  pluginRegistry,
@@ -244,15 +311,15 @@ func New(cfg Config) (*Runner, error) {
 }
 
 func defaultRuntimePlugins(root fs.FS, downstream DownstreamMCPClient) *plugins.Registry {
-	reg := plugins.NewRegistry(
+	base := []plugins.Plugin{
 		kubeplugin.New(),
-		githublocal.New(root),
-		localdocs.New(root),
-		filesystem.New(root),
-		goproject.New(root),
 		linear.New(),
 		mcpbridge.New(downstream),
-	)
+	}
+	if root != nil {
+		base = append(base, githublocal.New(root), localdocs.New(root), filesystem.New(root), goproject.New(root))
+	}
+	reg := plugins.NewRegistry(base...)
 	reg.Alias("kubectl", "kubernetes")
 	reg.Alias("docs", "localdocs")
 	reg.Alias("fs", "filesystem")
@@ -280,7 +347,7 @@ func (r *Runner) GetConstitution(_ context.Context, agentID string) (Constitutio
 		return Constitution{}, err
 	}
 
-	text, src, err := spec.ResolveConstitution(r.rootFS)
+	text, src, err := spec.ResolveConstitution(r.bundleFS)
 	if err != nil {
 		return Constitution{}, fmt.Errorf("resolving constitution for %s: %w", agentID, err)
 	}
@@ -314,6 +381,10 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 	start := time.Now()
 	runID := newRunID()
 	emit := func(res result.RunResult) result.RunResult {
+		res.BundleID = "prism"
+		res.BundleVersion = r.cfg.BundleVersion
+		res.BundleDigest = r.cfg.BundleDigest
+		res.BundleMode = r.cfg.BundleMode
 		_ = r.events.ObserveRun(context.WithoutCancel(ctx), runEventFromResult(runID, req, res))
 		return res
 	}
@@ -322,6 +393,11 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 	spec, err := r.registry.Get(req.AgentID)
 	if err != nil {
 		return emit(result.Error(req.AgentID, "", err.Error(), time.Since(start))), nil
+	}
+	if req.Workspace.Root == "" && r.cfg.workspaceFS() == nil && agentRequiresWorkspace(spec) {
+		res := r.validationFail(req.AgentID, spec.Model, start,
+			"this specialist requires repository access; provide workspace.root, advertise one MCP root, or start the server with --root")
+		return emit(res), nil
 	}
 
 	// ── 2. Require at least one skill ─────────────────────────────────────
@@ -352,7 +428,7 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 			Plugins:              append([]string{}, spec.Tools...),
 			Source:               req.Metadata.Source,
 			WorkspaceID:          req.Metadata.WorkspaceID,
-			BundleID:             req.BundleID,
+			BundleID:             "prism",
 			RemoteModelRequested: isRemoteModelRuntime(r.cfg.OllamaHost),
 		})
 		if internalpolicy.IsBlocking(policyDecision) {
@@ -361,14 +437,12 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 			res.ContextBudget = spec.ContextBudget
 			res.PolicyDecision = policyDecision.Decision
 			res.PolicyReason = policyDecision.Reason
-			res.BundleID = req.BundleID
-			res.BundleVersion = req.BundleVersion
 			return emit(res), nil
 		}
 	}
 
 	// ── 4. Load constitution ──────────────────────────────────────────────
-	constitutionText, constitutionSrc, err := spec.ResolveConstitution(r.rootFS)
+	constitutionText, constitutionSrc, err := spec.ResolveConstitution(r.bundleFS)
 	if err != nil {
 		res := result.Error(req.AgentID, spec.Model,
 			fmt.Sprintf("resolving constitution: %s", err), time.Since(start))
@@ -398,7 +472,29 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 	}
 
 	// ── 7. Collect bounded runtime evidence for declared tools ────────────
-	evidence := collectRuntimeEvidence(ctx, r.plugins, spec, req.Task)
+	runtimePlugins := r.plugins
+	var workspaceCleanup func()
+	if req.Workspace.Root != "" {
+		workspaceFS, cleanup, resolveErr := rootresolver.Resolve(ctx, req.Workspace.Root, r.cfg.GitHubToken)
+		if resolveErr != nil {
+			return emit(result.Error(req.AgentID, spec.Model,
+				fmt.Sprintf("resolving workspace: %s", resolveErr), time.Since(start))), nil
+		}
+		workspaceCleanup = cleanup
+		runtimePlugins = defaultRuntimePlugins(workspaceFS, r.downmcp)
+	}
+	if workspaceCleanup != nil {
+		defer workspaceCleanup()
+	}
+	if req.Workspace.Root == "" && r.cfg.workspaceFS() == nil {
+		for _, tool := range spec.Tools {
+			if workspacePlugin(tool) {
+				return emit(result.Error(req.AgentID, spec.Model,
+					fmt.Sprintf("workspace.root is required by repository-aware tool %q", tool), time.Since(start))), nil
+			}
+		}
+	}
+	evidence := collectRuntimeEvidence(ctx, runtimePlugins, spec, req.Task)
 	if r.policy != nil {
 		policyDecision = r.policy.Explain(policypkg.Request{
 			AgentID:              req.AgentID,
@@ -406,7 +502,7 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 			Plugins:              append([]string{}, spec.Tools...),
 			Source:               req.Metadata.Source,
 			WorkspaceID:          req.Metadata.WorkspaceID,
-			BundleID:             req.BundleID,
+			BundleID:             "prism",
 			EvidenceBytes:        evidence.byteSize,
 			RemoteModelRequested: isRemoteModelRuntime(r.cfg.OllamaHost),
 		})
@@ -417,8 +513,6 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 			res.ContextBudget = spec.ContextBudget
 			res.PolicyDecision = policyDecision.Decision
 			res.PolicyReason = policyDecision.Reason
-			res.BundleID = req.BundleID
-			res.BundleVersion = req.BundleVersion
 			return emit(res), nil
 		}
 	}
@@ -482,8 +576,6 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 			ContextBudgetExceeded: budgetExceeded,
 			PolicyDecision:        policyDecision.Decision,
 			PolicyReason:          policyDecision.Reason,
-			BundleID:              req.BundleID,
-			BundleVersion:         req.BundleVersion,
 			Usage:                 result.Usage{DurationMS: elapsed.Milliseconds()},
 		}), nil
 	}
@@ -516,9 +608,26 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 		ContextBudgetExceeded: budgetExceeded,
 		PolicyDecision:        policyDecision.Decision,
 		PolicyReason:          policyDecision.Reason,
-		BundleID:              req.BundleID,
-		BundleVersion:         req.BundleVersion,
 	}), nil
+}
+
+func agentRequiresWorkspace(spec *agent.Spec) bool {
+	for _, tool := range spec.Tools {
+		switch tool {
+		case "filesystem", "goproject", "localdocs", "github":
+			return true
+		}
+	}
+	return false
+}
+
+func workspacePlugin(name string) bool {
+	switch name {
+	case "filesystem", "goproject", "localdocs", "github":
+		return true
+	default:
+		return false
+	}
 }
 
 // validationFail constructs a validation_fail result.
@@ -556,6 +665,8 @@ func runEventFromResult(runID string, req RunRequest, res result.RunResult) obse
 		PolicyReason:             res.PolicyReason,
 		BundleID:                 res.BundleID,
 		BundleVersion:            res.BundleVersion,
+		BundleDigest:             res.BundleDigest,
+		BundleMode:               res.BundleMode,
 		ValidationError:          res.ValidationError,
 	}
 	event.Plugins = pluginLabels(res.Artifacts)

@@ -48,7 +48,6 @@ func init() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[prism] config load warning: %v\n", err)
 		loaded = config.Settings{
-			RootDir:    ".",
 			OllamaHost: config.DefaultOllamaHost,
 			StateDir:   ".prism",
 		}
@@ -56,7 +55,7 @@ func init() {
 	cfg = loaded
 
 	rootCmd.PersistentFlags().StringVar(&gf.rootDir, "root", cfg.RootDir,
-		"Project root — local path or github.com URL. URLs are read via the GitHub Contents API (set GITHUB_TOKEN or GH_TOKEN) with git clone fallback.")
+		"Optional workspace fallback — local path or github.com URL (CLI commands use the current directory when needed)")
 	rootCmd.PersistentFlags().StringVar(&gf.agentDir, "agent-dir", cfg.AgentDir,
 		"Agent spec directory (default: <root>/agents)")
 	rootCmd.PersistentFlags().StringVar(&gf.skillsDir, "skills-dir", cfg.SkillsDir,
@@ -81,12 +80,13 @@ func init() {
 	rootCmd.AddCommand(newPolicyCmd())
 	rootCmd.AddCommand(newRouteCmd())
 	rootCmd.AddCommand(newSkillCmd())
-	rootCmd.AddCommand(newBundleCmd())
-	rootCmd.AddCommand(newRegistryCmd())
 	rootCmd.AddCommand(newGraphCmd())
 	rootCmd.AddCommand(newDashboardCmd())
 	rootCmd.AddCommand(newReportCmd())
 	rootCmd.AddCommand(newInstructionsCmd())
+	rootCmd.AddCommand(newVersionCmd())
+	rootCmd.AddCommand(newInstallCmd())
+	rootCmd.AddCommand(newUninstallCmd())
 }
 
 func verboseLog(format string, args ...interface{}) {
@@ -100,14 +100,6 @@ func eventStorePath() string {
 		return gf.eventStore
 	}
 	return filepath.Join(gf.stateDir, "events.db")
-}
-
-func installedBundlesPath() string {
-	return filepath.Join(gf.stateDir, "bundles.yaml")
-}
-
-func registrySourcesPath() string {
-	return filepath.Join(gf.stateDir, "registry-sources.yaml")
 }
 
 func mcpServersPath() string {

@@ -10,7 +10,7 @@ Prism is now structured as a local-first AI offload control plane. The editor or
 - Policy: optional YAML governance that can deny or require approval before plugin/model execution.
 - Events: optional local SQLite run history with metadata only by default.
 - Router: deterministic rule-based route suggestions.
-- Bundles: local registry-source commands plus signed registry manifest verification/install.
+- Release bundle: immutable agents, skills, and supporting content embedded in the compiled release, with release identity and deterministic content provenance. The former signed runtime registry has been retired.
 - Graphs: bounded DAG validation, graph-level policy prechecks, sequential execution through the shared runner, and graph aggregate events.
 - Dashboard and reports: local event-store summaries for runs, graph executions, policy denials, plugins, bundles, and validation failures.
 
@@ -29,5 +29,9 @@ The first full product proof is the Kubernetes incident offload path:
 3. The Kubernetes plugin emits bounded text evidence plus a typed evidence pack artifact.
 4. The local specialist returns a compact result envelope.
 5. Optional event storage records run metadata.
-6. The signed `k8s-core-triage` registry fixture proves verified bundle distribution.
+6. Release identity and the embedded content digest identify the bundled specialist content.
 7. The dashboard and reports summarize usage and estimated savings.
+
+## Agreed extension direction (not yet implemented)
+
+Separately tracked runtime extensions will add uniquely named agents and skills alongside the immutable release bundle. They extend Prism execution; exporting them into editor hosts and replacing bundled content are deferred. The finalized implementation scope is recorded in [plan.md](../../plan.md).

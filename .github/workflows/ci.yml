@@ -210,7 +210,15 @@ jobs:
           if [ "${GOOS}" = "windows" ]; then
             BIN_NAME="prism.exe"
           fi
-          go build -trimpath -ldflags "-s -w" -o "dist/${BIN_NAME}" ./cmd/prism
+          go build -trimpath -ldflags "-s -w -X github.com/bryanbarton525/prism/internal/buildinfo.Version=${RELEASE_TAG}" -o "dist/${BIN_NAME}" ./cmd/prism
+
+          if [ "${GOOS}" = "linux" ] && [ "${GOARCH}" = "amd64" ]; then
+            VERSION_JSON="$("dist/${BIN_NAME}" version --json)"
+            REPORTED_VERSION="$(printf '%s' "${VERSION_JSON}" | sed -n 's/.*"prism_version": "\([^"]*\)".*/\1/p')"
+            REPORTED_BUNDLE="$(printf '%s' "${VERSION_JSON}" | sed -n 's/.*"bundle_version": "\([^"]*\)".*/\1/p')"
+            test "${REPORTED_VERSION}" = "${RELEASE_TAG}"
+            test "${REPORTED_BUNDLE}" = "${RELEASE_TAG}"
+          fi
 
       - name: Package artifact
         env:

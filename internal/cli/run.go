@@ -9,17 +9,14 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bryanbarton525/prism/internal/app"
-	"github.com/bryanbarton525/prism/internal/bundles"
 	"github.com/bryanbarton525/prism/pkg/observe"
 )
 
 type runFlags struct {
-	skills        []string
-	input         string
-	stdin         bool
-	format        string
-	bundleID      string
-	bundleVersion string
+	skills []string
+	input  string
+	stdin  bool
+	format string
 }
 
 func newRunCmd() *cobra.Command {
@@ -54,10 +51,6 @@ Examples:
 		"Read task text from stdin")
 	cmd.Flags().StringVar(&rf.format, "format", "json",
 		`Output format: "json" or "markdown"`)
-	cmd.Flags().StringVar(&rf.bundleID, "bundle-id", "",
-		"Installed bundle ID to attribute this run to and check in policy")
-	cmd.Flags().StringVar(&rf.bundleVersion, "bundle-version", "",
-		"Bundle version for run attribution; defaults to installed version for --bundle-id")
 	return cmd
 }
 
@@ -70,11 +63,6 @@ func runAgent(ctx context.Context, agentID string, rf runFlags) error {
 	if err != nil {
 		return err
 	}
-	bundleID, bundleVersion, err := resolveBundleProvenance(installedBundlesPath(), rf.bundleID, rf.bundleVersion)
-	if err != nil {
-		return err
-	}
-
 	verboseLog("agent: %s  skills: %v  format: %s", agentID, rf.skills, rf.format)
 
 	runner, cleanup, err := newRunner(ctx)
@@ -84,13 +72,11 @@ func runAgent(ctx context.Context, agentID string, rf runFlags) error {
 	defer cleanup()
 
 	res, err := runner.Run(ctx, app.RunRequest{
-		AgentID:       agentID,
-		Task:          task,
-		SkillNames:    rf.skills,
-		Format:        rf.format,
-		Metadata:      observe.Metadata{Source: "cli"},
-		BundleID:      bundleID,
-		BundleVersion: bundleVersion,
+		AgentID:    agentID,
+		Task:       task,
+		SkillNames: rf.skills,
+		Format:     rf.format,
+		Metadata:   observe.Metadata{Source: "cli"},
 	})
 	if err != nil {
 		return fmt.Errorf("run failed: %w", err)
@@ -107,28 +93,6 @@ func runAgent(ctx context.Context, agentID string, rf runFlags) error {
 		fmt.Println(string(data))
 	}
 	return nil
-}
-
-func resolveBundleProvenance(statePath, bundleID, bundleVersion string) (string, string, error) {
-	if bundleID == "" {
-		if bundleVersion != "" {
-			return "", "", fmt.Errorf("--bundle-version requires --bundle-id")
-		}
-		return "", "", nil
-	}
-	if bundleVersion != "" {
-		return bundleID, bundleVersion, nil
-	}
-	state, err := bundles.Load(statePath)
-	if err != nil {
-		return "", "", fmt.Errorf("loading installed bundle state: %w", err)
-	}
-	for _, bundle := range state.Bundles {
-		if bundle.ID == bundleID {
-			return bundle.ID, bundle.Version, nil
-		}
-	}
-	return "", "", fmt.Errorf("bundle %q is not installed; pass --bundle-version explicitly or install the bundle first", bundleID)
 }
 
 func resolveTask(rf runFlags) (string, error) {

@@ -72,9 +72,6 @@ func newViper() *viper.Viper {
 
 func settingsFrom(v *viper.Viper, fileEnv map[string]string) Settings {
 	rootDir := configValue(v, fileEnv, "root", "PRISM_ROOT")
-	if rootDir == "" {
-		rootDir = defaultRoot()
-	}
 	stateDir := configValue(v, fileEnv, "state_dir", "PRISM_STATE_DIR")
 	if stateDir == "" {
 		stateDir = defaultStateDir()
@@ -219,13 +216,6 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
-}
-
-func defaultRoot() string {
-	if cwd, err := os.Getwd(); err == nil {
-		return cwd
-	}
-	return "."
 }
 
 func defaultStateDir() string {

@@ -49,7 +49,7 @@ Example Cursor mcp.json:
 				return err
 			}
 			defer closeEventSink()
-			runner, cleanup, err := newRunnerWithControls(cmd.Context(), eventSink, policyEngine)
+			runner, cleanup, err := newRunnerWithControls(cmd.Context(), eventSink, policyEngine, false)
 			if err != nil {
 				return fmt.Errorf("initializing runtime: %w", err)
 			}
@@ -62,22 +62,25 @@ Example Cursor mcp.json:
 			} else {
 				logger.Printf("ollama: %s", gf.ollamaHost)
 			}
-			logger.Printf("root: %s", gf.rootDir)
+			if gf.rootDir != "" {
+				logger.Printf("workspace fallback: %s", gf.rootDir)
+			} else {
+				logger.Printf("workspace fallback: none")
+			}
 			logger.Printf("agents: %s", resolvedAgentDir())
-			logger.Println("tools: list_agents, run_agent, get_constitution, doctor, suggest_route, run_graph, explain_policy, list_policies, list_bundles, install_bundle, get_usage_summary, get_skill_health, list_mcp_servers, list_mcp_server_tools, call_mcp_tool")
+			logger.Println("tools: list_agents, run_agent, get_constitution, doctor, suggest_route, run_graph, explain_policy, list_policies, get_usage_summary, get_skill_health, list_mcp_servers, list_mcp_server_tools, call_mcp_tool")
 
 			downstreamState, err := configuredDownstreamMCPState()
 			if err != nil {
 				return fmt.Errorf("loading downstream MCP servers: %w", err)
 			}
 			if err := mcp.ServeWithConfig(context.Background(), runner, mcp.Config{
-				Policy:          policyEngine,
-				EventSink:       eventSink,
-				DownstreamMCP:   downstreammcp.New(downstreamState),
-				BundleStatePath: installedBundlesPath(),
-				EventStorePath:  eventStorePath(),
-				RootDir:         gf.rootDir,
-				SkillsDir:       gf.skillsDirOrDefault(),
+				Policy:         policyEngine,
+				EventSink:      eventSink,
+				DownstreamMCP:  downstreammcp.New(downstreamState),
+				EventStorePath: eventStorePath(),
+				RootDir:        gf.rootDir,
+				SkillsDir:      gf.skillsDir,
 			}); err != nil {
 				return fmt.Errorf("mcp server: %w", err)
 			}

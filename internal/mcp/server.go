@@ -6,15 +6,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	prismbundle "github.com/bryanbarton525/prism"
 	"github.com/bryanbarton525/prism/internal/agent"
 	"github.com/bryanbarton525/prism/internal/app"
-	"github.com/bryanbarton525/prism/internal/bundles"
+	"github.com/bryanbarton525/prism/internal/buildinfo"
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
 	"github.com/bryanbarton525/prism/internal/events"
 	internalgraph "github.com/bryanbarton525/prism/internal/graph"
@@ -27,10 +29,7 @@ import (
 	policypkg "github.com/bryanbarton525/prism/pkg/policy"
 )
 
-const (
-	serverName    = "prism"
-	serverVersion = "v0.1.0"
-)
+const serverName = "prism"
 
 // Serve starts the MCP server over stdio until the client disconnects.
 func Serve(ctx context.Context, runner app.AgentRunner) error {
@@ -38,19 +37,19 @@ func Serve(ctx context.Context, runner app.AgentRunner) error {
 }
 
 type Config struct {
-	Policy          *internalpolicy.Engine
-	EventSink       observe.Sink
-	DownstreamMCP   *downstreammcp.Client
-	BundleStatePath string
-	EventStorePath  string
-	RootDir         string
-	SkillsDir       string
+	Policy         *internalpolicy.Engine
+	EventSink      observe.Sink
+	DownstreamMCP  *downstreammcp.Client
+	EventStorePath string
+	RootDir        string
+	SkillsDir      string
+	SkillsFS       fs.FS
 }
 
 func ServeWithConfig(ctx context.Context, runner app.AgentRunner, cfg Config) error {
 	srv := mcpsdk.NewServer(&mcpsdk.Implementation{
 		Name:    serverName,
-		Version: serverVersion,
+		Version: buildinfo.Current().Version,
 	}, nil)
 	registerTools(srv, runner, cfg)
 	return srv.Run(ctx, &mcpsdk.StdioTransport{})
@@ -65,7 +64,7 @@ func registerTools(srv *mcpsdk.Server, runner app.AgentRunner, cfg Config) {
 	mcpsdk.AddTool(srv, &mcpsdk.Tool{
 		Name:        "run_agent",
 		Description: "Invoke a specialist agent with required skill_names and a bounded task.",
-	}, runAgentHandler(runner))
+	}, runAgentHandler(runner, cfg))
 
 	mcpsdk.AddTool(srv, &mcpsdk.Tool{
 		Name:        "get_constitution",
@@ -96,16 +95,6 @@ func registerTools(srv *mcpsdk.Server, runner app.AgentRunner, cfg Config) {
 		Name:        "list_policies",
 		Description: "List configured Prism policy sources visible to this MCP server.",
 	}, listPoliciesHandler(cfg.Policy))
-
-	mcpsdk.AddTool(srv, &mcpsdk.Tool{
-		Name:        "list_bundles",
-		Description: "List installed Prism bundles from local state.",
-	}, listBundlesHandler(cfg))
-
-	mcpsdk.AddTool(srv, &mcpsdk.Tool{
-		Name:        "install_bundle",
-		Description: "Verify and install a signed Prism registry bundle manifest.",
-	}, installBundleHandler(cfg))
 
 	mcpsdk.AddTool(srv, &mcpsdk.Tool{
 		Name:        "get_usage_summary",
@@ -173,16 +162,19 @@ func listAgentsHandler(runner app.AgentRunner) func(context.Context, *mcpsdk.Cal
 }
 
 type RunAgentInput struct {
-	AgentID       string   `json:"agent_id"`
-	Task          string   `json:"task"`
-	SkillNames    []string `json:"skill_names"`
-	Format        string   `json:"format,omitempty"`
-	BundleID      string   `json:"bundle_id,omitempty"`
-	BundleVersion string   `json:"bundle_version,omitempty"`
+	AgentID    string          `json:"agent_id"`
+	Task       string          `json:"task"`
+	SkillNames []string        `json:"skill_names"`
+	Format     string          `json:"format,omitempty"`
+	Workspace  *WorkspaceInput `json:"workspace,omitempty"`
 }
 
-func runAgentHandler(runner app.AgentRunner) func(context.Context, *mcpsdk.CallToolRequest, RunAgentInput) (*mcpsdk.CallToolResult, result.RunResult, error) {
-	return func(ctx context.Context, _ *mcpsdk.CallToolRequest, input RunAgentInput) (*mcpsdk.CallToolResult, result.RunResult, error) {
+type WorkspaceInput struct {
+	Root string `json:"root"`
+}
+
+func runAgentHandler(runner app.AgentRunner, cfg Config) func(context.Context, *mcpsdk.CallToolRequest, RunAgentInput) (*mcpsdk.CallToolResult, result.RunResult, error) {
+	return func(ctx context.Context, request *mcpsdk.CallToolRequest, input RunAgentInput) (*mcpsdk.CallToolResult, result.RunResult, error) {
 		if input.AgentID == "" {
 			return nil, result.RunResult{}, fmt.Errorf("run_agent: agent_id is required")
 		}
@@ -196,20 +188,82 @@ func runAgentHandler(runner app.AgentRunner) func(context.Context, *mcpsdk.CallT
 		if format == "" {
 			format = "json"
 		}
+		workspaceRoot := ""
+		if input.Workspace != nil || runnerRequiresWorkspace(runner, input.AgentID) {
+			var err error
+			workspaceRoot, err = resolveWorkspace(ctx, request, input.Workspace, cfg.RootDir)
+			if err != nil {
+				return nil, result.RunResult{}, err
+			}
+		}
 		res, err := runner.Run(ctx, app.RunRequest{
-			AgentID:       input.AgentID,
-			Task:          input.Task,
-			SkillNames:    input.SkillNames,
-			Format:        format,
-			Metadata:      observe.Metadata{Source: "mcp"},
-			BundleID:      input.BundleID,
-			BundleVersion: input.BundleVersion,
+			AgentID:    input.AgentID,
+			Task:       input.Task,
+			SkillNames: input.SkillNames,
+			Format:     format,
+			Metadata:   observe.Metadata{Source: "mcp"},
+			Workspace:  app.Workspace{Root: workspaceRoot},
 		})
 		if err != nil {
 			return nil, result.RunResult{}, err
 		}
 		return textResult(marshalJSON(res)), res, nil
 	}
+}
+
+func runnerRequiresWorkspace(runner app.AgentRunner, agentID string) bool {
+	type requirement interface {
+		RequiresWorkspace(string) (bool, error)
+	}
+	if aware, ok := runner.(requirement); ok {
+		required, err := aware.RequiresWorkspace(agentID)
+		return err != nil || required
+	}
+	return true
+}
+
+func resolveWorkspace(ctx context.Context, request *mcpsdk.CallToolRequest, explicit *WorkspaceInput, fallback string) (string, error) {
+	if explicit != nil {
+		if strings.TrimSpace(explicit.Root) == "" {
+			return "", fmt.Errorf("run_agent: workspace.root must not be empty")
+		}
+		return canonicalWorkspace(explicit.Root)
+	}
+	if request != nil && request.Session != nil {
+		listed, err := request.Session.ListRoots(ctx, nil)
+		if err == nil && listed != nil {
+			switch len(listed.Roots) {
+			case 1:
+				parsed, parseErr := url.Parse(listed.Roots[0].URI)
+				if parseErr != nil || parsed.Scheme != "file" {
+					return "", fmt.Errorf("run_agent: MCP root must be a local file URI")
+				}
+				return canonicalWorkspace(filepath.FromSlash(parsed.Path))
+			case 0:
+			default:
+				return "", fmt.Errorf("run_agent: MCP host advertised multiple roots; select one with workspace.root")
+			}
+		}
+	}
+	return fallback, nil
+}
+
+func canonicalWorkspace(root string) (string, error) {
+	if !filepath.IsAbs(root) {
+		return "", fmt.Errorf("run_agent: workspace.root must be an absolute local path")
+	}
+	clean, err := filepath.EvalSymlinks(filepath.Clean(root))
+	if err != nil {
+		return "", fmt.Errorf("run_agent: resolving workspace.root: %w", err)
+	}
+	info, err := os.Stat(clean)
+	if err != nil {
+		return "", fmt.Errorf("run_agent: reading workspace.root: %w", err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("run_agent: workspace.root must name a directory")
+	}
+	return clean, nil
 }
 
 type GetConstitutionInput struct {
@@ -293,54 +347,6 @@ type ListPoliciesOutput struct {
 	Reason     string `json:"reason"`
 }
 
-type ListBundlesInput struct{}
-
-func listBundlesHandler(cfg Config) func(context.Context, *mcpsdk.CallToolRequest, ListBundlesInput) (*mcpsdk.CallToolResult, bundles.State, error) {
-	return func(_ context.Context, _ *mcpsdk.CallToolRequest, _ ListBundlesInput) (*mcpsdk.CallToolResult, bundles.State, error) {
-		if cfg.BundleStatePath == "" {
-			return nil, bundles.State{}, fmt.Errorf("bundle state path is not configured")
-		}
-		state, err := bundles.Load(cfg.BundleStatePath)
-		if err != nil {
-			return nil, bundles.State{}, err
-		}
-		return textResult(marshalJSON(state)), state, nil
-	}
-}
-
-type InstallBundleInput struct {
-	ManifestPath string `json:"manifest_path"`
-	SourceRoot   string `json:"source_root,omitempty"`
-	DestRoot     string `json:"dest_root,omitempty"`
-	PublicKey    string `json:"public_key"`
-	PrismVersion string `json:"prism_version,omitempty"`
-}
-
-func installBundleHandler(cfg Config) func(context.Context, *mcpsdk.CallToolRequest, InstallBundleInput) (*mcpsdk.CallToolResult, map[string]any, error) {
-	return func(_ context.Context, _ *mcpsdk.CallToolRequest, input InstallBundleInput) (*mcpsdk.CallToolResult, map[string]any, error) {
-		if cfg.BundleStatePath == "" {
-			return nil, nil, fmt.Errorf("bundle state path is not configured")
-		}
-		destRoot := input.DestRoot
-		if destRoot == "" {
-			destRoot = cfg.RootDir
-		}
-		manifest, err := bundles.InstallVerified(bundles.InstallOptions{
-			ManifestPath: input.ManifestPath,
-			SourceRoot:   input.SourceRoot,
-			DestRoot:     destRoot,
-			StatePath:    cfg.BundleStatePath,
-			PublicKey:    input.PublicKey,
-			PrismVersion: input.PrismVersion,
-		})
-		if err != nil {
-			return nil, nil, err
-		}
-		out := map[string]any{"installed": true, "registry_id": manifest.RegistryID, "version": manifest.Version, "bundles": manifest.Bundles}
-		return textResult(marshalJSON(out)), out, nil
-	}
-}
-
 type UsageSummaryInput struct{}
 
 func usageSummaryHandler(cfg Config) func(context.Context, *mcpsdk.CallToolRequest, UsageSummaryInput) (*mcpsdk.CallToolResult, events.Summary, error) {
@@ -381,14 +387,14 @@ type SkillHealth struct {
 
 func skillHealthHandler(cfg Config) func(context.Context, *mcpsdk.CallToolRequest, SkillHealthInput) (*mcpsdk.CallToolResult, SkillHealthOutput, error) {
 	return func(_ context.Context, _ *mcpsdk.CallToolRequest, input SkillHealthInput) (*mcpsdk.CallToolResult, SkillHealthOutput, error) {
-		root := cfg.SkillsDir
-		if root == "" && cfg.RootDir != "" {
-			root = filepath.Join(cfg.RootDir, "skills")
+		fsys := cfg.SkillsFS
+		if fsys == nil && cfg.SkillsDir != "" {
+			fsys = os.DirFS(cfg.SkillsDir)
 		}
-		if root == "" {
-			return nil, SkillHealthOutput{}, fmt.Errorf("skills directory is not configured")
+		if fsys == nil {
+			fsys, _ = fs.Sub(prismbundle.BundleFS(), "skills")
 		}
-		items, err := collectSkillHealth(root, input.SkillName)
+		items, err := collectSkillHealthFS(fsys, input.SkillName)
 		if err != nil {
 			return nil, SkillHealthOutput{}, err
 		}
@@ -398,11 +404,15 @@ func skillHealthHandler(cfg Config) func(context.Context, *mcpsdk.CallToolReques
 }
 
 func collectSkillHealth(root, only string) ([]SkillHealth, error) {
+	return collectSkillHealthFS(os.DirFS(root), only)
+}
+
+func collectSkillHealthFS(fsys fs.FS, only string) ([]SkillHealth, error) {
 	var names []string
 	if only != "" {
 		names = []string{only}
 	} else {
-		entries, err := os.ReadDir(root)
+		entries, err := fs.ReadDir(fsys, ".")
 		if err != nil {
 			return nil, err
 		}
@@ -412,7 +422,6 @@ func collectSkillHealth(root, only string) ([]SkillHealth, error) {
 			}
 		}
 	}
-	fsys := os.DirFS(root)
 	out := make([]SkillHealth, 0, len(names))
 	for _, name := range names {
 		item := SkillHealth{Name: name, OK: true}

@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
+	prismbundle "github.com/bryanbarton525/prism"
 	"github.com/bryanbarton525/prism/internal/app"
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
 	"github.com/bryanbarton525/prism/internal/events"
@@ -193,7 +195,7 @@ func newRunner(ctx context.Context) (*app.Runner, func(), error) {
 		closeEventSink()
 		return nil, func() {}, err
 	}
-	runner, cleanup, err := newRunnerWithControls(ctx, sink, policyEngine)
+	runner, cleanup, err := newRunnerWithControls(ctx, sink, policyEngine, true)
 	if err != nil {
 		closeEventSink()
 		return nil, func() {}, err
@@ -204,10 +206,23 @@ func newRunner(ctx context.Context) (*app.Runner, func(), error) {
 	}, nil
 }
 
-func newRunnerWithControls(ctx context.Context, sink observe.Sink, policyEngine *internalpolicy.Engine) (*app.Runner, func(), error) {
-	rootFS, cleanup, err := rootresolver.Resolve(ctx, gf.rootDir, cfg.GitHubToken)
-	if err != nil {
-		return nil, func() {}, fmt.Errorf("resolving root %q: %w", gf.rootDir, err)
+func newRunnerWithControls(ctx context.Context, sink observe.Sink, policyEngine *internalpolicy.Engine, useCWD bool) (*app.Runner, func(), error) {
+	workspaceRoot := gf.rootDir
+	if workspaceRoot == "" && useCWD {
+		var err error
+		workspaceRoot, err = os.Getwd()
+		if err != nil {
+			return nil, func() {}, fmt.Errorf("getting current directory: %w", err)
+		}
+	}
+	var workspaceFS fs.FS
+	cleanup := func() {}
+	if workspaceRoot != "" {
+		var err error
+		workspaceFS, cleanup, err = rootresolver.Resolve(ctx, workspaceRoot, cfg.GitHubToken)
+		if err != nil {
+			return nil, func() {}, fmt.Errorf("resolving workspace %q: %w", workspaceRoot, err)
+		}
 	}
 	mcpState, err := configuredDownstreamMCPState()
 	if err != nil {
@@ -219,16 +234,36 @@ func newRunnerWithControls(ctx context.Context, sink observe.Sink, policyEngine 
 		cleanup()
 		return nil, func() {}, err
 	}
+	bundleMode := "embedded"
+	bundleDigest := ""
+	if gf.agentDir != "" || gf.skillsDir != "" {
+		bundleMode = "development"
+		embedded := prismbundle.BundleFS()
+		agentsFS, _ := fs.Sub(embedded, "agents")
+		skillsFS, _ := fs.Sub(embedded, "skills")
+		constitutionsFS, _ := fs.Sub(embedded, "constitutions")
+		if gf.agentDir != "" {
+			agentsFS = os.DirFS(gf.agentDir)
+		}
+		if gf.skillsDir != "" {
+			skillsFS = os.DirFS(gf.skillsDir)
+		}
+		bundleDigest = prismbundle.DigestParts(map[string]fs.FS{"agents": agentsFS, "skills": skillsFS, "constitutions": constitutionsFS})
+	}
 	runner, err := app.New(app.Config{
-		RootFS:        rootFS,
-		RootLabel:     gf.rootDir,
-		AgentDir:      gf.agentDir,
-		SkillsDir:     gf.skillsDir,
-		OllamaHost:    gf.ollamaHost,
-		EventSink:     sink,
-		PolicyEngine:  policyEngine,
-		DownstreamMCP: downstreammcp.New(mcpState),
-		ModelRuntime:  modelRuntime,
+		BundleFS:       prismbundle.BundleFS(),
+		BundleDigest:   bundleDigest,
+		BundleMode:     bundleMode,
+		WorkspaceFS:    workspaceFS,
+		WorkspaceLabel: workspaceRoot,
+		GitHubToken:    cfg.GitHubToken,
+		AgentDir:       gf.agentDir,
+		SkillsDir:      gf.skillsDir,
+		OllamaHost:     gf.ollamaHost,
+		EventSink:      sink,
+		PolicyEngine:   policyEngine,
+		DownstreamMCP:  downstreammcp.New(mcpState),
+		ModelRuntime:   modelRuntime,
 	})
 	if err != nil {
 		cleanup()
@@ -263,5 +298,5 @@ func resolvedAgentDir() string {
 	if gf.agentDir != "" {
 		return gf.agentDir
 	}
-	return gf.rootDir + "/agents"
+	return "embedded://agents"
 }
