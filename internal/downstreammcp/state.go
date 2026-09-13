@@ -1,12 +1,9 @@
 package downstreammcp
 
 import (
+	"context"
 	"errors"
-	"os"
-	"path/filepath"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -32,29 +29,15 @@ type Server struct {
 }
 
 func Load(path string) (State, error) {
-	data, err := os.ReadFile(path)
+	snapshot, err := NewFileStore(path).Read(context.Background())
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return State{}, nil
-		}
 		return State{}, err
 	}
-	var state State
-	if err := yaml.Unmarshal(data, &state); err != nil {
-		return State{}, err
-	}
-	return state, nil
+	return snapshot.State, nil
 }
 
 func Save(path string, state State) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	data, err := yaml.Marshal(state)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0o600)
+	return writeStateAtomically(path, state)
 }
 
 func (s State) Get(name string) (Server, bool) {
@@ -75,6 +58,17 @@ func (s *State) Upsert(server Server) {
 		}
 	}
 	s.Servers = append(s.Servers, server)
+}
+
+func (s *State) Remove(name string) (Server, bool) {
+	for i := range s.Servers {
+		if s.Servers[i].Name == name {
+			removed := s.Servers[i].withDefaults()
+			s.Servers = append(s.Servers[:i], s.Servers[i+1:]...)
+			return removed, true
+		}
+	}
+	return Server{}, false
 }
 
 func (s State) PublicServers() []Server {
@@ -112,4 +106,25 @@ func (s Server) withDefaults() Server {
 		s.MaxBytes = DefaultMaxBytes
 	}
 	return s
+}
+
+func (s Server) equals(other Server) bool {
+	left := s.withDefaults()
+	right := other.withDefaults()
+	if left.Name != right.Name ||
+		left.Transport != right.Transport ||
+		left.Command != right.Command ||
+		left.URL != right.URL ||
+		left.TimeoutMS != right.TimeoutMS ||
+		left.MaxBytes != right.MaxBytes ||
+		left.Description != right.Description ||
+		len(left.Args) != len(right.Args) {
+		return false
+	}
+	for i := range left.Args {
+		if left.Args[i] != right.Args[i] {
+			return false
+		}
+	}
+	return true
 }

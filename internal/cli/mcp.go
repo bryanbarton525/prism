@@ -106,6 +106,7 @@ func newMCPServerCmd() *cobra.Command {
 func newMCPServerAddCommandCmd() *cobra.Command {
 	var timeoutMS int
 	var maxBytes int
+	var replace bool
 	cmd := &cobra.Command{
 		Use:   "add-command [flags] <name> <command> [args...]",
 		Short: "Add a downstream MCP server launched as a command",
@@ -121,10 +122,6 @@ flags such as --timeout-ms and --max-bytes must come BEFORE <name>:
 			if err := rejectMisplacedPrismFlags(args); err != nil {
 				return err
 			}
-			state, err := downstreammcp.Load(mcpServersPath())
-			if err != nil {
-				return err
-			}
 			server := downstreammcp.Server{
 				Name:      args[0],
 				Transport: downstreammcp.TransportCommand,
@@ -136,16 +133,16 @@ flags such as --timeout-ms and --max-bytes must come BEFORE <name>:
 			if err := server.Validate(); err != nil {
 				return err
 			}
-			state.Upsert(server)
-			if err := downstreammcp.Save(mcpServersPath(), state); err != nil {
+			result, err := downstreammcp.NewService(mcpServersPath()).AddOrUpdate(context.Background(), server, replace)
+			if err != nil {
 				return err
 			}
-			fmt.Printf("downstream MCP server %s saved\n", server.Name)
-			return nil
+			return printDownstreamMCPMutation(server.Name, result.Outcome)
 		},
 	}
 	cmd.Flags().IntVar(&timeoutMS, "timeout-ms", downstreammcp.DefaultTimeoutMS, "Per-call timeout in milliseconds")
 	cmd.Flags().IntVar(&maxBytes, "max-bytes", downstreammcp.DefaultMaxBytes, "Maximum returned content bytes")
+	cmd.Flags().BoolVar(&replace, "replace", false, "Replace existing server with same name")
 	cmd.Flags().SetInterspersed(false)
 	return cmd
 }
@@ -171,15 +168,12 @@ func rejectMisplacedPrismFlags(args []string) error {
 func newMCPServerAddSSECmd() *cobra.Command {
 	var timeoutMS int
 	var maxBytes int
+	var replace bool
 	cmd := &cobra.Command{
 		Use:   "add-sse <name> <url>",
 		Short: "Add a downstream MCP server using SSE transport",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
-			state, err := downstreammcp.Load(mcpServersPath())
-			if err != nil {
-				return err
-			}
 			server := downstreammcp.Server{
 				Name:      args[0],
 				Transport: downstreammcp.TransportSSE,
@@ -190,17 +184,35 @@ func newMCPServerAddSSECmd() *cobra.Command {
 			if err := server.Validate(); err != nil {
 				return err
 			}
-			state.Upsert(server)
-			if err := downstreammcp.Save(mcpServersPath(), state); err != nil {
+			result, err := downstreammcp.NewService(mcpServersPath()).AddOrUpdate(context.Background(), server, replace)
+			if err != nil {
 				return err
 			}
-			fmt.Printf("downstream MCP server %s saved\n", server.Name)
-			return nil
+			return printDownstreamMCPMutation(server.Name, result.Outcome)
 		},
 	}
 	cmd.Flags().IntVar(&timeoutMS, "timeout-ms", downstreammcp.DefaultTimeoutMS, "Per-call timeout in milliseconds")
 	cmd.Flags().IntVar(&maxBytes, "max-bytes", downstreammcp.DefaultMaxBytes, "Maximum returned content bytes")
+	cmd.Flags().BoolVar(&replace, "replace", false, "Replace existing server with same name")
 	return cmd
+}
+
+func printDownstreamMCPMutation(name, outcome string) error {
+	switch outcome {
+	case downstreammcp.OutcomeCreated:
+		fmt.Printf("downstream MCP server %s created\n", name)
+		return nil
+	case downstreammcp.OutcomeUnchanged:
+		fmt.Printf("downstream MCP server %s unchanged\n", name)
+		return nil
+	case downstreammcp.OutcomeReplaced:
+		fmt.Printf("downstream MCP server %s replaced\n", name)
+		return nil
+	case downstreammcp.OutcomeConflict:
+		return fmt.Errorf("downstream MCP server %s already exists with different settings; rerun with --replace", name)
+	default:
+		return fmt.Errorf("unexpected downstream MCP mutation outcome: %s", outcome)
+	}
 }
 
 func newMCPServerListCmd() *cobra.Command {
