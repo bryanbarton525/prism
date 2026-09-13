@@ -81,6 +81,7 @@ func init() {
 	rootCmd.AddCommand(newRouteCmd())
 	rootCmd.AddCommand(newSkillCmd())
 	rootCmd.AddCommand(newGraphCmd())
+	rootCmd.AddCommand(newGraphifyCmd())
 	rootCmd.AddCommand(newDashboardCmd())
 	rootCmd.AddCommand(newReportCmd())
 	rootCmd.AddCommand(newInstructionsCmd())

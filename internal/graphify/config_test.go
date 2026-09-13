@@ -1,6 +1,7 @@
 package graphify
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -48,5 +49,28 @@ func TestLoadRejectsUnknownFields(t *testing.T) {
 	}
 	if _, err := Load(path); err != nil {
 		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("version: 1\nunknown: true\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected unknown field error")
+	}
+}
+
+func TestCheckReadinessDoesNotTreatMissingIndexAsReady(t *testing.T) {
+	workspace := t.TempDir()
+	binding := &Binding{
+		Workspace: workspace, IndexPath: filepath.Join(workspace, "missing-index"),
+		UpstreamVersion: "1", SchemaVersion: "v1", GenerationFingerprint: "abc",
+	}
+	if ready := CheckReadiness(Config{Version: ConfigVersion, Binding: binding}, workspace, "abc"); ready.Ready {
+		t.Fatal("missing index unexpectedly ready")
+	}
+	if err := os.Mkdir(binding.IndexPath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if ready := CheckReadiness(Config{Version: ConfigVersion, Binding: binding}, workspace, "abc"); !ready.Ready {
+		t.Fatalf("readiness = %#v", ready)
 	}
 }

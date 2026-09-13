@@ -98,6 +98,34 @@ type Config struct {
 	Binding *Binding `yaml:"binding,omitempty" json:"binding,omitempty"`
 }
 
+type Readiness struct {
+	Ready   bool     `json:"ready"`
+	Message string   `json:"message"`
+	Binding *Binding `json:"binding,omitempty"`
+}
+
+// CheckReadiness is read-only. It never downloads dependencies or builds an
+// index; callers must use an explicit setup flow for either action.
+func CheckReadiness(cfg Config, workspace, fingerprint string) Readiness {
+	if cfg.Binding == nil {
+		return Readiness{Message: "Graphify is not configured"}
+	}
+	if err := cfg.Binding.Matches(workspace, fingerprint); err != nil {
+		return Readiness{Message: err.Error(), Binding: cfg.Binding}
+	}
+	info, err := os.Stat(cfg.Binding.IndexPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return Readiness{Message: fmt.Sprintf("Graphify index %q is missing", cfg.Binding.IndexPath), Binding: cfg.Binding}
+		}
+		return Readiness{Message: fmt.Sprintf("inspect Graphify index: %v", err), Binding: cfg.Binding}
+	}
+	if !info.IsDir() {
+		return Readiness{Message: fmt.Sprintf("Graphify index %q is not a directory", cfg.Binding.IndexPath), Binding: cfg.Binding}
+	}
+	return Readiness{Ready: true, Message: "Graphify binding is ready", Binding: cfg.Binding}
+}
+
 func Load(path string) (Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
