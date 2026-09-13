@@ -143,14 +143,18 @@ func runInstall(cmd *cobra.Command, flags installFlags) error {
 			return err
 		}
 		if !flags.project && !flags.global {
-			fmt.Fprint(cmd.OutOrStdout(), "Scope [project/global] (project): ")
-			answer, _ := reader.ReadString('\n')
+			answer, err := readInstallAnswer(reader, cmd, "Scope [project/global] (project): ")
+			if err != nil {
+				return err
+			}
 			if strings.EqualFold(strings.TrimSpace(answer), "global") {
 				scope = installer.Global
 			}
 		}
-		fmt.Fprint(cmd.OutOrStdout(), "Mode [symlink/copy] (symlink): ")
-		answer, _ := reader.ReadString('\n')
+		answer, err := readInstallAnswer(reader, cmd, "Mode [symlink/copy] (symlink): ")
+		if err != nil {
+			return err
+		}
 		flags.copyMode = strings.EqualFold(strings.TrimSpace(answer), "copy")
 	}
 	if len(flags.skills) == 0 && len(flags.specialists) == 0 {
@@ -170,8 +174,10 @@ func runInstall(cmd *cobra.Command, flags installFlags) error {
 	}
 	printInstallPlan(cmd, plan, flags.copyMode)
 	if !flags.yes && !flags.dryRun {
-		fmt.Fprint(cmd.OutOrStdout(), "Apply these changes? [y/N]: ")
-		answer, _ := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
+		answer, err := readInstallAnswer(bufio.NewReader(cmd.InOrStdin()), cmd, "Apply these changes? [y/N]: ")
+		if err != nil {
+			return err
+		}
 		if !strings.EqualFold(strings.TrimSpace(answer), "y") && !strings.EqualFold(strings.TrimSpace(answer), "yes") {
 			return nil
 		}
@@ -184,6 +190,15 @@ func runInstall(cmd *cobra.Command, flags installFlags) error {
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "Installed Prism %s (%s)\nManifest: %s\n", plan.Version, shortDigest(plan.BundleDigest), plan.ManifestPath)
 	return nil
+}
+
+func readInstallAnswer(reader *bufio.Reader, cmd *cobra.Command, prompt string) (string, error) {
+	fmt.Fprint(cmd.OutOrStdout(), prompt)
+	answer, err := reader.ReadString('\n')
+	if err != nil && len(answer) == 0 {
+		return "", fmt.Errorf("reading setup input: %w", err)
+	}
+	return strings.TrimSpace(answer), nil
 }
 
 func newUninstallCmd() *cobra.Command {
@@ -255,11 +270,10 @@ func promptSelect(reader *bufio.Reader, cmd *cobra.Command, title string, values
 		fmt.Fprintf(cmd.OutOrStdout(), "  %d. %s\n", index+1, value)
 	}
 	fmt.Fprint(cmd.OutOrStdout(), "Select comma-separated numbers or 'all': ")
-	answer, err := reader.ReadString('\n')
-	if err != nil && len(answer) == 0 {
+	answer, err := readInstallAnswer(reader, cmd, "")
+	if err != nil {
 		return nil, err
 	}
-	answer = strings.TrimSpace(answer)
 	if strings.EqualFold(answer, "all") {
 		return append([]string{}, values...), nil
 	}

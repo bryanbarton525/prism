@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"bytes"
 	"os"
 	"path/filepath"
@@ -101,5 +102,13 @@ func TestRunInstallAllowsMatchingStateDirAndScope(t *testing.T) {
 	flags := installFlags{runtimeOnly: true, runtimeScope: "user"}
 	if err := runInstall(cmd, flags); err != nil {
 		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestReadInstallAnswerPropagatesEOF(t *testing.T) {
+	cmd := &cobra.Command{}
+	cmd.SetIn(strings.NewReader(""))
+	if _, err := readInstallAnswer(bufio.NewReader(cmd.InOrStdin()), cmd, "Question: "); err == nil {
+		t.Fatal("expected EOF error")
 	}
 }
