@@ -93,7 +93,7 @@ func runInstall(cmd *cobra.Command, flags installFlags) error {
 			return fmt.Errorf("--runtime-skill-all and --runtime-skill-name require --runtime-skill-source")
 		}
 		if flags.dryRun {
-			fmt.Fprintf(cmd.OutOrStdout(), "Would initialize runtime extension state (scope=%s, state-dir=%s). Host installer changes are skipped in this mode.\n", flags.runtimeScope, runtimeStateDir)
+			fmt.Fprintf(cmd.OutOrStdout(), "Would initialize runtime extension state (scope=%s, state-dir=%s). Host installer changes are skipped. Graphify executables, endpoints, and indexes are never installed or built by this command.\n", flags.runtimeScope, runtimeStateDir)
 			return nil
 		}
 		if err := extensions.NewStore(runtimeStateDir).EnsureInitialized(cmd.Context()); err != nil {
@@ -109,7 +109,7 @@ func runInstall(cmd *cobra.Command, flags installFlags) error {
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Activated %d managed runtime skill(s).\n", len(entries))
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "Initialized runtime extension state (scope=%s, state-dir=%s). Host installer changes are skipped in this mode.\n", flags.runtimeScope, runtimeStateDir)
+		fmt.Fprintf(cmd.OutOrStdout(), "Initialized runtime extension state (scope=%s, state-dir=%s). Host installer changes are skipped. Graphify executables, endpoints, bindings, and indexes were not changed.\n", flags.runtimeScope, runtimeStateDir)
 		return nil
 	}
 	skills, specialists, err := installer.Catalog()

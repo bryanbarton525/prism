@@ -42,9 +42,10 @@ func TestValidateToolEnforcesFixedBoundedContract(t *testing.T) {
 
 func TestLoadRejectsUnknownFields(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "graphify.yaml")
+	index := filepath.Join(t.TempDir(), "index")
 	if err := Save(path, Config{Binding: &Binding{
-		Workspace: t.TempDir(), IndexPath: "/tmp/index", UpstreamVersion: "1", SchemaVersion: "v1", GenerationFingerprint: "a",
-	}}); err != nil {
+		Workspace: t.TempDir(), IndexPath: index, UpstreamVersion: "1", SchemaVersion: "v1", GenerationFingerprint: "a",
+	}, OperatorApproved: true}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := Load(path); err != nil {
@@ -63,7 +64,7 @@ func TestEndpointRequiresExplicitServer(t *testing.T) {
 		t.Fatal("expected missing endpoint server error")
 	}
 	path := filepath.Join(t.TempDir(), "graphify.yaml")
-	if err := Save(path, Config{Endpoint: &Endpoint{Server: "graphify"}}); err != nil {
+	if err := Save(path, Config{OperatorApproved: true, Endpoint: &Endpoint{Server: "graphify", Kind: EndpointSelfHosted}}); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := Load(path)
@@ -81,13 +82,61 @@ func TestCheckReadinessDoesNotTreatMissingIndexAsReady(t *testing.T) {
 		Workspace: workspace, IndexPath: filepath.Join(workspace, "missing-index"),
 		UpstreamVersion: "1", SchemaVersion: "v1", GenerationFingerprint: "abc",
 	}
-	if ready := CheckReadiness(Config{Version: ConfigVersion, Binding: binding}, workspace, "abc"); ready.Ready {
+	cfg := Config{
+		Version: ConfigVersion, OperatorApproved: true, Binding: binding,
+		Endpoint: &Endpoint{Server: "graphify", Kind: EndpointSelfHosted},
+	}
+	if ready := CheckReadiness(cfg, workspace, "abc"); ready.Ready {
 		t.Fatal("missing index unexpectedly ready")
 	}
 	if err := os.Mkdir(binding.IndexPath, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if ready := CheckReadiness(Config{Version: ConfigVersion, Binding: binding}, workspace, "abc"); !ready.Ready {
+	if ready := CheckReadiness(cfg, workspace, "abc"); !ready.Ready {
 		t.Fatalf("readiness = %#v", ready)
+	}
+}
+
+func TestEndpointKindsRequireTheirOwnershipMetadata(t *testing.T) {
+	tests := []struct {
+		name     string
+		endpoint Endpoint
+		wantErr  bool
+	}{
+		{name: "local missing executable", endpoint: Endpoint{Server: "graphify", Kind: EndpointLocal}, wantErr: true},
+		{name: "self hosted", endpoint: Endpoint{Server: "graphify", Kind: EndpointSelfHosted}},
+		{name: "managed missing pin", endpoint: Endpoint{Server: "graphify", Kind: EndpointManaged}, wantErr: true},
+		{name: "managed pinned", endpoint: Endpoint{Server: "graphify", Kind: EndpointManaged, Environment: "prod", EnvironmentVersion: "2026.09.1"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.endpoint.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Validate() error = %v, wantErr %t", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCheckReadinessRequiresOperatorApprovalAndSupportedSchema(t *testing.T) {
+	workspace := t.TempDir()
+	index := filepath.Join(workspace, "index")
+	if err := os.Mkdir(index, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := Config{
+		Version: ConfigVersion,
+		Binding: &Binding{
+			Workspace: workspace, IndexPath: index, UpstreamVersion: "1.0.0",
+			SchemaVersion: "v2", GenerationFingerprint: "abc",
+		},
+		Endpoint: &Endpoint{Server: "graphify", Kind: EndpointSelfHosted},
+	}
+	ready := CheckReadiness(cfg, workspace, "abc")
+	if ready.Ready {
+		t.Fatalf("unapproved unsupported configuration ready: %#v", ready)
+	}
+	if len(ready.Checks) < 4 || ready.Checks[0].Name != "operator_approval" || ready.Checks[0].Ready {
+		t.Fatalf("checks = %#v", ready.Checks)
 	}
 }

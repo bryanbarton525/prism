@@ -383,12 +383,12 @@ func TestRunner_Run_RepoInvestigatorUsesOnlyBoundGraphifyTools(t *testing.T) {
 		MCPAccess:           extensions.MCPAccessState{DefaultServers: []string{"unrelated"}},
 		MCPAccessConfigured: true,
 		Graphify: graphify.Config{
-			Version: graphify.ConfigVersion,
+			Version: graphify.ConfigVersion, OperatorApproved: true,
 			Binding: &graphify.Binding{
 				Workspace: workspace, IndexPath: index, UpstreamVersion: "1.0.0",
 				SchemaVersion: "v1", GenerationFingerprint: "generation-1",
 			},
-			Endpoint: &graphify.Endpoint{Server: "graphify"},
+			Endpoint: &graphify.Endpoint{Server: "graphify", Kind: graphify.EndpointSelfHosted},
 		},
 	})
 	if err != nil {
@@ -480,12 +480,12 @@ func TestRunner_Run_RepoInvestigatorRejectsUnavailableOrOversizedGraphify(t *tes
 				BundleFS: prismbundle.BundleFS(), WorkspaceFS: os.DirFS(workspace), WorkspaceLabel: workspace,
 				ModelRuntime: modelRuntime, DownstreamMCP: downstream,
 				Graphify: graphify.Config{
-					Version: graphify.ConfigVersion,
+					Version: graphify.ConfigVersion, OperatorApproved: true,
 					Binding: &graphify.Binding{
 						Workspace: workspace, IndexPath: index, UpstreamVersion: "1.0.0",
 						SchemaVersion: "v1", GenerationFingerprint: "generation-1",
 					},
-					Endpoint: &graphify.Endpoint{Server: "graphify"},
+					Endpoint: &graphify.Endpoint{Server: "graphify", Kind: graphify.EndpointSelfHosted},
 				},
 			})
 			if err != nil {

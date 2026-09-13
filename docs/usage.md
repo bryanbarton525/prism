@@ -58,6 +58,48 @@ Generated specialist files are adapters, not copies of Prism frontmatter. They p
 
 The scope manifest is `.prism/install.json`. Upgrades touch only its recorded paths. Prism refuses unmanaged collisions unless `--force` is used, backs up changed host configuration, removes stale managed paths, and rolls back touched paths on failure.
 
+`prism install --runtime-only` initializes only runtime-extension state. It does
+not download Graphify, create an index, register an endpoint, or alter an
+existing `graphify.yaml` binding. The same is true of unattended installation
+paths (`--yes`, `--all`) and install previews (`--dry-run`).
+
+## Graphify repository investigation
+
+Graphify is optional and disabled until an operator records an exact binding.
+Prism never downloads its executable, starts a service during setup or doctor,
+or builds an index. Create those resources separately, register the MCP server
+separately, then record the exact configuration:
+
+```bash
+# A service you operate or a local MCP bridge. This writes only state-dir/graphify.yaml.
+prism graphify setup --approve \
+  --workspace "$PWD" --index "$PWD/.graphify/index" \
+  --upstream-version 1.2.3 --schema-version v1 --fingerprint "$SOURCE_FINGERPRINT" \
+  --server graphify --endpoint-kind self-hosted
+
+# A pinned managed service requires both identity and version.
+prism graphify setup --approve \
+  --workspace "$PWD" --index "$PWD/.graphify/index" \
+  --upstream-version 1.2.3 --schema-version v1 --fingerprint "$SOURCE_FINGERPRINT" \
+  --server graphify-prod --endpoint-kind managed \
+  --environment production --environment-version 2026.09.1
+
+prism graphify doctor --workspace "$PWD" --fingerprint "$SOURCE_FINGERPRINT"
+```
+
+Use `--endpoint-kind local --executable /path/to/graphify-mcp` only for a
+user-managed local executable. `self-hosted` identifies an endpoint you
+operate; `managed` requires a named environment and immutable version pin.
+Doctor checks recorded approval, schema support, upstream version metadata,
+workspace/fingerprint binding, index presence, local executable availability,
+and registration/transport of the named MCP server. It deliberately does not
+contact or launch an endpoint, so it cannot trigger a dependency download or
+index build. `graphify setup --dry-run` is configuration preview only.
+
+`prism graphify remove --approve` deletes only Prism's configuration file. It
+preserves all user-managed executables, indexes, endpoints, and MCP server
+registrations.
+
 ## Versioning and provenance
 
 GitHub artifacts are built with the release tag injected through `-ldflags`. The MCP initialization response uses the same version. Every run result and stored event is stamped with bundle ID `prism`, the compiled version, digest, and bundle mode. Event-store bundle columns remain compatible with older databases.

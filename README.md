@@ -35,6 +35,14 @@ Supported targets are Codex, VS Code/GitHub Copilot, Antigravity, Claude Code, a
 
 Each scope has `.prism/install.json`. Reinstall replaces only Prism-managed paths, removes stale managed files, preserves unrelated files, and refuses unmanaged collisions unless `--force` is supplied. Configuration files receive `.prism-backup` backups, and an adapter failure rolls back the transaction.
 
+Graphify repository investigation is optional. `prism install`, including
+`--runtime-only`, `--all`, `--yes`, and `--dry-run`, never downloads Graphify
+or builds an index. An operator must separately provision it and use
+`prism graphify setup --approve ...` to record a workspace binding and either
+a local, self-hosted, or version-pinned managed endpoint. `prism graphify
+doctor` performs read-only readiness checks; `prism graphify remove --approve`
+removes only Prism's metadata and preserves user-managed resources.
+
 `prism instructions install` remains available as a compatibility command.
 
 ## MCP

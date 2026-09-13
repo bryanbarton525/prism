@@ -41,6 +41,13 @@ func TestRunInstallRuntimeOnlyUsesSelectedScope(t *testing.T) {
 	cmd.Flags().String("state-dir", "", "")
 	var out bytes.Buffer
 	cmd.SetOut(&out)
+	ownedGraphifyConfig := filepath.Join(workspace, ".prism", "graphify.yaml")
+	if err := os.MkdirAll(filepath.Dir(ownedGraphifyConfig), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(ownedGraphifyConfig, []byte("operator-owned\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	flags := installFlags{runtimeOnly: true, runtimeScope: "project"}
 	if err := runInstall(cmd, flags); err != nil {
 		t.Fatal(err)
@@ -55,6 +62,9 @@ func TestRunInstallRuntimeOnlyUsesSelectedScope(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(expected, "extensions.yaml")); err != nil {
 		t.Fatalf("runtime manifest was not initialized: %v", err)
+	}
+	if data, err := os.ReadFile(ownedGraphifyConfig); err != nil || string(data) != "operator-owned\n" {
+		t.Fatalf("runtime-only install modified Graphify config: data=%q err=%v", data, err)
 	}
 }
 

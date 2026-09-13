@@ -76,6 +76,9 @@ func (r *Runner) graphifyAccess(workspace Workspace) graphifyAccess {
 		if !strings.EqualFold(strings.TrimSpace(server.Name), strings.TrimSpace(r.cfg.Graphify.Endpoint.Server)) {
 			continue
 		}
+		if err := r.cfg.Graphify.Endpoint.ValidateServer(server.Name, server.Transport, server.Command); err != nil {
+			return graphifyAccess{err: err}
+		}
 		if server.Transport == downstreammcp.TransportCommand && !containsArgument(server.Args, r.cfg.Graphify.Binding.IndexPath) {
 			return graphifyAccess{err: fmt.Errorf("Graphify command server %q must receive bound index path %q as an argument", server.Name, r.cfg.Graphify.Binding.IndexPath)}
 		}
