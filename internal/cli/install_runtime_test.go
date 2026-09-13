@@ -23,6 +23,19 @@ func TestValidateRuntimeScope(t *testing.T) {
 }
 
 func TestRunInstallRuntimeOnlyUsesSelectedScope(t *testing.T) {
+	originalWD, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	workspace := t.TempDir()
+	if err := os.Chdir(workspace); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(originalWD); err != nil {
+			t.Fatal(err)
+		}
+	})
 	cmd := &cobra.Command{}
 	cmd.Flags().String("state-dir", "", "")
 	var out bytes.Buffer
@@ -36,8 +49,11 @@ func TestRunInstallRuntimeOnlyUsesSelectedScope(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := filepath.Join(cwd, ".prism")
-	if !strings.Contains(out.String(), "Runtime-only setup selected") || !strings.Contains(out.String(), expected) {
+	if !strings.Contains(out.String(), "Initialized runtime extension state") || !strings.Contains(out.String(), expected) {
 		t.Fatalf("output=%q expected state dir %q", out.String(), expected)
+	}
+	if _, err := os.Stat(filepath.Join(expected, "extensions.yaml")); err != nil {
+		t.Fatalf("runtime manifest was not initialized: %v", err)
 	}
 }
 

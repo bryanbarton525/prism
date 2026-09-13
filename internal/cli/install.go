@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/bryanbarton525/prism/internal/extensions"
 	"github.com/bryanbarton525/prism/internal/installer"
 )
 
@@ -82,7 +83,14 @@ func runInstall(cmd *cobra.Command, flags installFlags) error {
 		return fmt.Errorf("--global host install is incompatible with --runtime-scope project")
 	}
 	if flags.runtimeOnly {
-		fmt.Fprintf(cmd.OutOrStdout(), "Runtime-only setup selected (scope=%s, state-dir=%s). Host installer changes are skipped in this mode.\n", flags.runtimeScope, runtimeStateDir)
+		if flags.dryRun {
+			fmt.Fprintf(cmd.OutOrStdout(), "Would initialize runtime extension state (scope=%s, state-dir=%s). Host installer changes are skipped in this mode.\n", flags.runtimeScope, runtimeStateDir)
+			return nil
+		}
+		if err := extensions.NewStore(runtimeStateDir).EnsureInitialized(cmd.Context()); err != nil {
+			return fmt.Errorf("initialize runtime extension state: %w", err)
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "Initialized runtime extension state (scope=%s, state-dir=%s). Host installer changes are skipped in this mode.\n", flags.runtimeScope, runtimeStateDir)
 		return nil
 	}
 	skills, specialists, err := installer.Catalog()

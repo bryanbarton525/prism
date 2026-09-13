@@ -79,6 +79,16 @@ func (s *Store) SaveManifest(manifest Manifest) error {
 	return s.writeManifest(s.ManifestPath(), data)
 }
 
+// EnsureInitialized creates an empty manifest through the normal transaction
+// path. It intentionally creates no objects or extension bindings.
+func (s *Store) EnsureInitialized(ctx context.Context) error {
+	tx, err := s.BeginTransaction(ctx)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (s *Store) PutObject(content []byte) (digest string, objectPath string, err error) {
 	sum := sha256.Sum256(content)
 	digest = hex.EncodeToString(sum[:])
