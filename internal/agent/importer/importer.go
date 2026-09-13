@@ -98,16 +98,14 @@ func renderPrismSpec(fields map[string]string, skills []string, body string) []b
 	for _, k := range keys {
 		b.WriteString(fmt.Sprintf("%s: %s\n", k, fields[k]))
 	}
-	if len(skills) > 0 {
-		b.WriteString("allowed_skills: [")
-		for i, sk := range skills {
-			if i > 0 {
-				b.WriteString(", ")
-			}
-			b.WriteString(sk)
+	b.WriteString("allowed_skills: [")
+	for i, sk := range skills {
+		if i > 0 {
+			b.WriteString(", ")
 		}
-		b.WriteString("]\n")
+		b.WriteString(sk)
 	}
+	b.WriteString("]\n")
 	b.WriteString("---\n")
 	if strings.TrimSpace(body) == "" {
 		body = "Imported agent definition."

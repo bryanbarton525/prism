@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	toml "github.com/pelletier/go-toml/v2"
 )
 
 type nativePrismAdapter struct{}
@@ -25,61 +27,55 @@ type codexTOMLAdapter struct{}
 func (codexTOMLAdapter) Name() string { return "codex-toml" }
 
 func (codexTOMLAdapter) Detect(filename string, source []byte) bool {
-	ext := strings.ToLower(filepath.Ext(filename))
-	if ext != ".toml" {
+	if strings.ToLower(filepath.Ext(filename)) != ".toml" {
 		return false
 	}
-	s := string(source)
-	return strings.Contains(s, "model") || strings.Contains(s, "name")
+	var config codexConfig
+	return toml.Unmarshal(source, &config) == nil && strings.TrimSpace(config.Name) != ""
 }
 
 func (codexTOMLAdapter) Translate(filename string, source []byte, cfg Config) ([]byte, []Finding, error) {
-	lines := strings.Split(string(source), "\n")
+	var config codexConfig
+	if err := toml.Unmarshal(source, &config); err != nil {
+		return nil, nil, fmt.Errorf("parse Codex TOML: %w", err)
+	}
+	if strings.TrimSpace(config.Name) == "" {
+		return nil, nil, fmt.Errorf("Codex TOML requires name")
+	}
+	model := strings.TrimSpace(config.Model)
+	if model == "" {
+		model = strings.TrimSpace(cfg.DefaultModel)
+	}
+	if model == "" {
+		return nil, nil, fmt.Errorf("Codex TOML requires model or an explicit default model")
+	}
+	id := defaultID(config.Name)
 	fields := map[string]string{
-		"id":             defaultID(filename),
-		"name":           fmt.Sprintf("%q", defaultName(defaultID(filename))),
+		"id":             id,
+		"name":           fmt.Sprintf("%q", config.Name),
 		"description":    `"Imported from Codex TOML configuration."`,
-		"model":          fmt.Sprintf("%q", cfg.DefaultModel),
+		"model":          fmt.Sprintf("%q", model),
 		"context_budget": "16000",
 	}
-	if cfg.DefaultModel == "" {
-		fields["model"] = `"llama3.1:8b-instruct-q6_K"`
+	if config.Description != "" {
+		fields["description"] = fmt.Sprintf("%q", config.Description)
 	}
-	findings := []Finding{}
-	var skills []string
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		if strings.HasPrefix(line, "name =") {
-			fields["name"] = strings.TrimSpace(strings.TrimPrefix(line, "name ="))
-		}
-		if strings.HasPrefix(line, "description =") {
-			fields["description"] = strings.TrimSpace(strings.TrimPrefix(line, "description ="))
-		}
-		if strings.HasPrefix(line, "model =") {
-			fields["model"] = strings.TrimSpace(strings.TrimPrefix(line, "model ="))
-		}
-		if strings.HasPrefix(line, "allowed_skills = [") {
-			items := strings.TrimSpace(strings.TrimPrefix(line, "allowed_skills = ["))
-			items = strings.TrimSuffix(items, "]")
-			for _, it := range strings.Split(items, ",") {
-				it = strings.TrimSpace(strings.Trim(it, `"`))
-				if it != "" {
-					skills = append(skills, it)
-				}
-			}
-		}
+	if len(config.AllowedSkills) == 0 {
+		return nil, nil, fmt.Errorf("Codex TOML requires allowed_skills to produce a runnable Prism agent")
 	}
-	if len(skills) == 0 {
-		findings = append(findings, Finding{
-			Severity: "warning",
-			Field:    "allowed_skills",
-			Message:  "missing allowed_skills in source; translated with empty list",
-		})
+	body := strings.TrimSpace(config.DeveloperInstructions)
+	if body == "" {
+		body = "Imported from Codex TOML."
 	}
-	return renderPrismSpec(fields, skills, "Imported from Codex TOML."), findings, nil
+	return renderPrismSpec(fields, config.AllowedSkills, body), nil, nil
+}
+
+type codexConfig struct {
+	Name                  string   `toml:"name"`
+	Description           string   `toml:"description"`
+	Model                 string   `toml:"model"`
+	AllowedSkills         []string `toml:"allowed_skills"`
+	DeveloperInstructions string   `toml:"developer_instructions"`
 }
 
 type claudeMarkdownAdapter struct{}
@@ -104,8 +100,8 @@ func (claudeMarkdownAdapter) Translate(filename string, source []byte, cfg Confi
 		"model":          fmt.Sprintf("%q", cfg.DefaultModel),
 		"context_budget": "16000",
 	}
-	if cfg.DefaultModel == "" {
-		fields["model"] = `"llama3.1:8b-instruct-q6_K"`
+	if strings.TrimSpace(cfg.DefaultModel) == "" {
+		return nil, nil, fmt.Errorf("Claude Markdown imports require an explicit default model")
 	}
 	skills := []string{}
 	re := regexp.MustCompile(`(?mi)allowed[_ -]?skills?\s*:\s*(.+)$`)
@@ -119,11 +115,7 @@ func (claudeMarkdownAdapter) Translate(filename string, source []byte, cfg Confi
 	}
 	findings := []Finding{}
 	if len(skills) == 0 {
-		findings = append(findings, Finding{
-			Severity: "warning",
-			Field:    "allowed_skills",
-			Message:  "no explicit allowed skills detected in Markdown source",
-		})
+		return nil, nil, fmt.Errorf("Claude Markdown requires explicit allowed skills to produce a runnable Prism agent")
 	}
 	body := strings.TrimSpace(string(source))
 	if body == "" {

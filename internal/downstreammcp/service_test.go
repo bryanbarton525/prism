@@ -62,6 +62,16 @@ func TestServiceAddOrUpdateOutcomes(t *testing.T) {
 	}
 }
 
+func TestServiceRejectsInvalidHTTPURLs(t *testing.T) {
+	service := NewService(filepath.Join(t.TempDir(), "mcp-servers.yaml"))
+	for _, raw := range []string{"", "/mcp", "ftp://example.com/mcp", "https:///mcp"} {
+		_, err := service.AddOrUpdate(context.Background(), Server{Name: "remote", Transport: TransportSSE, URL: raw}, false)
+		if err == nil {
+			t.Fatalf("URL %q unexpectedly accepted", raw)
+		}
+	}
+}
+
 func TestServiceRemoveOutcomes(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "mcp-servers.yaml")

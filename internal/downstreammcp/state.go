@@ -3,6 +3,8 @@ package downstreammcp
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -19,10 +21,10 @@ type State struct {
 }
 
 type Server struct {
-	Name      string            `yaml:"name" json:"name"`
-	Transport string            `yaml:"transport" json:"transport"`
-	Command   string            `yaml:"command,omitempty" json:"command,omitempty"`
-	Args      []string          `yaml:"args,omitempty" json:"args,omitempty"`
+	Name        string            `yaml:"name" json:"name"`
+	Transport   string            `yaml:"transport" json:"transport"`
+	Command     string            `yaml:"command,omitempty" json:"command,omitempty"`
+	Args        []string          `yaml:"args,omitempty" json:"args,omitempty"`
 	EnvRefs     map[string]string `yaml:"env_refs,omitempty" json:"env_refs,omitempty"`
 	URL         string            `yaml:"url,omitempty" json:"url,omitempty"`
 	HeaderRefs  map[string]string `yaml:"header_refs,omitempty" json:"header_refs,omitempty"`
@@ -92,11 +94,19 @@ func (s Server) Validate() error {
 			return errors.New("command transport requires command")
 		}
 	case TransportSSE, TransportStreamableHTTP:
-		if strings.TrimSpace(s.URL) == "" {
-			return errors.New("sse and streamable-http transports require url")
+		if err := validateHTTPURL(s.URL); err != nil {
+			return err
 		}
 	default:
 		return errors.New("transport must be command, sse, or streamable-http")
+	}
+	return nil
+}
+
+func validateHTTPURL(raw string) error {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || !parsed.IsAbs() || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return fmt.Errorf("sse and streamable-http transports require an absolute http(s) url")
 	}
 	return nil
 }

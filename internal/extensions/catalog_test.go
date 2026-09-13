@@ -9,11 +9,11 @@ import (
 
 func TestComposeCatalogIncludesBundledAndManaged(t *testing.T) {
 	bundle := fstest.MapFS{
-		"agents/a.md":          {Data: []byte("x")},
-		"agents/README.md":     {Data: []byte("ignore")},
-		"skills/s1/SKILL.md":   {Data: []byte("x")},
-		"skills/s2/SKILL.md":   {Data: []byte("x")},
-		"constitutions/a.md":   {Data: []byte("x")},
+		"agents/a.md":        {Data: []byte("x")},
+		"agents/README.md":   {Data: []byte("ignore")},
+		"skills/s1/SKILL.md": {Data: []byte("x")},
+		"skills/s2/SKILL.md": {Data: []byte("x")},
+		"constitutions/a.md": {Data: []byte("x")},
 	}
 	now := time.Unix(100, 0).UTC()
 	snapshot, err := ComposeCatalog(ComposeInput{
@@ -37,7 +37,7 @@ func TestComposeCatalogIncludesBundledAndManaged(t *testing.T) {
 
 func TestComposeCatalogPreservesUpgradeCollisionsWithoutStartupError(t *testing.T) {
 	bundle := fstest.MapFS{
-		"agents/MyAgent.md":     {Data: []byte("x")},
+		"agents/MyAgent.md":       {Data: []byte("x")},
 		"skills/MySkill/SKILL.md": {Data: []byte("x")},
 	}
 	snapshot, err := ComposeCatalog(ComposeInput{
@@ -66,7 +66,7 @@ func TestComposeCatalogRejectsCollisionsWhenExplicitlyRequested(t *testing.T) {
 		"agents/MyAgent.md": {Data: []byte("x")},
 	}
 	_, err := ComposeCatalog(ComposeInput{
-		BundleFS:          bundle,
+		BundleFS:         bundle,
 		RejectCollisions: true,
 		Manifest: Manifest{Version: 1, Entries: []ManifestEntry{
 			{Identity: "myagent", Kind: "agent", Source: "git", Digest: "d1", ObjectPath: "x"},
@@ -79,8 +79,8 @@ func TestComposeCatalogRejectsCollisionsWhenExplicitlyRequested(t *testing.T) {
 
 func TestComposeCatalogMarksManagedInactiveWhenOverridesSet(t *testing.T) {
 	bundle := fstest.MapFS{
-		"agents/a.md":        {Data: []byte("x")},
-		"skills/s/SKILL.md":  {Data: []byte("x")},
+		"agents/a.md":       {Data: []byte("x")},
+		"skills/s/SKILL.md": {Data: []byte("x")},
 	}
 	snapshot, err := ComposeCatalog(ComposeInput{
 		BundleFS:      bundle,
@@ -107,5 +107,21 @@ func TestComposeCatalogMarksManagedInactiveWhenOverridesSet(t *testing.T) {
 	}
 	if inactive != 2 {
 		t.Fatalf("inactive managed count = %d", inactive)
+	}
+}
+
+func TestComposeCatalogInactivatesDuplicateManagedIdentities(t *testing.T) {
+	snapshot, err := ComposeCatalog(ComposeInput{
+		BundleFS: fstest.MapFS{},
+		Manifest: Manifest{Version: 1, Entries: []ManifestEntry{
+			{Identity: "duplicate", Kind: "skill"},
+			{Identity: "DUPLICATE", Kind: "skill"},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !snapshot.Skills[0].Active || snapshot.Skills[1].Active || snapshot.Skills[1].Reason != "duplicate_managed_skill" {
+		t.Fatalf("duplicate items = %#v", snapshot.Skills)
 	}
 }

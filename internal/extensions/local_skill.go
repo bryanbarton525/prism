@@ -228,14 +228,27 @@ func (s *Store) putDirectoryObject(sourceDir string) (string, string, error) {
 	digest := hex.EncodeToString(hash.Sum(nil))
 	objectPath := filepath.Join(s.ObjectsDir(), digest)
 	if info, err := os.Stat(objectPath); err == nil && info.IsDir() {
-		return digest, objectPath, nil
-	}
-	if err := os.MkdirAll(objectPath, 0o755); err != nil {
+		existingDigest, err := directoryDigest(objectPath)
+		if err == nil && existingDigest == digest {
+			return digest, objectPath, nil
+		}
+		if err := os.RemoveAll(objectPath); err != nil {
+			return "", "", fmt.Errorf("remove corrupt skill object %q: %w", objectPath, err)
+		}
+	} else if err != nil && !os.IsNotExist(err) {
 		return "", "", err
 	}
+	if err := os.MkdirAll(s.ObjectsDir(), 0o755); err != nil {
+		return "", "", err
+	}
+	stagedPath, err := os.MkdirTemp(s.ObjectsDir(), ".staged-skill-*")
+	if err != nil {
+		return "", "", err
+	}
+	defer os.RemoveAll(stagedPath)
 	for _, rel := range paths {
 		src := filepath.Join(sourceDir, filepath.FromSlash(rel))
-		dst := filepath.Join(objectPath, filepath.FromSlash(rel))
+		dst := filepath.Join(stagedPath, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			return "", "", err
 		}
@@ -247,5 +260,51 @@ func (s *Store) putDirectoryObject(sourceDir string) (string, string, error) {
 			return "", "", err
 		}
 	}
+	if err := os.Rename(stagedPath, objectPath); err != nil {
+		if !os.IsExist(err) {
+			return "", "", err
+		}
+		existingDigest, verifyErr := directoryDigest(objectPath)
+		if verifyErr != nil || existingDigest != digest {
+			return "", "", fmt.Errorf("concurrent skill object %q is incomplete or corrupt", objectPath)
+		}
+	}
 	return digest, objectPath, nil
+}
+
+func directoryDigest(sourceDir string) (string, error) {
+	hash := sha256.New()
+	paths := []string{}
+	err := filepath.WalkDir(sourceDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if d.Type()&os.ModeSymlink != 0 {
+			return fmt.Errorf("symlink %q is not supported", path)
+		}
+		rel, err := filepath.Rel(sourceDir, path)
+		if err != nil {
+			return err
+		}
+		paths = append(paths, filepath.ToSlash(rel))
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	sort.Strings(paths)
+	for _, rel := range paths {
+		content, err := os.ReadFile(filepath.Join(sourceDir, filepath.FromSlash(rel)))
+		if err != nil {
+			return "", err
+		}
+		_, _ = io.WriteString(hash, rel)
+		_, _ = io.WriteString(hash, "\x00")
+		_, _ = hash.Write(content)
+		_, _ = io.WriteString(hash, "\x00")
+	}
+	return hex.EncodeToString(hash.Sum(nil)), nil
 }

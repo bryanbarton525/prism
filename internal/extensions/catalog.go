@@ -65,6 +65,8 @@ func ComposeCatalog(input ComposeInput) (CatalogSnapshot, error) {
 
 	agentSet := foldedSet(bundledAgents)
 	skillSet := foldedSet(bundledSkills)
+	managedAgents := map[string]struct{}{}
+	managedSkills := map[string]struct{}{}
 	var collisionErrs []string
 	for _, entry := range input.Manifest.Entries {
 		item := CatalogItem{
@@ -88,6 +90,12 @@ func ComposeCatalog(input ComposeInput) (CatalogSnapshot, error) {
 				item.Reason = "collision_with_bundled_agent"
 				collisionErrs = append(collisionErrs, fmt.Sprintf("managed agent %q collides with bundled agent", entry.Identity))
 			}
+			if _, exists := managedAgents[foldedID]; exists {
+				item.Active = false
+				item.Reason = "duplicate_managed_agent"
+				collisionErrs = append(collisionErrs, fmt.Sprintf("duplicate managed agent %q", entry.Identity))
+			}
+			managedAgents[foldedID] = struct{}{}
 			snapshot.Agents = append(snapshot.Agents, item)
 		case "skill":
 			if input.SkillOverride {
@@ -99,6 +107,12 @@ func ComposeCatalog(input ComposeInput) (CatalogSnapshot, error) {
 				item.Reason = "collision_with_bundled_skill"
 				collisionErrs = append(collisionErrs, fmt.Sprintf("managed skill %q collides with bundled skill", entry.Identity))
 			}
+			if _, exists := managedSkills[foldedID]; exists {
+				item.Active = false
+				item.Reason = "duplicate_managed_skill"
+				collisionErrs = append(collisionErrs, fmt.Sprintf("duplicate managed skill %q", entry.Identity))
+			}
+			managedSkills[foldedID] = struct{}{}
 			snapshot.Skills = append(snapshot.Skills, item)
 		}
 	}

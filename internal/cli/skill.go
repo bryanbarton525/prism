@@ -19,8 +19,9 @@ import (
 
 func newSkillCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "skill",
-		Short: "Lint, test, and benchmark Prism skills",
+		Use:     "skill",
+		Aliases: []string{"skills"},
+		Short:   "Lint, test, and benchmark Prism skills",
 	}
 	cmd.AddCommand(newSkillLintCmd())
 	cmd.AddCommand(newSkillTestCmd())

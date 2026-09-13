@@ -40,6 +40,36 @@ allowed_skills = ["gh-pr-triage","go-helper-fn"]`)
 	}
 }
 
+func TestTranslateCodexTOMLUsesDeclaredIdentityAndInstructions(t *testing.T) {
+	source := []byte("name = \"Release Triage\"\nmodel = \"local-model\"\nallowed_skills = [\n  \"gh-pr-triage\",\n]\ndeveloper_instructions = \"Review release changes.\"\n")
+	out, _, err := Translate("unrelated.toml", source, Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(out, []byte("id: release-triage")) || !bytes.Contains(out, []byte("Review release changes.")) {
+		t.Fatalf("unexpected translation: %s", out)
+	}
+}
+
+func TestTranslateRejectsIncompleteAgentDefinitions(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		filename string
+		source   []byte
+		config   Config
+	}{
+		{"unrelated TOML", "settings.toml", []byte("title = \"model notes\""), Config{}},
+		{"Codex missing skills", "agent.toml", []byte("name = \"Agent\"\nmodel = \"m\""), Config{}},
+		{"Claude missing model", "agent.md", []byte("Claude\nAllowed skills: s"), Config{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, _, err := Translate(tc.filename, tc.source, tc.config); err == nil {
+				t.Fatal("expected incomplete definition error")
+			}
+		})
+	}
+}
+
 func TestTranslateClaudeMarkdown(t *testing.T) {
 	source := []byte(`# Claude Prompt
 Role: triage

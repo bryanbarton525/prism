@@ -17,3 +17,9 @@ func TestParseConfigRejectsUnknownVersion(t *testing.T) {
 		t.Fatal("expected version error")
 	}
 }
+
+func TestParseConfigRejectsUnknownField(t *testing.T) {
+	if _, err := Parse([]byte("version: 1\nmaap:\n  source: target\n")); err == nil {
+		t.Fatal("expected unknown field error")
+	}
+}
