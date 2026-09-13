@@ -277,12 +277,17 @@ func New(cfg Config) (*Runner, error) {
 	if cfg.BundleMode == "" {
 		cfg.BundleMode = "embedded"
 	}
-	if cfg.BundleDigest == "" {
-		cfg.BundleDigest = prismbundle.DigestFS(cfg.bundleFS())
-	}
 	catalog, err := resolveCatalogSnapshot(cfg)
 	if err != nil {
 		return nil, err
+	}
+	if materialized, err := extensions.MaterializeRuntimeBundle(cfg.bundleFS(), catalog); err == nil {
+		cfg.BundleFS = materialized
+	} else if hasActiveManagedContent(catalog) {
+		return nil, fmt.Errorf("materializing managed runtime content: %w", err)
+	}
+	if cfg.BundleDigest == "" {
+		cfg.BundleDigest = prismbundle.DigestFS(cfg.bundleFS())
 	}
 	agentFS := cfg.agentFS()
 	reg := agent.NewRegistry(agentFS)
@@ -321,6 +326,20 @@ func New(cfg Config) (*Runner, error) {
 	}, nil
 }
 
+func hasActiveManagedContent(snapshot extensions.CatalogSnapshot) bool {
+	for _, item := range snapshot.Agents {
+		if item.Origin == "managed" && item.Active {
+			return true
+		}
+	}
+	for _, item := range snapshot.Skills {
+		if item.Origin == "managed" && item.Active {
+			return true
+		}
+	}
+	return false
+}
+
 func resolveCatalogSnapshot(cfg Config) (extensions.CatalogSnapshot, error) {
 	if cfg.ExtensionSnapshot != nil {
 		return *cfg.ExtensionSnapshot, nil
@@ -328,13 +347,9 @@ func resolveCatalogSnapshot(cfg Config) (extensions.CatalogSnapshot, error) {
 	manifest := extensions.EmptyManifest()
 	if cfg.ExtensionsStateDir != "" {
 		store := extensions.NewStore(cfg.ExtensionsStateDir)
-		_, err := store.Recover(context.Background())
+		loaded, _, err := store.RecoverAndLoadManifest(context.Background())
 		if err != nil {
-			return extensions.CatalogSnapshot{}, fmt.Errorf("recovering extension state: %w", err)
-		}
-		loaded, err := store.LoadManifest()
-		if err != nil {
-			return extensions.CatalogSnapshot{}, fmt.Errorf("loading extension manifest: %w", err)
+			return extensions.CatalogSnapshot{}, fmt.Errorf("recovering/loading extension state: %w", err)
 		}
 		manifest = loaded
 	}

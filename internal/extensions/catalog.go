@@ -17,23 +17,24 @@ type CatalogSnapshot struct {
 }
 
 type CatalogItem struct {
-	ID         string                 `json:"id"`
-	Origin     string                 `json:"origin"` // bundled | managed
-	Active     bool                   `json:"active"`
-	Digest     string                 `json:"digest,omitempty"`
-	Source     string                 `json:"source,omitempty"`
-	ObjectPath string                 `json:"object_path,omitempty"`
-	Reason     string                 `json:"reason,omitempty"`
-	Metadata   map[string]string      `json:"metadata,omitempty"`
+	ID          string                 `json:"id"`
+	Origin      string                 `json:"origin"` // bundled | managed
+	Active      bool                   `json:"active"`
+	Digest      string                 `json:"digest,omitempty"`
+	Source      string                 `json:"source,omitempty"`
+	ObjectPath  string                 `json:"object_path,omitempty"`
+	Reason      string                 `json:"reason,omitempty"`
+	Metadata    map[string]string      `json:"metadata,omitempty"`
 	Diagnostics []ActivationDiagnostic `json:"diagnostics,omitempty"`
 }
 
 type ComposeInput struct {
-	BundleFS      fs.FS
-	Manifest      Manifest
-	AgentOverride bool
-	SkillOverride bool
-	Now           func() time.Time
+	BundleFS         fs.FS
+	Manifest         Manifest
+	AgentOverride    bool
+	SkillOverride    bool
+	RejectCollisions bool
+	Now              func() time.Time
 }
 
 func ComposeCatalog(input ComposeInput) (CatalogSnapshot, error) {
@@ -101,9 +102,13 @@ func ComposeCatalog(input ComposeInput) (CatalogSnapshot, error) {
 			snapshot.Skills = append(snapshot.Skills, item)
 		}
 	}
-	sort.Slice(snapshot.Agents, func(i, j int) bool { return strings.ToLower(snapshot.Agents[i].ID) < strings.ToLower(snapshot.Agents[j].ID) })
-	sort.Slice(snapshot.Skills, func(i, j int) bool { return strings.ToLower(snapshot.Skills[i].ID) < strings.ToLower(snapshot.Skills[j].ID) })
-	if len(collisionErrs) > 0 {
+	sort.Slice(snapshot.Agents, func(i, j int) bool {
+		return strings.ToLower(snapshot.Agents[i].ID) < strings.ToLower(snapshot.Agents[j].ID)
+	})
+	sort.Slice(snapshot.Skills, func(i, j int) bool {
+		return strings.ToLower(snapshot.Skills[i].ID) < strings.ToLower(snapshot.Skills[j].ID)
+	})
+	if input.RejectCollisions && len(collisionErrs) > 0 {
 		return snapshot, errors.New(strings.Join(collisionErrs, "; "))
 	}
 	return snapshot, nil

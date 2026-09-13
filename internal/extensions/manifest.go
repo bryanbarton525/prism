@@ -30,3 +30,25 @@ type ActivationDiagnostic struct {
 func EmptyManifest() Manifest {
 	return Manifest{Version: ManifestVersion, Entries: []ManifestEntry{}}
 }
+
+func (m Manifest) Clone() Manifest {
+	out := Manifest{
+		Version: m.Version,
+		Entries: make([]ManifestEntry, len(m.Entries)),
+	}
+	for i, entry := range m.Entries {
+		out.Entries[i] = entry.Clone()
+	}
+	return out
+}
+
+func (e ManifestEntry) Clone() ManifestEntry {
+	out := e
+	if e.Diagnostics != nil {
+		out.Diagnostics = append([]ActivationDiagnostic{}, e.Diagnostics...)
+	}
+	if e.Provenance != (Provenance{}) {
+		out.Provenance = e.Provenance
+	}
+	return out
+}

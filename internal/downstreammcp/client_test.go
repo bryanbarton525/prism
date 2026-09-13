@@ -2,6 +2,8 @@ package downstreammcp
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -133,5 +135,36 @@ func TestResolveReferencedValues(t *testing.T) {
 	_, err = resolveReferencedValues(map[string]string{"Authorization": "PRISM_MISSING_ENV"}, "header")
 	if err == nil || !strings.Contains(err.Error(), "not set") {
 		t.Fatalf("expected missing env error, got %v", err)
+	}
+}
+
+func TestDownstreamHTTPClientBlocksCrossOriginRedirectAndDoesNotForwardHeader(t *testing.T) {
+	secretSeen := ""
+	dest := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		secretSeen = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer dest.Close()
+
+	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, dest.URL, http.StatusTemporaryRedirect)
+	}))
+	defer source.Close()
+
+	t.Setenv("PRISM_AUTH", "******")
+	client, err := downstreamHTTPClient(source.URL, map[string]string{"Authorization": "PRISM_AUTH"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, err := http.NewRequest(http.MethodGet, source.URL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.Do(req)
+	if err == nil || !strings.Contains(err.Error(), "cross-origin redirect blocked") {
+		t.Fatalf("expected cross-origin redirect error, got %v", err)
+	}
+	if secretSeen != "" {
+		t.Fatalf("destination unexpectedly received secret header: %q", secretSeen)
 	}
 }

@@ -3,6 +3,7 @@ package extensions
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 type Transaction struct {
@@ -18,6 +19,10 @@ func (s *Store) BeginTransaction(ctx context.Context) (*Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
+	if _, err := s.recoverInterrupted(); err != nil {
+		unlock()
+		return nil, fmt.Errorf("recovering interrupted transaction: %w", err)
+	}
 	previous, err := s.LoadManifest()
 	if err != nil {
 		unlock()
@@ -30,15 +35,31 @@ func (s *Store) BeginTransaction(ctx context.Context) (*Transaction, error) {
 	return &Transaction{
 		store:    s,
 		unlock:   unlock,
-		previous: previous,
-		working:  previous,
+		previous: previous.Clone(),
+		working:  previous.Clone(),
 	}, nil
 }
 
 func (tx *Transaction) UpsertEntry(entry ManifestEntry) {
 	entry.InstalledAt = tx.store.now().UTC()
+	keyKind := normalizeKind(entry.Kind)
+	keyIdentity := strings.ToLower(strings.TrimSpace(entry.Identity))
+	if keyKind == "" || keyIdentity == "" {
+		return
+	}
+	for _, existing := range tx.working.Entries {
+		if normalizeKind(existing.Kind) == keyKind && strings.ToLower(strings.TrimSpace(existing.Identity)) == keyIdentity {
+			continue
+		}
+		if normalizeKind(existing.Kind) == keyKind && strings.EqualFold(existing.Identity, entry.Identity) {
+			entry.Diagnostics = append(entry.Diagnostics, ActivationDiagnostic{
+				Code:    "duplicate_kind_identity",
+				Message: fmt.Sprintf("duplicate %s identity %q", keyKind, entry.Identity),
+			})
+		}
+	}
 	for i := range tx.working.Entries {
-		if tx.working.Entries[i].Identity == entry.Identity {
+		if normalizeKind(tx.working.Entries[i].Kind) == keyKind && strings.EqualFold(tx.working.Entries[i].Identity, entry.Identity) {
 			tx.working.Entries[i] = entry
 			return
 		}
@@ -51,7 +72,9 @@ func (tx *Transaction) Commit() error {
 		return fmt.Errorf("transaction already closed")
 	}
 	if err := tx.store.SaveManifest(tx.working); err != nil {
-		_ = tx.Rollback()
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return fmt.Errorf("commit failed: %w (rollback failed: %v)", err, rbErr)
+		}
 		return err
 	}
 	if err := tx.store.clearJournal(); err != nil {
@@ -69,10 +92,16 @@ func (tx *Transaction) Rollback() error {
 		return nil
 	}
 	err := tx.store.SaveManifest(tx.previous)
-	if clearErr := tx.store.clearJournal(); err == nil {
-		err = clearErr
+	if err == nil {
+		if clearErr := tx.store.clearJournal(); clearErr != nil {
+			err = clearErr
+		}
 	}
 	tx.unlock()
 	tx.closed = true
 	return err
+}
+
+func normalizeKind(kind string) string {
+	return strings.ToLower(strings.TrimSpace(kind))
 }

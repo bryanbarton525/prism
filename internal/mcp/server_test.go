@@ -3,7 +3,9 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/bryanbarton525/prism/internal/app"
 	"github.com/bryanbarton525/prism/internal/buildinfo"
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
+	"github.com/bryanbarton525/prism/internal/extensions"
 	internalpolicy "github.com/bryanbarton525/prism/internal/policy"
 	"github.com/bryanbarton525/prism/internal/result"
 	policypkg "github.com/bryanbarton525/prism/pkg/policy"
@@ -126,6 +129,55 @@ func TestRunAgentRejectsAmbiguousAdvertisedRoots(t *testing.T) {
 	}
 	if !result.IsError {
 		t.Fatalf("expected ambiguous roots error: %#v", result)
+	}
+}
+
+func TestListAgentsHandlerIncludesManagedCatalogAgents(t *testing.T) {
+	temp := t.TempDir()
+	agentPath := filepath.Join(temp, "managed-agent.md")
+	if err := os.WriteFile(agentPath, []byte(`---
+id: managed-agent
+name: Managed Agent
+description: Managed extension agent.
+model: llama3.1:8b-instruct-q6_K
+context_budget: 16000
+allowed_skills: [k8s-rollout-diagnostics]
+latency_budget_ms: 10000
+---
+Managed body.`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, thisFile, _, _ := runtime.Caller(0)
+	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(thisFile), "..", ".."))
+	base := os.DirFS(repoRoot)
+	snapshot, err := extensions.ComposeCatalog(extensions.ComposeInput{
+		BundleFS: base,
+		Manifest: extensions.Manifest{
+			Version: extensions.ManifestVersion,
+			Entries: []extensions.ManifestEntry{
+				{Identity: "managed-agent", Kind: "agent", ObjectPath: agentPath, Digest: "a", Source: "test"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runner, err := app.New(app.Config{BundleFS: base, ExtensionSnapshot: &snapshot})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, out, err := listAgentsHandler(runner)(context.Background(), nil, ListAgentsInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, a := range out.Agents {
+		if a.ID == "managed-agent" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("managed agent missing from MCP list: %#v", out.Agents)
 	}
 }
 

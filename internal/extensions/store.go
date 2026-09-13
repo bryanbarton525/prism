@@ -156,6 +156,23 @@ func (s *Store) Recover(ctx context.Context) (bool, error) {
 	return s.recoverInterrupted()
 }
 
+func (s *Store) RecoverAndLoadManifest(ctx context.Context) (Manifest, bool, error) {
+	unlock, err := acquireFileLock(ctx, s.LockPath())
+	if err != nil {
+		return Manifest{}, false, err
+	}
+	defer unlock()
+	recovered, err := s.recoverInterrupted()
+	if err != nil {
+		return Manifest{}, recovered, err
+	}
+	manifest, err := s.LoadManifest()
+	if err != nil {
+		return Manifest{}, recovered, err
+	}
+	return manifest, recovered, nil
+}
+
 func writeFileAtomically(path string, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err

@@ -1,6 +1,7 @@
 package extensions
 
 import (
+	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -34,20 +35,45 @@ func TestComposeCatalogIncludesBundledAndManaged(t *testing.T) {
 	}
 }
 
-func TestComposeCatalogRejectsCaseFoldedCollisions(t *testing.T) {
+func TestComposeCatalogPreservesUpgradeCollisionsWithoutStartupError(t *testing.T) {
 	bundle := fstest.MapFS{
 		"agents/MyAgent.md":     {Data: []byte("x")},
 		"skills/MySkill/SKILL.md": {Data: []byte("x")},
 	}
-	_, err := ComposeCatalog(ComposeInput{
+	snapshot, err := ComposeCatalog(ComposeInput{
 		BundleFS: bundle,
 		Manifest: Manifest{Version: 1, Entries: []ManifestEntry{
 			{Identity: "myagent", Kind: "agent", Source: "git", Digest: "d1", ObjectPath: "x"},
 			{Identity: "myskill", Kind: "skill", Source: "git", Digest: "d2", ObjectPath: "y"},
 		}},
 	})
+	if err != nil {
+		t.Fatalf("unexpected startup collision error: %v", err)
+	}
+	inactive := 0
+	for _, item := range append(snapshot.Agents, snapshot.Skills...) {
+		if item.Origin == "managed" && !item.Active && strings.HasPrefix(item.Reason, "collision_with_bundled_") {
+			inactive++
+		}
+	}
+	if inactive != 2 {
+		t.Fatalf("expected inactive collision entries, got %d", inactive)
+	}
+}
+
+func TestComposeCatalogRejectsCollisionsWhenExplicitlyRequested(t *testing.T) {
+	bundle := fstest.MapFS{
+		"agents/MyAgent.md": {Data: []byte("x")},
+	}
+	_, err := ComposeCatalog(ComposeInput{
+		BundleFS:          bundle,
+		RejectCollisions: true,
+		Manifest: Manifest{Version: 1, Entries: []ManifestEntry{
+			{Identity: "myagent", Kind: "agent", Source: "git", Digest: "d1", ObjectPath: "x"},
+		}},
+	})
 	if err == nil {
-		t.Fatal("expected collision error")
+		t.Fatal("expected explicit collision error")
 	}
 }
 

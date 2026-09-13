@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -156,13 +157,13 @@ func (c *Client) connect(ctx context.Context, server Server) (*mcpsdk.ClientSess
 	case TransportSSE:
 		// No http.Client Timeout here: a client-wide timeout would kill the
 		// long-lived SSE stream. The operation context bounds the call.
-		httpClient, err := downstreamHTTPClient(server.HeaderRefs)
+		httpClient, err := downstreamHTTPClient(server.URL, server.HeaderRefs)
 		if err != nil {
 			return nil, nil, err
 		}
 		transport = &mcpsdk.SSEClientTransport{Endpoint: server.URL, HTTPClient: httpClient}
 	case TransportStreamableHTTP:
-		httpClient, err := downstreamHTTPClient(server.HeaderRefs)
+		httpClient, err := downstreamHTTPClient(server.URL, server.HeaderRefs)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -194,30 +195,66 @@ func resolveReferencedValues(refs map[string]string, label string) (map[string]s
 	return values, nil
 }
 
-func downstreamHTTPClient(headerRefs map[string]string) (*http.Client, error) {
+func downstreamHTTPClient(endpoint string, headerRefs map[string]string) (*http.Client, error) {
+	origin, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("invalid downstream endpoint %q: %w", endpoint, err)
+	}
 	headers, err := resolveReferencedValues(headerRefs, "header")
 	if err != nil {
 		return nil, err
 	}
 	base := http.DefaultTransport
 	if len(headers) == 0 {
-		return &http.Client{Transport: base}, nil
+		return &http.Client{
+			Transport: base,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				if len(via) == 0 {
+					return nil
+				}
+				if !sameOrigin(origin, req.URL) {
+					return fmt.Errorf("cross-origin redirect blocked from %s to %s", origin.Host, req.URL.Host)
+				}
+				return nil
+			},
+		}, nil
 	}
-	return &http.Client{Transport: headerTransport{base: base, headers: headers}}, nil
+	return &http.Client{
+		Transport: headerTransport{base: base, headers: headers, origin: origin},
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) == 0 {
+				return nil
+			}
+			if !sameOrigin(origin, req.URL) {
+				return fmt.Errorf("cross-origin redirect blocked from %s to %s", origin.Host, req.URL.Host)
+			}
+			return nil
+		},
+	}, nil
 }
 
 type headerTransport struct {
 	base    http.RoundTripper
 	headers map[string]string
+	origin  *url.URL
 }
 
 func (h headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	cloned := req.Clone(req.Context())
 	cloned.Header = req.Header.Clone()
-	for key, value := range h.headers {
-		cloned.Header.Set(key, value)
+	if sameOrigin(h.origin, req.URL) {
+		for key, value := range h.headers {
+			cloned.Header.Set(key, value)
+		}
 	}
 	return h.base.RoundTrip(cloned)
+}
+
+func sameOrigin(expected, got *url.URL) bool {
+	if expected == nil || got == nil {
+		return false
+	}
+	return strings.EqualFold(expected.Scheme, got.Scheme) && strings.EqualFold(expected.Host, got.Host)
 }
 
 func flattenEnvironment(values map[string]string) []string {

@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -106,26 +108,56 @@ func newMCPAddCmd() *cobra.Command {
 	var replace bool
 	var dryRun bool
 	var description string
-	var envRefs []string
-	var headerRefs []string
+	var envFrom []string
+	var headerFrom []string
+	var legacyEnvRef []string
+	var legacyHeaderRef []string
 
 	cmd := &cobra.Command{
-		Use:   "add [flags] <name>",
+		Use:   "add [flags] <name> [-- <command> [args...]]",
 		Short: "Add a downstream MCP server using command, sse, or streamable-http transport",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
+			finalTransport, err := resolveAddTransport(transport, strings.TrimSpace(url))
+			if err != nil {
+				return err
+			}
+			envAssignments := append([]string{}, envFrom...)
+			envAssignments = append(envAssignments, legacyEnvRef...)
+			headerAssignments := append([]string{}, headerFrom...)
+			headerAssignments = append(headerAssignments, legacyHeaderRef...)
+			envRefs, err := parseReferenceAssignments(envAssignments, "--env-from")
+			if err != nil {
+				return err
+			}
+			headerRefs, err := parseReferenceAssignments(headerAssignments, "--header-from")
+			if err != nil {
+				return err
+			}
+			resolvedCommand := strings.TrimSpace(command)
+			resolvedArgs := append([]string{}, commandArgs...)
+			if len(args) > 1 {
+				if resolvedCommand != "" {
+					return fmt.Errorf("command was provided both by --command and positional argv; use one form")
+				}
+				resolvedCommand = args[1]
+				resolvedArgs = append([]string{}, args[2:]...)
+			}
 			server := downstreammcp.Server{
 				Name:        name,
-				Transport:   transport,
-				Command:     strings.TrimSpace(command),
-				Args:        append([]string{}, commandArgs...),
-				EnvRefs:     parseReferenceAssignments(envRefs),
+				Transport:   finalTransport,
+				Command:     resolvedCommand,
+				Args:        resolvedArgs,
+				EnvRefs:     envRefs,
 				URL:         strings.TrimSpace(url),
-				HeaderRefs:  parseReferenceAssignments(headerRefs),
+				HeaderRefs:  headerRefs,
 				TimeoutMS:   timeoutMS,
 				MaxBytes:    maxBytes,
 				Description: strings.TrimSpace(description),
+			}
+			if err := validateAddCommandFlags(cmd, server); err != nil {
+				return err
 			}
 			if err := server.Validate(); err != nil {
 				return err
@@ -133,7 +165,7 @@ func newMCPAddCmd() *cobra.Command {
 			return mutateDownstreamMCPServer(cmd.Context(), server, replace, dryRun)
 		},
 	}
-	cmd.Flags().StringVar(&transport, "transport", downstreammcp.TransportCommand, "Transport: command, sse, streamable-http")
+	cmd.Flags().StringVar(&transport, "transport", "", "Transport: command, sse, http, streamable-http")
 	cmd.Flags().StringVar(&command, "command", "", "Executable for command transport")
 	cmd.Flags().StringArrayVar(&commandArgs, "arg", nil, "Command argument (repeatable)")
 	cmd.Flags().StringVar(&url, "url", "", "Endpoint URL for sse or streamable-http transport")
@@ -142,8 +174,12 @@ func newMCPAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&description, "description", "", "Human-readable server description")
 	cmd.Flags().BoolVar(&replace, "replace", false, "Replace existing server with same name")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show outcome without writing state")
-	cmd.Flags().StringArrayVar(&envRefs, "env-ref", nil, "Command env reference assignment KEY=ENV_VAR (repeatable)")
-	cmd.Flags().StringArrayVar(&headerRefs, "header-ref", nil, "HTTP header reference assignment HEADER=ENV_VAR (repeatable)")
+	cmd.Flags().StringArrayVar(&envFrom, "env-from", nil, "Command env reference assignment KEY=ENV_VAR (repeatable)")
+	cmd.Flags().StringArrayVar(&headerFrom, "header-from", nil, "HTTP header reference assignment HEADER=ENV_VAR (repeatable)")
+	cmd.Flags().StringArrayVar(&legacyEnvRef, "env-ref", nil, "Deprecated alias for --env-from")
+	cmd.Flags().StringArrayVar(&legacyHeaderRef, "header-ref", nil, "Deprecated alias for --header-from")
+	_ = cmd.Flags().MarkHidden("env-ref")
+	_ = cmd.Flags().MarkHidden("header-ref")
 	return cmd
 }
 
@@ -237,9 +273,8 @@ func newMCPServerCmd() *cobra.Command {
 func newMCPServerAddCommandCmd() *cobra.Command {
 	var timeoutMS int
 	var maxBytes int
-	var replace bool
 	var description string
-	var envRefs []string
+	var envFrom []string
 	cmd := &cobra.Command{
 		Use:   "add-command [flags] <name> <command> [args...]",
 		Short: "Add a downstream MCP server launched as a command",
@@ -255,12 +290,16 @@ flags such as --timeout-ms and --max-bytes must come BEFORE <name>:
 			if err := rejectMisplacedPrismFlags(args); err != nil {
 				return err
 			}
+			envRefs, err := parseReferenceAssignments(envFrom, "--env-from")
+			if err != nil {
+				return err
+			}
 			server := downstreammcp.Server{
 				Name:        args[0],
 				Transport:   downstreammcp.TransportCommand,
 				Command:     args[1],
 				Args:        append([]string{}, args[2:]...),
-				EnvRefs:     parseReferenceAssignments(envRefs),
+				EnvRefs:     envRefs,
 				TimeoutMS:   timeoutMS,
 				MaxBytes:    maxBytes,
 				Description: strings.TrimSpace(description),
@@ -268,14 +307,13 @@ flags such as --timeout-ms and --max-bytes must come BEFORE <name>:
 			if err := server.Validate(); err != nil {
 				return err
 			}
-			return mutateDownstreamMCPServer(context.Background(), server, replace, false)
+			return mutateDownstreamMCPServer(context.Background(), server, true, false)
 		},
 	}
 	cmd.Flags().IntVar(&timeoutMS, "timeout-ms", downstreammcp.DefaultTimeoutMS, "Per-call timeout in milliseconds")
 	cmd.Flags().IntVar(&maxBytes, "max-bytes", downstreammcp.DefaultMaxBytes, "Maximum returned content bytes")
-	cmd.Flags().BoolVar(&replace, "replace", false, "Replace existing server with same name")
 	cmd.Flags().StringVar(&description, "description", "", "Human-readable server description")
-	cmd.Flags().StringArrayVar(&envRefs, "env-ref", nil, "Command env reference assignment KEY=ENV_VAR (repeatable)")
+	cmd.Flags().StringArrayVar(&envFrom, "env-from", nil, "Command env reference assignment KEY=ENV_VAR (repeatable)")
 	cmd.Flags().SetInterspersed(false)
 	return cmd
 }
@@ -301,19 +339,22 @@ func rejectMisplacedPrismFlags(args []string) error {
 func newMCPServerAddSSECmd() *cobra.Command {
 	var timeoutMS int
 	var maxBytes int
-	var replace bool
 	var description string
-	var headerRefs []string
+	var headerFrom []string
 	cmd := &cobra.Command{
 		Use:   "add-sse <name> <url>",
 		Short: "Add a downstream MCP server using SSE transport",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
+			headerRefs, err := parseReferenceAssignments(headerFrom, "--header-from")
+			if err != nil {
+				return err
+			}
 			server := downstreammcp.Server{
 				Name:        args[0],
 				Transport:   downstreammcp.TransportSSE,
 				URL:         args[1],
-				HeaderRefs:  parseReferenceAssignments(headerRefs),
+				HeaderRefs:  headerRefs,
 				TimeoutMS:   timeoutMS,
 				MaxBytes:    maxBytes,
 				Description: strings.TrimSpace(description),
@@ -321,14 +362,13 @@ func newMCPServerAddSSECmd() *cobra.Command {
 			if err := server.Validate(); err != nil {
 				return err
 			}
-			return mutateDownstreamMCPServer(context.Background(), server, replace, false)
+			return mutateDownstreamMCPServer(context.Background(), server, true, false)
 		},
 	}
 	cmd.Flags().IntVar(&timeoutMS, "timeout-ms", downstreammcp.DefaultTimeoutMS, "Per-call timeout in milliseconds")
 	cmd.Flags().IntVar(&maxBytes, "max-bytes", downstreammcp.DefaultMaxBytes, "Maximum returned content bytes")
-	cmd.Flags().BoolVar(&replace, "replace", false, "Replace existing server with same name")
 	cmd.Flags().StringVar(&description, "description", "", "Human-readable server description")
-	cmd.Flags().StringArrayVar(&headerRefs, "header-ref", nil, "HTTP header reference assignment HEADER=ENV_VAR (repeatable)")
+	cmd.Flags().StringArrayVar(&headerFrom, "header-from", nil, "HTTP header reference assignment HEADER=ENV_VAR (repeatable)")
 	return cmd
 }
 
@@ -375,24 +415,92 @@ func mutateDownstreamMCPServer(ctx context.Context, server downstreammcp.Server,
 	return printDownstreamMCPMutation(server.Name, result.Outcome)
 }
 
-func parseReferenceAssignments(assignments []string) map[string]string {
+func parseReferenceAssignments(assignments []string, flagName string) (map[string]string, error) {
 	out := map[string]string{}
 	for _, assignment := range assignments {
 		parts := strings.SplitN(assignment, "=", 2)
 		if len(parts) != 2 {
-			continue
+			return nil, fmt.Errorf("invalid %s assignment %q (expected KEY=ENV_VAR)", flagName, assignment)
 		}
 		key := strings.TrimSpace(parts[0])
 		ref := strings.TrimSpace(parts[1])
 		if key == "" || ref == "" {
-			continue
+			return nil, fmt.Errorf("invalid %s assignment %q (expected KEY=ENV_VAR)", flagName, assignment)
 		}
 		out[key] = ref
 	}
 	if len(out) == 0 {
-		return nil
+		return nil, nil
 	}
-	return out
+	return out, nil
+}
+
+func resolveAddTransport(rawTransport, rawURL string) (string, error) {
+	transport := strings.TrimSpace(strings.ToLower(rawTransport))
+	if transport == "http" {
+		transport = downstreammcp.TransportStreamableHTTP
+	}
+	if transport == "" {
+		if rawURL != "" {
+			return downstreammcp.TransportStreamableHTTP, nil
+		}
+		return downstreammcp.TransportCommand, nil
+	}
+	switch transport {
+	case downstreammcp.TransportCommand, downstreammcp.TransportSSE, downstreammcp.TransportStreamableHTTP:
+		return transport, nil
+	default:
+		return "", fmt.Errorf("unsupported transport %q", rawTransport)
+	}
+}
+
+func validateAddCommandFlags(cmd *cobra.Command, server downstreammcp.Server) error {
+	if cmd.Flags().Changed("timeout-ms") && server.TimeoutMS <= 0 {
+		return fmt.Errorf("--timeout-ms must be > 0")
+	}
+	if cmd.Flags().Changed("max-bytes") && server.MaxBytes <= 0 {
+		return fmt.Errorf("--max-bytes must be > 0")
+	}
+	switch server.Transport {
+	case downstreammcp.TransportCommand:
+		if strings.TrimSpace(server.URL) != "" {
+			return fmt.Errorf("--url is not valid with command transport")
+		}
+		if len(server.HeaderRefs) > 0 {
+			return fmt.Errorf("--header-from is not valid with command transport")
+		}
+		if strings.TrimSpace(server.Command) == "" {
+			return fmt.Errorf("command transport requires executable command (use --command or argv after --)")
+		}
+	case downstreammcp.TransportSSE, downstreammcp.TransportStreamableHTTP:
+		if strings.TrimSpace(server.Command) != "" || len(server.Args) > 0 {
+			return fmt.Errorf("URL-based transports do not accept command argv")
+		}
+		if len(server.EnvRefs) > 0 {
+			return fmt.Errorf("--env-from is not valid with URL-based transports")
+		}
+		if err := validateAbsoluteHTTPURL(server.URL); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateAbsoluteHTTPURL(raw string) error {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("invalid --url: %w", err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("--url must use http or https scheme")
+	}
+	if parsed.Host == "" {
+		return fmt.Errorf("--url must be absolute")
+	}
+	if filepath.IsAbs(raw) {
+		return fmt.Errorf("--url must be an absolute URL, not a path")
+	}
+	return nil
 }
 
 func newMCPServerListCmd() *cobra.Command {

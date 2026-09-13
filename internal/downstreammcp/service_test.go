@@ -3,8 +3,10 @@ package downstreammcp
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestServiceAddOrUpdateOutcomes(t *testing.T) {
@@ -93,7 +95,6 @@ func TestFileStoreWriteDetectsExternalEdit(t *testing.T) {
 	if err := Save(path, State{Servers: []Server{{Name: "one", Transport: TransportCommand, Command: "cmd"}}}); err != nil {
 		t.Fatal(err)
 	}
-
 	store := NewFileStore(path)
 	snapshot, err := store.Read(ctx)
 	if err != nil {
@@ -109,4 +110,33 @@ func TestFileStoreWriteDetectsExternalEdit(t *testing.T) {
 	if !errors.Is(err, ErrExternalEdit) {
 		t.Fatalf("err = %v, want ErrExternalEdit", err)
 	}
+}
+
+func TestServiceAddOrUpdateCreatesMissingStateDirectory(t *testing.T) {
+	ctx := context.Background()
+	statePath := filepath.Join(t.TempDir(), "not-created", "mcp-servers.yaml")
+	service := NewService(statePath)
+	res, err := service.AddOrUpdate(ctx, Server{Name: "linear", Transport: TransportCommand, Command: "npx"}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Outcome != OutcomeCreated {
+		t.Fatalf("outcome = %q", res.Outcome)
+	}
+}
+
+func TestAcquireLockRecoversStaleLockFile(t *testing.T) {
+	lockPath := filepath.Join(t.TempDir(), "mcp-servers.yaml.lock")
+	if err := os.WriteFile(lockPath, []byte("stale"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	old := time.Now().Add(-2 * staleLockAge)
+	if err := os.Chtimes(lockPath, old, old); err != nil {
+		t.Fatal(err)
+	}
+	unlock, err := acquireLock(context.Background(), lockPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unlock()
 }
