@@ -340,6 +340,15 @@ func hasActiveManagedContent(snapshot extensions.CatalogSnapshot) bool {
 	return false
 }
 
+func (r *Runner) isBundledAgent(agentID string) bool {
+	for _, item := range r.catalog.Agents {
+		if item.ID == agentID && item.Origin == "bundled" {
+			return true
+		}
+	}
+	return false
+}
+
 func resolveCatalogSnapshot(cfg Config) (extensions.CatalogSnapshot, error) {
 	if cfg.ExtensionSnapshot != nil {
 		return *cfg.ExtensionSnapshot, nil
@@ -459,10 +468,10 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 		return emit(res), nil
 	}
 
-	// ── 2. Require at least one skill ─────────────────────────────────────
-	if len(req.SkillNames) == 0 {
+	// ── 2. Require at least one skill for bundled agents ──────────────────
+	if len(req.SkillNames) == 0 && r.isBundledAgent(req.AgentID) {
 		res := r.validationFail(req.AgentID, spec.Model, start,
-			"at least one skill is required; pass one or more values from allowed_skills")
+			"at least one skill is required for bundled agents; pass one or more values from allowed_skills")
 		res.ContextBudget = spec.ContextBudget
 		return emit(res), nil
 	}

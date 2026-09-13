@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
+	"github.com/bryanbarton525/prism/internal/extensions"
 	llmruntime "github.com/bryanbarton525/prism/internal/llm/runtime"
 	"github.com/bryanbarton525/prism/internal/ollama"
 	"github.com/bryanbarton525/prism/internal/plugins"
@@ -417,6 +418,47 @@ func TestRunner_Run_NoSkills(t *testing.T) {
 	}
 	if len(sink.events) != 1 || sink.events[0].BundleDigest != "abc123" || sink.events[0].BundleMode != "embedded" {
 		t.Fatalf("event provenance = %#v", sink.events)
+	}
+}
+
+func TestRunner_Run_AllowsNoSkillsForManagedAgent(t *testing.T) {
+	root := makeTestRoot(t, map[string]string{"github-cli.md": githubCLISpec()}, map[string]string{"gh-pr-triage": ghPRTriageSkill()})
+	managedAgentPath := filepath.Join(t.TempDir(), "managed-agent.md")
+	writeFile(t, managedAgentPath, `---
+id: managed-agent
+name: Managed Agent
+description: Managed runtime agent.
+model: llama3.1:8b
+context_budget: 16000
+allowed_skills: [gh-pr-triage]
+latency_budget_ms: 10000
+---
+Managed body.`)
+	srv := mockOllama(t, `{"summary":"ok","findings":[],"artifacts":[],"confidence":"high"}`)
+	defer srv.Close()
+	snapshot := extensions.CatalogSnapshot{
+		Agents: []extensions.CatalogItem{
+			{ID: "github-cli", Origin: "bundled", Active: true},
+			{ID: "managed-agent", Origin: "managed", Active: true, ObjectPath: managedAgentPath},
+		},
+		Skills: []extensions.CatalogItem{
+			{ID: "gh-pr-triage", Origin: "bundled", Active: true},
+		},
+	}
+	runner, err := New(Config{BundleFS: os.DirFS(root), ExtensionSnapshot: &snapshot, OllamaHost: srv.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := runner.Run(context.Background(), RunRequest{
+		AgentID:    "managed-agent",
+		Task:       "say hello",
+		SkillNames: nil,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Status == result.StatusValidationFail && strings.Contains(res.Summary, "at least one skill is required") {
+		t.Fatalf("managed agents should allow zero skills: %#v", res)
 	}
 }
 

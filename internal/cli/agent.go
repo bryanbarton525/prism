@@ -15,6 +15,7 @@ import (
 	"github.com/bryanbarton525/prism/internal/app"
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
 	"github.com/bryanbarton525/prism/internal/events"
+	"github.com/bryanbarton525/prism/internal/extensions"
 	internalpolicy "github.com/bryanbarton525/prism/internal/policy"
 	"github.com/bryanbarton525/prism/internal/rootresolver"
 	"github.com/bryanbarton525/prism/pkg/observe"
@@ -28,6 +29,161 @@ func newAgentCmd() *cobra.Command {
 	cmd.AddCommand(newAgentListCmd())
 	cmd.AddCommand(newAgentShowCmd())
 	cmd.AddCommand(newAgentConstitutionCmd())
+	cmd.AddCommand(newAgentAddCmd(), newAgentManagedCmd())
+	return cmd
+}
+
+func newAgentAddCmd() *cobra.Command {
+	var as string
+	var replace bool
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "add <source-file-or-dir>",
+		Short: "Install a local managed agent into runtime extensions",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			svc := extensions.NewLocalAgentService(gf.stateDir)
+			entry, err := svc.InstallLocalAgent(context.Background(), extensions.InstallLocalAgentRequest{
+				Source:  args[0],
+				As:      as,
+				Replace: replace,
+				DryRun:  dryRun,
+			})
+			if err != nil {
+				return err
+			}
+			if gf.jsonOut {
+				data, _ := json.MarshalIndent(entry, "", "  ")
+				fmt.Println(string(data))
+				return nil
+			}
+			action := "installed"
+			if dryRun {
+				action = "would install"
+			}
+			fmt.Printf("%s agent %s (%s)\n", action, entry.Identity, entry.Digest)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&as, "as", "", "Rename installed agent identity")
+	cmd.Flags().BoolVar(&replace, "replace", false, "Replace existing managed agent")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without mutation")
+	return cmd
+}
+
+func newAgentManagedCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "managed",
+		Short: "Manage installed runtime agents",
+	}
+	cmd.AddCommand(newAgentManagedListCmd(), newAgentManagedRemoveCmd(), newAgentManagedCopyCmd(), newAgentManagedRenameCmd())
+	return cmd
+}
+
+func newAgentManagedListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List managed runtime agents",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			svc := extensions.NewLocalAgentService(gf.stateDir)
+			entries, err := svc.ListManagedAgents(context.Background())
+			if err != nil {
+				return err
+			}
+			if gf.jsonOut {
+				data, _ := json.MarshalIndent(entries, "", "  ")
+				fmt.Println(string(data))
+				return nil
+			}
+			for _, e := range entries {
+				fmt.Printf("%s\t%s\t%s\n", e.Identity, e.Source, e.Digest)
+			}
+			return nil
+		},
+	}
+}
+
+func newAgentManagedRemoveCmd() *cobra.Command {
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "remove <agent-id>",
+		Short: "Remove managed runtime agent",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			svc := extensions.NewLocalAgentService(gf.stateDir)
+			removed, err := svc.RemoveManagedAgent(context.Background(), args[0], dryRun)
+			if err != nil {
+				return err
+			}
+			if !removed {
+				fmt.Printf("managed agent %q not found\n", args[0])
+				return nil
+			}
+			if dryRun {
+				fmt.Printf("would remove managed agent %q\n", args[0])
+			} else {
+				fmt.Printf("removed managed agent %q\n", args[0])
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without mutation")
+	return cmd
+}
+
+func newAgentManagedCopyCmd() *cobra.Command {
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "copy <from> <to>",
+		Short: "Copy managed runtime agent entry",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(_ *cobra.Command, args []string) error {
+			svc := extensions.NewLocalAgentService(gf.stateDir)
+			ok, err := svc.CopyManagedAgent(context.Background(), args[0], args[1], dryRun)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				fmt.Printf("managed agent %q not found\n", args[0])
+				return nil
+			}
+			if dryRun {
+				fmt.Printf("would copy managed agent %q -> %q\n", args[0], args[1])
+			} else {
+				fmt.Printf("copied managed agent %q -> %q\n", args[0], args[1])
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without mutation")
+	return cmd
+}
+
+func newAgentManagedRenameCmd() *cobra.Command {
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "rename <from> <to>",
+		Short: "Rename managed runtime agent entry",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(_ *cobra.Command, args []string) error {
+			svc := extensions.NewLocalAgentService(gf.stateDir)
+			ok, err := svc.RenameManagedAgent(context.Background(), args[0], args[1], dryRun)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				fmt.Printf("managed agent %q not found\n", args[0])
+				return nil
+			}
+			if dryRun {
+				fmt.Printf("would rename managed agent %q -> %q\n", args[0], args[1])
+			} else {
+				fmt.Printf("renamed managed agent %q -> %q\n", args[0], args[1])
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without mutation")
 	return cmd
 }
 
@@ -255,19 +411,19 @@ func newRunnerWithControls(ctx context.Context, sink observe.Sink, policyEngine 
 		bundleDigest = prismbundle.DigestParts(map[string]fs.FS{"agents": agentsFS, "skills": skillsFS, "constitutions": constitutionsFS})
 	}
 	runner, err := app.New(app.Config{
-		BundleFS:       prismbundle.BundleFS(),
-		BundleDigest:   bundleDigest,
-		BundleMode:     bundleMode,
-		WorkspaceFS:    workspaceFS,
-		WorkspaceLabel: workspaceRoot,
-		GitHubToken:    cfg.GitHubToken,
-		AgentDir:       gf.agentDir,
-		SkillsDir:      gf.skillsDir,
-		OllamaHost:     gf.ollamaHost,
-		EventSink:      sink,
-		PolicyEngine:   policyEngine,
-		DownstreamMCP:  downstreammcp.New(mcpState),
-		ModelRuntime:   modelRuntime,
+		BundleFS:           prismbundle.BundleFS(),
+		BundleDigest:       bundleDigest,
+		BundleMode:         bundleMode,
+		WorkspaceFS:        workspaceFS,
+		WorkspaceLabel:     workspaceRoot,
+		GitHubToken:        cfg.GitHubToken,
+		AgentDir:           gf.agentDir,
+		SkillsDir:          gf.skillsDir,
+		OllamaHost:         gf.ollamaHost,
+		EventSink:          sink,
+		PolicyEngine:       policyEngine,
+		DownstreamMCP:      downstreammcp.New(mcpState),
+		ModelRuntime:       modelRuntime,
 		ExtensionsStateDir: gf.stateDir,
 	})
 	if err != nil {
