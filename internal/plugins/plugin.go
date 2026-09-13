@@ -66,11 +66,16 @@ func (r *Registry) Alias(alias, target string) {
 }
 
 func (r *Registry) Get(name string) (Plugin, bool) {
-	if target, ok := r.aliases[name]; ok {
-		name = target
+	// An exact plugin name always wins; aliases must not shadow a registered
+	// plugin that happens to share the alias's name.
+	if plugin, ok := r.plugins[name]; ok {
+		return plugin, true
 	}
-	plugin, ok := r.plugins[name]
-	return plugin, ok
+	if target, ok := r.aliases[name]; ok {
+		plugin, ok := r.plugins[target]
+		return plugin, ok
+	}
+	return nil, false
 }
 
 func (r *Registry) Names() []string {

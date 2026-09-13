@@ -112,6 +112,68 @@ func TestGoldenPromptAssembly_githubCLI(t *testing.T) {
 	}
 }
 
+// TestScenarioDelegationsResolve validates every committed benchmark scenario
+// against the live agent/skill registry and its own file references. A typo
+// in a scenario YAML should fail here, not as a validation_fail envelope at
+// benchmark runtime.
+func TestScenarioDelegationsResolve(t *testing.T) {
+	root := repoRoot(t)
+	reg := agent.NewRegistry(os.DirFS(filepath.Join(root, "agents")))
+	if err := reg.Load(); err != nil {
+		t.Fatal(err)
+	}
+
+	scenariosDir := filepath.Join(root, "testdata", "benchmarks", "scenarios")
+	entries, err := os.ReadDir(scenariosDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		id := entry.Name()
+		t.Run(id, func(t *testing.T) {
+			scenario, err := LoadScenario(root, id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			mustExist := func(rel string) {
+				t.Helper()
+				if rel == "" {
+					return
+				}
+				if _, err := os.Stat(filepath.Join(scenario.Dir(), rel)); err != nil {
+					t.Errorf("referenced file missing: %v", err)
+				}
+			}
+			mustExist(scenario.BriefFile)
+			mustExist(scenario.Synthesis.OrchestratorPromptFile)
+			mustExist(scenario.Synthesis.DelegatedPromptFile)
+			for _, f := range scenario.OrchestratorContextFiles {
+				mustExist(f)
+			}
+			for _, d := range scenario.Delegations {
+				spec, err := reg.Get(d.AgentID)
+				if err != nil {
+					t.Errorf("delegation %s: agent %q not registered: %v", d.ID, d.AgentID, err)
+					continue
+				}
+				for _, name := range d.SkillNames {
+					if !spec.AllowsSkill(name) {
+						t.Errorf("delegation %s: skill %q not in agent %q allowed_skills", d.ID, name, d.AgentID)
+					}
+				}
+				mustExist(d.TaskFile)
+				mustExist(d.MockResponseFile)
+				for _, f := range d.EvidenceFiles {
+					mustExist(f)
+				}
+			}
+		})
+	}
+}
+
 // TestBenchmarkThresholdsFile ensures CI threshold config is present and parseable.
 func TestBenchmarkThresholdsFile(t *testing.T) {
 	root := repoRoot(t)

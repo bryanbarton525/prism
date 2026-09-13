@@ -34,7 +34,7 @@ func ollamaChat(ctx context.Context, host, model, system, user string) (chatResu
 			{Role: "system", Content: system},
 			{Role: "user", Content: user},
 		},
-		Options: &ollama.Options{Temperature: 0.1},
+		Options: &ollama.Options{Temperature: ptr(0.1)},
 	})
 	if err != nil {
 		return chatResult{}, err
@@ -68,3 +68,5 @@ func ensureModel(ctx context.Context, host, model string) error {
 	}
 	return fmt.Errorf("model %q not found in Ollama (pull it first)", model)
 }
+
+func ptr[T any](v T) *T { return &v }

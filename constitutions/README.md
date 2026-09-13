@@ -13,6 +13,10 @@ Agent specs live under `agents/<id>.md`. This directory holds constitution-only
 artifacts during migration. See [agent specifications](../agents/README.md),
 [agent skills](../skills/README.md), and [docs/usage.md](../docs/usage.md).
 
+The `implementer`, `planner`, `researcher`, `reviewer`, and `test-designer`
+constitutions are reference templates only. They are not registered agents and
+remain here to support the documented legacy fallback and migration work.
+
 
 ## Initial agents
 

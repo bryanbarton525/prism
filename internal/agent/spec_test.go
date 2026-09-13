@@ -49,8 +49,8 @@ func TestParse_Valid(t *testing.T) {
 	if len(spec.AllowedSkills) != 2 {
 		t.Errorf("AllowedSkills: want 2, got %d", len(spec.AllowedSkills))
 	}
-	if spec.Temperature != 0.1 {
-		t.Errorf("Temperature: want 0.1, got %f", spec.Temperature)
+	if spec.Temperature == nil || *spec.Temperature != 0.1 {
+		t.Errorf("Temperature: want 0.1, got %v", spec.Temperature)
 	}
 	if !strings.Contains(spec.Body, "GitHub CLI constitution") {
 		t.Errorf("Body should contain constitution text, got: %s", spec.Body)

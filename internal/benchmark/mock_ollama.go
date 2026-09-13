@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -35,9 +36,22 @@ func mockOllamaServer(responses map[string]string) *httptest.Server {
 			}
 			combined := body.String()
 			text := "benchmark mock response"
-			for skill, resp := range responses {
+			// Match in deterministic order — longest skill marker first, then
+			// lexicographic. Ranging the map directly made the reply random
+			// whenever a prompt contained more than one skill marker.
+			keys := make([]string, 0, len(responses))
+			for skill := range responses {
+				keys = append(keys, skill)
+			}
+			sort.Slice(keys, func(i, j int) bool {
+				if len(keys[i]) != len(keys[j]) {
+					return len(keys[i]) > len(keys[j])
+				}
+				return keys[i] < keys[j]
+			})
+			for _, skill := range keys {
 				if strings.Contains(combined, skill) {
-					text = resp
+					text = responses[skill]
 					break
 				}
 			}

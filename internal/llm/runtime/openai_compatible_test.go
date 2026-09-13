@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -239,9 +240,31 @@ func TestStreamContextCancellation(t *testing.T) {
 		t.Fatal(err)
 	}
 	cancel()
-	ev := <-ch
-	if ev.Kind != StreamEventError {
-		t.Fatalf("event = %#v", ev)
+	select {
+	case _, ok := <-ch:
+		if ok {
+			t.Fatal("expected stream to close after cancellation")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("stream did not close after cancellation")
+	}
+}
+
+func TestParseSSECancellationUnblocksAbandonedConsumer(t *testing.T) {
+	rt := &OpenAICompatibleRuntime{cfg: Config{Engine: EngineSGLang}}
+	ctx, cancel := context.WithCancel(context.Background())
+	out := make(chan StreamEvent)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		rt.parseSSE(ctx, strings.NewReader("data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n"), out)
+	}()
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("parseSSE remained blocked sending to an abandoned consumer")
 	}
 }
 

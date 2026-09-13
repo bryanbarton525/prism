@@ -211,6 +211,44 @@ func TestPublishedToolContract(t *testing.T) {
 	}
 }
 
+func TestRunAgentHandlerMarksFailedEnvelopesAsErrors(t *testing.T) {
+	runner := failingRunner{status: result.StatusValidationFail, summary: "skill not allowed"}
+	res, out, err := runAgentHandler(runner, Config{})(context.Background(), nil, RunAgentInput{
+		AgentID:    "kubectl",
+		Task:       "triage",
+		SkillNames: []string{"not-allowed"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.IsError {
+		t.Fatalf("IsError = false for status %q", out.Status)
+	}
+
+	okRunner := failingRunner{status: result.StatusOK, summary: "fine"}
+	res, _, err = runAgentHandler(okRunner, Config{})(context.Background(), nil, RunAgentInput{
+		AgentID:    "kubectl",
+		Task:       "triage",
+		SkillNames: []string{"k8s-rollout-diagnostics"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.IsError {
+		t.Fatal("IsError = true for status ok")
+	}
+}
+
+type failingRunner struct {
+	mcpFakeRunner
+	status  string
+	summary string
+}
+
+func (f failingRunner) Run(context.Context, app.RunRequest) (result.RunResult, error) {
+	return result.RunResult{Status: f.status, Summary: f.summary}, nil
+}
+
 type mcpFakeRunner struct{}
 
 type capturingRunner struct {

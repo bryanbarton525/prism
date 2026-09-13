@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/bryanbarton525/prism/internal/skill"
+	"github.com/bryanbarton525/prism/internal/textutil"
 )
 
 // assemblePrompt builds the system and user messages following the progressive
@@ -69,6 +70,11 @@ func assemblePrompt(constitution string, skills map[string]*skill.Skill, skillNa
 	return systemMsg, userMsg
 }
 
+// responseFormatHeading anchors the start of the trailing instruction block
+// that truncateToTokenBudget must never cut: it carries the JSON envelope
+// contract the orchestrator parses results with.
+const responseFormatHeading = "# Response format"
+
 func outputFormatInstruction() string {
 	return `# Response format
 
@@ -87,21 +93,33 @@ The orchestrator receives only the compact summary and findings, not verbose pro
 }
 
 // truncateToTokenBudget trims text to fit within an approximate token budget
-// using the heuristic of 4 characters per token. It appends a notice so the
-// model knows the context was reduced.
+// using the heuristic of 4 characters per token. The trailing response-format
+// block (from the last responseFormatHeading onward) is always preserved —
+// cutting it would strip the JSON envelope contract exactly when context is
+// tight — so truncation removes text immediately before it and appends a
+// notice there. A non-positive budget keeps only the notice and the protected
+// block; it must not disable truncation, because the caller computes
+// budget-minus-user-prompt and the overflow case is where truncation matters
+// most.
 func truncateToTokenBudget(text string, tokenBudget int) string {
-	if tokenBudget <= 0 {
-		return text
-	}
 	charBudget := tokenBudget * 4
-	if len(text) <= charBudget {
+	if tokenBudget > 0 && len(text) <= charBudget {
 		return text
 	}
-	const notice = "\n\n[System: prompt truncated to fit context budget]"
-	if charBudget <= len(notice) {
-		return notice
+	const notice = "\n\n[System: prompt truncated to fit context budget]\n\n"
+	tail := ""
+	head := text
+	if idx := strings.LastIndex(text, responseFormatHeading); idx >= 0 {
+		head, tail = text[:idx], text[idx:]
 	}
-	return text[:charBudget-len(notice)] + notice
+	headBudget := charBudget - len(notice) - len(tail)
+	switch {
+	case headBudget <= 0:
+		head = ""
+	case len(head) > headBudget:
+		head, _ = textutil.CutBytes(head, headBudget)
+	}
+	return head + notice + tail
 }
 
 // AssemblePromptForTest exposes assemblePrompt for golden tests in internal/benchmark.

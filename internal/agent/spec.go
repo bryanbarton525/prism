@@ -23,7 +23,9 @@ type Spec struct {
 	LatencyBudgetMS int      `yaml:"latency_budget_ms" json:"latency_budget_ms"`
 
 	// Recommended frontmatter fields.
-	Temperature      float64  `yaml:"temperature"       json:"temperature,omitempty"`
+	// Temperature is a pointer so an explicit `temperature: 0` (deterministic
+	// sampling) is distinguishable from an omitted key (engine default).
+	Temperature      *float64 `yaml:"temperature"       json:"temperature,omitempty"`
 	Tools            []string `yaml:"tools"             json:"tools,omitempty"`
 	Outputs          string   `yaml:"outputs"           json:"outputs,omitempty"`
 	ConstitutionPath string   `yaml:"constitution_path" json:"constitution_path,omitempty"`

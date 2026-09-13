@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"regexp"
 	"strings"
+
+	"github.com/bryanbarton525/prism/internal/textutil"
 )
 
 const DefaultCompactMaxChars = 400
@@ -40,6 +42,9 @@ func ParseAgentOutput(raw string, compactMax int) RunResult {
 	if parsed.code != "" {
 		artifacts = append(artifacts, Artifact{Type: "snippet", Label: "code", Content: parsed.code})
 	}
+	if parsed.notes != "" {
+		artifacts = append(artifacts, Artifact{Type: "notes", Label: "notes", Content: parsed.notes})
+	}
 
 	summary := strings.TrimSpace(parsed.summary)
 	if summary == "" {
@@ -67,6 +72,12 @@ type parsedFields struct {
 	confidence string
 	patch      string
 	code       string
+	notes      string
+}
+
+func (p parsedFields) empty() bool {
+	return p.summary == "" && len(p.findings) == 0 && len(p.artifacts) == 0 &&
+		p.confidence == "" && p.patch == "" && p.code == "" && p.notes == ""
 }
 
 func tryParseJSON(raw string) parsedFields {
@@ -85,14 +96,22 @@ func tryParseJSON(raw string) parsedFields {
 		if err := json.Unmarshal([]byte(c), &ao); err != nil {
 			continue
 		}
-		return parsedFields{
+		parsed := parsedFields{
 			summary:    ao.Summary,
 			findings:   decodeFindings(ao.Findings),
 			artifacts:  ao.Artifacts,
 			confidence: ao.Confidence,
 			patch:      ao.Patch,
 			code:       ao.Code,
+			notes:      ao.Notes,
 		}
+		// A JSON object that shares no fields with the envelope (e.g. "{}")
+		// is not a parse success; fall through to bullet extraction rather
+		// than returning an empty result.
+		if parsed.empty() {
+			continue
+		}
+		return parsed
 	}
 	return parsedFields{findings: bulletFindings(raw)}
 }
@@ -174,9 +193,11 @@ func truncateText(s string, max int) string {
 		return s
 	}
 	if max <= 3 {
-		return s[:max]
+		out, _ := textutil.CutBytes(s, max)
+		return out
 	}
-	return s[:max-3] + "..."
+	out, _ := textutil.CutBytes(s, max-3)
+	return out + "..."
 }
 
 func normalizeConfidence(c string) string {

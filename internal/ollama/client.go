@@ -88,7 +88,10 @@ type ChatRequest struct {
 	Messages []Message `json:"messages"`
 	Tools    []Tool    `json:"tools,omitempty"`
 	Stream   bool      `json:"stream"`
-	Options  *Options  `json:"options,omitempty"`
+	// Format constrains the response to a JSON schema (Ollama structured
+	// outputs). Pass a marshalled JSON schema object.
+	Format  json.RawMessage `json:"format,omitempty"`
+	Options *Options        `json:"options,omitempty"`
 }
 
 // Message is one turn in an Ollama conversation.
@@ -121,7 +124,9 @@ type ToolCallFunction struct {
 
 // Options maps to Ollama model parameters.
 type Options struct {
-	Temperature float64 `json:"temperature,omitempty"`
+	// Temperature is a pointer so an explicit 0 (deterministic sampling) is
+	// serialized instead of being dropped by omitempty.
+	Temperature *float64 `json:"temperature,omitempty"`
 	// NumCtx is the context window size in tokens passed to the model.
 	NumCtx     int `json:"num_ctx,omitempty"`
 	NumPredict int `json:"num_predict,omitempty"`

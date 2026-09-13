@@ -190,7 +190,7 @@ func (e *Engine) Explain(req policypkg.Request) policypkg.Decision {
 			return policypkg.Deny(fmt.Sprintf("agent %q is not allowed", req.AgentID))
 		}
 		for _, skill := range req.Skills {
-			if len(agent.Skills) > 0 && !slices.Contains(agent.Skills, skill) {
+			if agent.Skills != nil && !slices.Contains(agent.Skills, skill) {
 				return policypkg.Deny(fmt.Sprintf("agent %q requested skill %q, which is not allowed by policy", req.AgentID, skill))
 			}
 		}
