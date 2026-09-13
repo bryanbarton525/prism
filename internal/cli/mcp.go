@@ -20,6 +20,12 @@ func newMCPCmd() *cobra.Command {
 		Short: "MCP server and downstream MCP clients",
 	}
 	cmd.AddCommand(newMCPServeCmd())
+	cmd.AddCommand(newMCPAddCmd())
+	cmd.AddCommand(newMCPListCmd())
+	cmd.AddCommand(newMCPShowCmd())
+	cmd.AddCommand(newMCPRemoveCmd())
+	cmd.AddCommand(newMCPToolsCmd())
+	cmd.AddCommand(newMCPCallCmd())
 	cmd.AddCommand(newMCPServerCmd())
 	return cmd
 }
@@ -90,10 +96,135 @@ Example Cursor mcp.json:
 	}
 }
 
+func newMCPAddCmd() *cobra.Command {
+	var transport string
+	var command string
+	var commandArgs []string
+	var url string
+	var timeoutMS int
+	var maxBytes int
+	var replace bool
+	var dryRun bool
+	var description string
+	var envRefs []string
+	var headerRefs []string
+
+	cmd := &cobra.Command{
+		Use:   "add [flags] <name>",
+		Short: "Add a downstream MCP server using command, sse, or streamable-http transport",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := args[0]
+			server := downstreammcp.Server{
+				Name:        name,
+				Transport:   transport,
+				Command:     strings.TrimSpace(command),
+				Args:        append([]string{}, commandArgs...),
+				EnvRefs:     parseReferenceAssignments(envRefs),
+				URL:         strings.TrimSpace(url),
+				HeaderRefs:  parseReferenceAssignments(headerRefs),
+				TimeoutMS:   timeoutMS,
+				MaxBytes:    maxBytes,
+				Description: strings.TrimSpace(description),
+			}
+			if err := server.Validate(); err != nil {
+				return err
+			}
+			return mutateDownstreamMCPServer(cmd.Context(), server, replace, dryRun)
+		},
+	}
+	cmd.Flags().StringVar(&transport, "transport", downstreammcp.TransportCommand, "Transport: command, sse, streamable-http")
+	cmd.Flags().StringVar(&command, "command", "", "Executable for command transport")
+	cmd.Flags().StringArrayVar(&commandArgs, "arg", nil, "Command argument (repeatable)")
+	cmd.Flags().StringVar(&url, "url", "", "Endpoint URL for sse or streamable-http transport")
+	cmd.Flags().IntVar(&timeoutMS, "timeout-ms", downstreammcp.DefaultTimeoutMS, "Per-call timeout in milliseconds")
+	cmd.Flags().IntVar(&maxBytes, "max-bytes", downstreammcp.DefaultMaxBytes, "Maximum returned content bytes")
+	cmd.Flags().StringVar(&description, "description", "", "Human-readable server description")
+	cmd.Flags().BoolVar(&replace, "replace", false, "Replace existing server with same name")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show outcome without writing state")
+	cmd.Flags().StringArrayVar(&envRefs, "env-ref", nil, "Command env reference assignment KEY=ENV_VAR (repeatable)")
+	cmd.Flags().StringArrayVar(&headerRefs, "header-ref", nil, "HTTP header reference assignment HEADER=ENV_VAR (repeatable)")
+	return cmd
+}
+
+func newMCPListCmd() *cobra.Command {
+	return newMCPServerListCmd()
+}
+
+func newMCPShowCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "show <name>",
+		Short: "Show one configured downstream MCP server",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			state, err := configuredDownstreamMCPState()
+			if err != nil {
+				return err
+			}
+			server, ok := state.Get(args[0])
+			if !ok {
+				return fmt.Errorf("downstream MCP server %s not found", args[0])
+			}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			return enc.Encode(server)
+		},
+	}
+}
+
+func newMCPRemoveCmd() *cobra.Command {
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "remove [flags] <name>",
+		Short: "Remove one configured downstream MCP server",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := args[0]
+			if dryRun {
+				state, err := downstreammcp.Load(mcpServersPath())
+				if err != nil {
+					return err
+				}
+				if _, ok := state.Get(name); !ok {
+					fmt.Printf("downstream MCP server %s unchanged\n", name)
+					return nil
+				}
+				fmt.Printf("downstream MCP server %s removed\n", name)
+				return nil
+			}
+			result, err := downstreammcp.NewService(mcpServersPath()).Remove(cmd.Context(), name)
+			if err != nil {
+				return err
+			}
+			switch result.Outcome {
+			case downstreammcp.OutcomeRemoved:
+				fmt.Printf("downstream MCP server %s removed\n", name)
+			case downstreammcp.OutcomeUnchanged:
+				fmt.Printf("downstream MCP server %s unchanged\n", name)
+			case downstreammcp.OutcomeConflict:
+				return fmt.Errorf("downstream MCP server %s changed concurrently; retry remove", name)
+			default:
+				return fmt.Errorf("unexpected downstream MCP remove outcome: %s", result.Outcome)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show outcome without writing state")
+	return cmd
+}
+
+func newMCPToolsCmd() *cobra.Command {
+	return newMCPServerToolsCmd()
+}
+
+func newMCPCallCmd() *cobra.Command {
+	return newMCPServerCallCmd()
+}
+
 func newMCPServerCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "server",
-		Short: "Manage downstream MCP servers Prism can call",
+		Short: "Compatibility wrappers for downstream MCP commands",
 	}
 	cmd.AddCommand(newMCPServerAddCommandCmd())
 	cmd.AddCommand(newMCPServerAddSSECmd())
@@ -107,6 +238,8 @@ func newMCPServerAddCommandCmd() *cobra.Command {
 	var timeoutMS int
 	var maxBytes int
 	var replace bool
+	var description string
+	var envRefs []string
 	cmd := &cobra.Command{
 		Use:   "add-command [flags] <name> <command> [args...]",
 		Short: "Add a downstream MCP server launched as a command",
@@ -123,26 +256,26 @@ flags such as --timeout-ms and --max-bytes must come BEFORE <name>:
 				return err
 			}
 			server := downstreammcp.Server{
-				Name:      args[0],
-				Transport: downstreammcp.TransportCommand,
-				Command:   args[1],
-				Args:      append([]string{}, args[2:]...),
-				TimeoutMS: timeoutMS,
-				MaxBytes:  maxBytes,
+				Name:        args[0],
+				Transport:   downstreammcp.TransportCommand,
+				Command:     args[1],
+				Args:        append([]string{}, args[2:]...),
+				EnvRefs:     parseReferenceAssignments(envRefs),
+				TimeoutMS:   timeoutMS,
+				MaxBytes:    maxBytes,
+				Description: strings.TrimSpace(description),
 			}
 			if err := server.Validate(); err != nil {
 				return err
 			}
-			result, err := downstreammcp.NewService(mcpServersPath()).AddOrUpdate(context.Background(), server, replace)
-			if err != nil {
-				return err
-			}
-			return printDownstreamMCPMutation(server.Name, result.Outcome)
+			return mutateDownstreamMCPServer(context.Background(), server, replace, false)
 		},
 	}
 	cmd.Flags().IntVar(&timeoutMS, "timeout-ms", downstreammcp.DefaultTimeoutMS, "Per-call timeout in milliseconds")
 	cmd.Flags().IntVar(&maxBytes, "max-bytes", downstreammcp.DefaultMaxBytes, "Maximum returned content bytes")
 	cmd.Flags().BoolVar(&replace, "replace", false, "Replace existing server with same name")
+	cmd.Flags().StringVar(&description, "description", "", "Human-readable server description")
+	cmd.Flags().StringArrayVar(&envRefs, "env-ref", nil, "Command env reference assignment KEY=ENV_VAR (repeatable)")
 	cmd.Flags().SetInterspersed(false)
 	return cmd
 }
@@ -169,31 +302,33 @@ func newMCPServerAddSSECmd() *cobra.Command {
 	var timeoutMS int
 	var maxBytes int
 	var replace bool
+	var description string
+	var headerRefs []string
 	cmd := &cobra.Command{
 		Use:   "add-sse <name> <url>",
 		Short: "Add a downstream MCP server using SSE transport",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
 			server := downstreammcp.Server{
-				Name:      args[0],
-				Transport: downstreammcp.TransportSSE,
-				URL:       args[1],
-				TimeoutMS: timeoutMS,
-				MaxBytes:  maxBytes,
+				Name:        args[0],
+				Transport:   downstreammcp.TransportSSE,
+				URL:         args[1],
+				HeaderRefs:  parseReferenceAssignments(headerRefs),
+				TimeoutMS:   timeoutMS,
+				MaxBytes:    maxBytes,
+				Description: strings.TrimSpace(description),
 			}
 			if err := server.Validate(); err != nil {
 				return err
 			}
-			result, err := downstreammcp.NewService(mcpServersPath()).AddOrUpdate(context.Background(), server, replace)
-			if err != nil {
-				return err
-			}
-			return printDownstreamMCPMutation(server.Name, result.Outcome)
+			return mutateDownstreamMCPServer(context.Background(), server, replace, false)
 		},
 	}
 	cmd.Flags().IntVar(&timeoutMS, "timeout-ms", downstreammcp.DefaultTimeoutMS, "Per-call timeout in milliseconds")
 	cmd.Flags().IntVar(&maxBytes, "max-bytes", downstreammcp.DefaultMaxBytes, "Maximum returned content bytes")
 	cmd.Flags().BoolVar(&replace, "replace", false, "Replace existing server with same name")
+	cmd.Flags().StringVar(&description, "description", "", "Human-readable server description")
+	cmd.Flags().StringArrayVar(&headerRefs, "header-ref", nil, "HTTP header reference assignment HEADER=ENV_VAR (repeatable)")
 	return cmd
 }
 
@@ -213,6 +348,51 @@ func printDownstreamMCPMutation(name, outcome string) error {
 	default:
 		return fmt.Errorf("unexpected downstream MCP mutation outcome: %s", outcome)
 	}
+}
+
+func mutateDownstreamMCPServer(ctx context.Context, server downstreammcp.Server, replace, dryRun bool) error {
+	if dryRun {
+		state, err := downstreammcp.Load(mcpServersPath())
+		if err != nil {
+			return err
+		}
+		current, ok := state.Get(server.Name)
+		if !ok {
+			return printDownstreamMCPMutation(server.Name, downstreammcp.OutcomeCreated)
+		}
+		if current.Equals(server) {
+			return printDownstreamMCPMutation(server.Name, downstreammcp.OutcomeUnchanged)
+		}
+		if !replace {
+			return printDownstreamMCPMutation(server.Name, downstreammcp.OutcomeConflict)
+		}
+		return printDownstreamMCPMutation(server.Name, downstreammcp.OutcomeReplaced)
+	}
+	result, err := downstreammcp.NewService(mcpServersPath()).AddOrUpdate(ctx, server, replace)
+	if err != nil {
+		return err
+	}
+	return printDownstreamMCPMutation(server.Name, result.Outcome)
+}
+
+func parseReferenceAssignments(assignments []string) map[string]string {
+	out := map[string]string{}
+	for _, assignment := range assignments {
+		parts := strings.SplitN(assignment, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		ref := strings.TrimSpace(parts[1])
+		if key == "" || ref == "" {
+			continue
+		}
+		out[key] = ref
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func newMCPServerListCmd() *cobra.Command {

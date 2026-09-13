@@ -7,10 +7,11 @@ import (
 )
 
 const (
-	TransportCommand = "command"
-	TransportSSE     = "sse"
-	DefaultTimeoutMS = 30000
-	DefaultMaxBytes  = 20000
+	TransportCommand        = "command"
+	TransportSSE            = "sse"
+	TransportStreamableHTTP = "streamable-http"
+	DefaultTimeoutMS        = 30000
+	DefaultMaxBytes         = 20000
 )
 
 type State struct {
@@ -18,14 +19,16 @@ type State struct {
 }
 
 type Server struct {
-	Name        string   `yaml:"name" json:"name"`
-	Transport   string   `yaml:"transport" json:"transport"`
-	Command     string   `yaml:"command,omitempty" json:"command,omitempty"`
-	Args        []string `yaml:"args,omitempty" json:"args,omitempty"`
-	URL         string   `yaml:"url,omitempty" json:"url,omitempty"`
-	TimeoutMS   int      `yaml:"timeout_ms,omitempty" json:"timeout_ms,omitempty"`
-	MaxBytes    int      `yaml:"max_bytes,omitempty" json:"max_bytes,omitempty"`
-	Description string   `yaml:"description,omitempty" json:"description,omitempty"`
+	Name      string            `yaml:"name" json:"name"`
+	Transport string            `yaml:"transport" json:"transport"`
+	Command   string            `yaml:"command,omitempty" json:"command,omitempty"`
+	Args      []string          `yaml:"args,omitempty" json:"args,omitempty"`
+	EnvRefs     map[string]string `yaml:"env_refs,omitempty" json:"env_refs,omitempty"`
+	URL         string            `yaml:"url,omitempty" json:"url,omitempty"`
+	HeaderRefs  map[string]string `yaml:"header_refs,omitempty" json:"header_refs,omitempty"`
+	TimeoutMS   int               `yaml:"timeout_ms,omitempty" json:"timeout_ms,omitempty"`
+	MaxBytes    int               `yaml:"max_bytes,omitempty" json:"max_bytes,omitempty"`
+	Description string            `yaml:"description,omitempty" json:"description,omitempty"`
 }
 
 func Load(path string) (State, error) {
@@ -88,12 +91,12 @@ func (s Server) Validate() error {
 		if strings.TrimSpace(s.Command) == "" {
 			return errors.New("command transport requires command")
 		}
-	case TransportSSE:
+	case TransportSSE, TransportStreamableHTTP:
 		if strings.TrimSpace(s.URL) == "" {
-			return errors.New("sse transport requires url")
+			return errors.New("sse and streamable-http transports require url")
 		}
 	default:
-		return errors.New("transport must be command or sse")
+		return errors.New("transport must be command, sse, or streamable-http")
 	}
 	return nil
 }
@@ -118,7 +121,9 @@ func (s Server) equals(other Server) bool {
 		left.TimeoutMS != right.TimeoutMS ||
 		left.MaxBytes != right.MaxBytes ||
 		left.Description != right.Description ||
-		len(left.Args) != len(right.Args) {
+		len(left.Args) != len(right.Args) ||
+		len(left.EnvRefs) != len(right.EnvRefs) ||
+		len(left.HeaderRefs) != len(right.HeaderRefs) {
 		return false
 	}
 	for i := range left.Args {
@@ -126,5 +131,19 @@ func (s Server) equals(other Server) bool {
 			return false
 		}
 	}
+	for k, v := range left.EnvRefs {
+		if right.EnvRefs[k] != v {
+			return false
+		}
+	}
+	for k, v := range left.HeaderRefs {
+		if right.HeaderRefs[k] != v {
+			return false
+		}
+	}
 	return true
+}
+
+func (s Server) Equals(other Server) bool {
+	return s.equals(other)
 }

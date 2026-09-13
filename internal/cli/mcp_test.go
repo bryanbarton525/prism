@@ -24,3 +24,22 @@ func TestPrintDownstreamMCPMutationSuccessOutcomes(t *testing.T) {
 		}
 	}
 }
+
+func TestParseReferenceAssignments(t *testing.T) {
+	got := parseReferenceAssignments([]string{
+		"Authorization=OPENAI_TOKEN",
+		"X-Key = SOME_ENV ",
+		"broken",
+		"=missing",
+		"missing=",
+	})
+	if got["Authorization"] != "OPENAI_TOKEN" {
+		t.Fatalf("Authorization ref = %q", got["Authorization"])
+	}
+	if got["X-Key"] != "SOME_ENV" {
+		t.Fatalf("X-Key ref = %q", got["X-Key"])
+	}
+	if _, ok := got["broken"]; ok {
+		t.Fatalf("unexpected invalid assignment included: %#v", got)
+	}
+}

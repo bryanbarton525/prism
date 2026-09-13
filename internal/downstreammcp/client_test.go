@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -55,6 +56,9 @@ func TestServerValidate(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := (Server{Name: "x", Transport: TransportSSE, URL: "http://127.0.0.1/sse"}).Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if err := (Server{Name: "x", Transport: TransportStreamableHTTP, URL: "http://127.0.0.1/mcp"}).Validate(); err != nil {
 		t.Fatal(err)
 	}
 	if err := (Server{Name: "x", Transport: TransportCommand}).Validate(); err == nil {
@@ -114,5 +118,20 @@ func TestSDKListToolsAndCallToolWithInMemoryMCP(t *testing.T) {
 	}
 	if res.StructuredContent == nil {
 		t.Fatalf("structured content missing: %#v", res)
+	}
+}
+
+func TestResolveReferencedValues(t *testing.T) {
+	t.Setenv("PRISM_TEST_REF", "secret")
+	values, err := resolveReferencedValues(map[string]string{"Authorization": "PRISM_TEST_REF"}, "header")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if values["Authorization"] != "secret" {
+		t.Fatalf("value = %q", values["Authorization"])
+	}
+	_, err = resolveReferencedValues(map[string]string{"Authorization": "PRISM_MISSING_ENV"}, "header")
+	if err == nil || !strings.Contains(err.Error(), "not set") {
+		t.Fatalf("expected missing env error, got %v", err)
 	}
 }

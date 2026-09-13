@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -143,11 +144,29 @@ func (c *Client) connect(ctx context.Context, server Server) (*mcpsdk.ClientSess
 	var transport mcpsdk.Transport
 	switch server.Transport {
 	case TransportCommand:
-		transport = &mcpsdk.CommandTransport{Command: exec.CommandContext(ctx, server.Command, server.Args...)}
+		cmd := exec.CommandContext(ctx, server.Command, server.Args...)
+		env, err := resolveReferencedValues(server.EnvRefs, "command env")
+		if err != nil {
+			return nil, nil, err
+		}
+		if len(env) > 0 {
+			cmd.Env = append(os.Environ(), flattenEnvironment(env)...)
+		}
+		transport = &mcpsdk.CommandTransport{Command: cmd}
 	case TransportSSE:
 		// No http.Client Timeout here: a client-wide timeout would kill the
 		// long-lived SSE stream. The operation context bounds the call.
-		transport = &mcpsdk.SSEClientTransport{Endpoint: server.URL, HTTPClient: &http.Client{}}
+		httpClient, err := downstreamHTTPClient(server.HeaderRefs)
+		if err != nil {
+			return nil, nil, err
+		}
+		transport = &mcpsdk.SSEClientTransport{Endpoint: server.URL, HTTPClient: httpClient}
+	case TransportStreamableHTTP:
+		httpClient, err := downstreamHTTPClient(server.HeaderRefs)
+		if err != nil {
+			return nil, nil, err
+		}
+		transport = &mcpsdk.StreamableClientTransport{Endpoint: server.URL, HTTPClient: httpClient}
 	}
 	session, err := client.Connect(ctx, transport, nil)
 	if err != nil {
@@ -157,6 +176,56 @@ func (c *Client) connect(ctx context.Context, server Server) (*mcpsdk.ClientSess
 		_ = session.Close()
 	}
 	return session, closeFn, nil
+}
+
+func resolveReferencedValues(refs map[string]string, label string) (map[string]string, error) {
+	values := map[string]string{}
+	for key, ref := range refs {
+		ref = strings.TrimSpace(ref)
+		if ref == "" {
+			return nil, fmt.Errorf("%s reference for %q is empty", label, key)
+		}
+		value, ok := os.LookupEnv(ref)
+		if !ok {
+			return nil, fmt.Errorf("%s reference %q for %q is not set", label, ref, key)
+		}
+		values[key] = value
+	}
+	return values, nil
+}
+
+func downstreamHTTPClient(headerRefs map[string]string) (*http.Client, error) {
+	headers, err := resolveReferencedValues(headerRefs, "header")
+	if err != nil {
+		return nil, err
+	}
+	base := http.DefaultTransport
+	if len(headers) == 0 {
+		return &http.Client{Transport: base}, nil
+	}
+	return &http.Client{Transport: headerTransport{base: base, headers: headers}}, nil
+}
+
+type headerTransport struct {
+	base    http.RoundTripper
+	headers map[string]string
+}
+
+func (h headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	cloned := req.Clone(req.Context())
+	cloned.Header = req.Header.Clone()
+	for key, value := range h.headers {
+		cloned.Header.Set(key, value)
+	}
+	return h.base.RoundTrip(cloned)
+}
+
+func flattenEnvironment(values map[string]string) []string {
+	out := make([]string, 0, len(values))
+	for key, value := range values {
+		out = append(out, key+"="+value)
+	}
+	return out
 }
 
 func contentText(content []mcpsdk.Content) string {
