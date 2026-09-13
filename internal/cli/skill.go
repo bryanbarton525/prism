@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -22,6 +23,81 @@ func newSkillCmd() *cobra.Command {
 	cmd.AddCommand(newSkillLintCmd())
 	cmd.AddCommand(newSkillTestCmd())
 	cmd.AddCommand(newSkillBenchmarkCmd())
+	cmd.AddCommand(newSkillResourcesCmd())
+	return cmd
+}
+
+func newSkillResourcesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "resources",
+		Short: "Inspect skill resources",
+	}
+	cmd.AddCommand(newSkillResourcesListCmd(), newSkillResourcesReadCmd())
+	return cmd
+}
+
+func newSkillResourcesListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list <skill-name>",
+		Short: "List bounded resources for a skill",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			entries, err := skill.ListResources(configuredSkillsFS(), args[0])
+			if err != nil {
+				return err
+			}
+			if gf.jsonOut {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(entries)
+			}
+			for _, e := range entries {
+				binary := "text"
+				if e.Binary {
+					binary = "binary"
+				}
+				fmt.Printf("%s\t%d\t%s\t%s\n", e.Path, e.Size, e.MediaType, binary)
+			}
+			return nil
+		},
+	}
+}
+
+func newSkillResourcesReadCmd() *cobra.Command {
+	var offset int64
+	var limit int64
+	var maxBytes int64
+	cmd := &cobra.Command{
+		Use:   "read <skill-name> <resource-path>",
+		Short: "Read bounded UTF-8 resource content",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(_ *cobra.Command, args []string) error {
+			result, err := skill.ReadResource(configuredSkillsFS(), args[0], args[1], skill.ReadResourceOptions{
+				Offset:       offset,
+				Limit:        limit,
+				MaxReadBytes: maxBytes,
+			})
+			if err != nil {
+				return err
+			}
+			if gf.jsonOut {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(result)
+			}
+			fmt.Printf("path: %s\n", result.Path)
+			fmt.Printf("media_type: %s\n", result.MediaType)
+			fmt.Printf("size: %d\n", result.Size)
+			fmt.Printf("offset: %d\n", result.Offset)
+			fmt.Printf("truncated: %s\n", strconv.FormatBool(result.Truncated))
+			fmt.Println("---")
+			fmt.Println(result.Content)
+			return nil
+		},
+	}
+	cmd.Flags().Int64Var(&offset, "offset", 0, "Byte offset to start reading")
+	cmd.Flags().Int64Var(&limit, "limit", 0, "Optional max bytes to return for this read")
+	cmd.Flags().Int64Var(&maxBytes, "max-bytes", 32*1024, "Hard max bytes per read")
 	return cmd
 }
 
