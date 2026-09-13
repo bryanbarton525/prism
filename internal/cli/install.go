@@ -16,18 +16,21 @@ import (
 )
 
 type installFlags struct {
-	project      bool
-	global       bool
-	runtimeOnly  bool
-	runtimeScope string
-	targets      []string
-	skills       []string
-	specialists  []string
-	copyMode     bool
-	yes          bool
-	all          bool
-	dryRun       bool
-	force        bool
+	project            bool
+	global             bool
+	runtimeOnly        bool
+	runtimeScope       string
+	runtimeSkillSource string
+	runtimeSkillAll    bool
+	runtimeSkillNames  []string
+	targets            []string
+	skills             []string
+	specialists        []string
+	copyMode           bool
+	yes                bool
+	all                bool
+	dryRun             bool
+	force              bool
 }
 
 func newInstallCmd() *cobra.Command {
@@ -43,6 +46,9 @@ func newInstallCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&flags.global, "global", false, "Install into user-global host directories")
 	cmd.Flags().BoolVar(&flags.runtimeOnly, "runtime-only", false, "Configure runtime extension state only (skip host installer changes)")
 	cmd.Flags().StringVar(&flags.runtimeScope, "runtime-scope", "user", "Runtime extension scope: user|project")
+	cmd.Flags().StringVar(&flags.runtimeSkillSource, "runtime-skill-source", "", "Explicit local skill directory to activate in runtime state")
+	cmd.Flags().BoolVar(&flags.runtimeSkillAll, "runtime-skill-all", false, "Activate all skills discovered in --runtime-skill-source")
+	cmd.Flags().StringSliceVar(&flags.runtimeSkillNames, "runtime-skill-name", nil, "Named skill in --runtime-skill-source to activate")
 	cmd.Flags().StringSliceVar(&flags.targets, "target", nil, "Host target: codex, copilot, antigravity, claude, or opencode")
 	cmd.Flags().StringSliceVar(&flags.skills, "skill", nil, "Bundled skill to install")
 	cmd.Flags().StringSliceVar(&flags.specialists, "specialist", nil, "Bundled specialist wrapper to install")
@@ -83,12 +89,25 @@ func runInstall(cmd *cobra.Command, flags installFlags) error {
 		return fmt.Errorf("--global host install is incompatible with --runtime-scope project")
 	}
 	if flags.runtimeOnly {
+		if flags.runtimeSkillSource == "" && (flags.runtimeSkillAll || len(flags.runtimeSkillNames) > 0) {
+			return fmt.Errorf("--runtime-skill-all and --runtime-skill-name require --runtime-skill-source")
+		}
 		if flags.dryRun {
 			fmt.Fprintf(cmd.OutOrStdout(), "Would initialize runtime extension state (scope=%s, state-dir=%s). Host installer changes are skipped in this mode.\n", flags.runtimeScope, runtimeStateDir)
 			return nil
 		}
 		if err := extensions.NewStore(runtimeStateDir).EnsureInitialized(cmd.Context()); err != nil {
 			return fmt.Errorf("initialize runtime extension state: %w", err)
+		}
+		if flags.runtimeSkillSource != "" {
+			entries, err := extensions.NewLocalSkillService(runtimeStateDir).InstallLocalSkills(cmd.Context(), extensions.InstallLocalSkillsRequest{
+				Source:   flags.runtimeSkillSource,
+				Discover: extensions.DiscoverSkillsOptions{All: flags.runtimeSkillAll, Names: flags.runtimeSkillNames},
+			})
+			if err != nil {
+				return fmt.Errorf("activate runtime skill source: %w", err)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Activated %d managed runtime skill(s).\n", len(entries))
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Initialized runtime extension state (scope=%s, state-dir=%s). Host installer changes are skipped in this mode.\n", flags.runtimeScope, runtimeStateDir)
 		return nil

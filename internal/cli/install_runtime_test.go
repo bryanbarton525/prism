@@ -112,3 +112,12 @@ func TestReadInstallAnswerPropagatesEOF(t *testing.T) {
 		t.Fatal("expected EOF error")
 	}
 }
+
+func TestRuntimeOnlySkillSelectionRequiresSource(t *testing.T) {
+	cmd := &cobra.Command{}
+	cmd.Flags().String("state-dir", "", "")
+	err := runInstall(cmd, installFlags{runtimeOnly: true, runtimeScope: "user", runtimeSkillAll: true})
+	if err == nil || !strings.Contains(err.Error(), "require --runtime-skill-source") {
+		t.Fatalf("expected source requirement error, got %v", err)
+	}
+}
