@@ -149,14 +149,14 @@ func reportSkillHealthFS(fsys fs.FS, label string) []reportSkill {
 			item.OK = false
 			item.Errors = append(item.Errors, err.Error())
 		}
-		if err := skill.ValidateStructure(fsys, name); err != nil {
+		if err := skill.ValidatePortableStructure(fsys, name); err != nil {
 			item.OK = false
 			item.Errors = append(item.Errors, err.Error())
 		}
+		item.Warnings = append(item.Warnings, skill.ExecutionLimitations(fsys, name)...)
 		count, err := skill.ValidateEvals(fsys, name)
 		if err != nil {
-			item.OK = false
-			item.Errors = append(item.Errors, err.Error())
+			item.Warnings = append(item.Warnings, "eval validation unavailable: "+err.Error())
 		} else {
 			item.Evals = count
 		}

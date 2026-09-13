@@ -31,7 +31,7 @@ func newSkillLintCmd() *cobra.Command {
 		Short: "Validate skill structure and metadata",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			results := lintSkills(args)
+			results := lintSkills(args, strictSkillAuthoringMode())
 			return printSkillResults(results)
 		},
 	}
@@ -43,19 +43,22 @@ func newSkillTestCmd() *cobra.Command {
 		Short: "Run structural skill tests",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			results := lintSkills(args)
+			strict := strictSkillAuthoringMode()
+			results := lintSkills(args, strict)
 			for i := range results {
 				if !results[i].OK {
 					continue
 				}
 				fsys := configuredSkillsFS()
-				if _, err := fs.Stat(fsys, filepath.ToSlash(filepath.Join(results[i].Name, "references"))); err != nil {
-					results[i].Warnings = append(results[i].Warnings, "no references directory")
-				}
+				results[i].Warnings = append(results[i].Warnings, skill.ExecutionLimitations(fsys, results[i].Name)...)
 				count, err := skill.ValidateEvals(fsys, results[i].Name)
 				if err != nil {
-					results[i].OK = false
-					results[i].Errors = append(results[i].Errors, err.Error())
+					if strict {
+						results[i].OK = false
+						results[i].Errors = append(results[i].Errors, err.Error())
+					} else {
+						results[i].Warnings = append(results[i].Warnings, "eval validation skipped for portable mode: "+err.Error())
+					}
 					continue
 				}
 				results[i].Evals = count
@@ -72,7 +75,7 @@ func newSkillBenchmarkCmd() *cobra.Command {
 		Short: "Check skill context size budgets",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			results := lintSkills(args)
+			results := lintSkills(args, strictSkillAuthoringMode())
 			for i := range results {
 				if results[i].Chars > maxChars {
 					results[i].OK = false
@@ -95,7 +98,7 @@ type skillResult struct {
 	Evals    int      `json:"evals,omitempty"`
 }
 
-func lintSkills(args []string) []skillResult {
+func lintSkills(args []string, strict bool) []skillResult {
 	fsys := configuredSkillsFS()
 	var names []string
 	if len(args) == 1 {
@@ -126,10 +129,16 @@ func lintSkills(args []string) []skillResult {
 			res.OK = false
 			res.Errors = append(res.Errors, err.Error())
 		}
-		if err := skill.ValidateStructure(fsys, name); err != nil {
+		if strict {
+			if err := skill.ValidateAuthoringStructure(fsys, name); err != nil {
+				res.OK = false
+				res.Errors = append(res.Errors, err.Error())
+			}
+		} else if err := skill.ValidatePortableStructure(fsys, name); err != nil {
 			res.OK = false
 			res.Errors = append(res.Errors, err.Error())
 		}
+		res.Warnings = append(res.Warnings, skill.ExecutionLimitations(fsys, name)...)
 		if !strings.Contains(string(data), "##") {
 			res.Warnings = append(res.Warnings, "no markdown section headings")
 		}
@@ -175,4 +184,9 @@ func configuredSkillsFS() fs.FS {
 	}
 	skillsFS, _ := fs.Sub(prismbundle.BundleFS(), "skills")
 	return skillsFS
+}
+
+func strictSkillAuthoringMode() bool {
+	// Embedded bundle validation retains strict authoring checks for CI.
+	return gf.skillsDir == ""
 }

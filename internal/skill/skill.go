@@ -5,10 +5,13 @@ import (
 	"bytes"
 	"fmt"
 	"io/fs"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
+
+var standardSkillNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 
 // Skill holds the parsed SKILL.md frontmatter and body for one Agent Skill.
 type Skill struct {
@@ -150,12 +153,8 @@ func parse(data []byte, sourcePath string) (*Skill, error) {
 		return nil, fmt.Errorf("%s: description exceeds 1024 characters (%d)",
 			sourcePath, len(sk.Description))
 	}
-
-	// Validate skill name matches directory name.
-	dirName := dirFromPath(sourcePath)
-	if dirName != "." && dirName != sk.Name {
-		return nil, fmt.Errorf("%s: skill name %q does not match directory name %q",
-			sourcePath, sk.Name, dirName)
+	if !standardSkillNamePattern.MatchString(sk.Name) {
+		return nil, fmt.Errorf("%s: name %q must match %s", sourcePath, sk.Name, standardSkillNamePattern.String())
 	}
 
 	return sk, nil
