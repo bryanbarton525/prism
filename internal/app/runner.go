@@ -20,6 +20,7 @@ import (
 	"github.com/bryanbarton525/prism/internal/buildinfo"
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
 	"github.com/bryanbarton525/prism/internal/extensions"
+	"github.com/bryanbarton525/prism/internal/graphify"
 	"github.com/bryanbarton525/prism/internal/llm"
 	llmruntime "github.com/bryanbarton525/prism/internal/llm/runtime"
 	"github.com/bryanbarton525/prism/internal/ollama"
@@ -132,6 +133,9 @@ type Config struct {
 	// MCPAccess controls per-agent downstream MCP visibility and authorization.
 	MCPAccess           extensions.MCPAccessState
 	MCPAccessConfigured bool
+	// Graphify is the explicit, workspace-bound Graphify capability
+	// configuration. It is intentionally independent of MCPAccess.
+	Graphify graphify.Config
 }
 
 // bundleFS returns the immutable runtime definitions. RootFS/RootDir remain a
@@ -242,7 +246,8 @@ type RunRequest struct {
 }
 
 type Workspace struct {
-	Root string `json:"root"`
+	Root                  string `json:"root"`
+	GenerationFingerprint string `json:"generation_fingerprint,omitempty"`
 }
 
 // Runner implements AgentRunner on top of a provider-neutral ModelRuntime.
@@ -598,7 +603,9 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 
 	// ── 8. Assemble prompt with progressive disclosure ────────────────────
 	systemPrompt, userPrompt := assemblePrompt(constitutionText, skills, req.SkillNames, task)
-	if agentUsesMCP(spec) && r.downmcp != nil {
+	if r.usesGraphifyCapability(spec) {
+		systemPrompt += graphifyMCPToolInstructions()
+	} else if agentUsesMCP(spec) && r.downmcp != nil {
 		systemPrompt += mcpToolLoopInstructions()
 	}
 
@@ -630,7 +637,7 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 		chatReq.Temperature = &temperature
 	}
 
-	toolChat, err := r.chatWithTools(ctx, chatReq, spec)
+	toolChat, err := r.chatWithTools(ctx, chatReq, spec, req.Workspace)
 	elapsed := time.Since(start)
 	if err != nil {
 		status := result.StatusError
@@ -689,7 +696,7 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 func agentRequiresWorkspace(spec *agent.Spec) bool {
 	for _, tool := range spec.Tools {
 		switch tool {
-		case "filesystem", "goproject", "localdocs", "github":
+		case "filesystem", "goproject", "localdocs", "github", "graphify":
 			return true
 		}
 	}
@@ -698,7 +705,7 @@ func agentRequiresWorkspace(spec *agent.Spec) bool {
 
 func workspacePlugin(name string) bool {
 	switch name {
-	case "filesystem", "goproject", "localdocs", "github":
+	case "filesystem", "goproject", "localdocs", "github", "graphify":
 		return true
 	default:
 		return false

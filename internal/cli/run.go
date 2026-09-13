@@ -13,10 +13,11 @@ import (
 )
 
 type runFlags struct {
-	skills []string
-	input  string
-	stdin  bool
-	format string
+	skills              []string
+	input               string
+	stdin               bool
+	format              string
+	graphifyFingerprint string
 }
 
 func newRunCmd() *cobra.Command {
@@ -51,6 +52,8 @@ Examples:
 		"Read task text from stdin")
 	cmd.Flags().StringVar(&rf.format, "format", "json",
 		`Output format: "json" or "markdown"`)
+	cmd.Flags().StringVar(&rf.graphifyFingerprint, "graphify-fingerprint", "",
+		"Current Graphify workspace generation fingerprint for repo-investigator")
 	return cmd
 }
 
@@ -77,6 +80,9 @@ func runAgent(ctx context.Context, agentID string, rf runFlags) error {
 		SkillNames: rf.skills,
 		Format:     rf.format,
 		Metadata:   observe.Metadata{Source: "cli"},
+		Workspace: app.Workspace{
+			GenerationFingerprint: rf.graphifyFingerprint,
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("run failed: %w", err)

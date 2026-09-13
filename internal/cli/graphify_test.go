@@ -27,7 +27,7 @@ func TestGraphifyBindWritesExplicitBinding(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetArgs([]string{
 		"--workspace", workspace, "--index", index, "--upstream-version", "1.2.3",
-		"--schema-version", "v1", "--fingerprint", "source-sha",
+		"--schema-version", "v1", "--fingerprint", "source-sha", "--server", "graphify",
 	})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -38,5 +38,8 @@ func TestGraphifyBindWritesExplicitBinding(t *testing.T) {
 	}
 	if cfg.Binding == nil || cfg.Binding.Workspace != workspace || cfg.Binding.IndexPath != index {
 		t.Fatalf("binding = %#v", cfg.Binding)
+	}
+	if cfg.Endpoint == nil || cfg.Endpoint.Server != "graphify" {
+		t.Fatalf("endpoint = %#v", cfg.Endpoint)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
 	"github.com/bryanbarton525/prism/internal/events"
 	"github.com/bryanbarton525/prism/internal/extensions"
+	"github.com/bryanbarton525/prism/internal/graphify"
 	internalpolicy "github.com/bryanbarton525/prism/internal/policy"
 	"github.com/bryanbarton525/prism/internal/rootresolver"
 	"github.com/bryanbarton525/prism/pkg/observe"
@@ -394,6 +396,11 @@ func newRunnerWithControls(ctx context.Context, sink observe.Sink, policyEngine 
 		cleanup()
 		return nil, func() {}, fmt.Errorf("loading MCP access policy: %w", err)
 	}
+	graphifyConfig, err := graphify.Load(filepath.Join(gf.stateDir, "graphify.yaml"))
+	if err != nil {
+		cleanup()
+		return nil, func() {}, fmt.Errorf("loading Graphify configuration: %w", err)
+	}
 	modelRuntime, err := configuredModelRuntime()
 	if err != nil {
 		cleanup()
@@ -432,6 +439,7 @@ func newRunnerWithControls(ctx context.Context, sink observe.Sink, policyEngine 
 		ExtensionsStateDir:  gf.stateDir,
 		MCPAccess:           mcpAccess,
 		MCPAccessConfigured: mcpAccessConfigured,
+		Graphify:            graphifyConfig,
 	})
 	if err != nil {
 		cleanup()

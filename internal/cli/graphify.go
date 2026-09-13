@@ -18,7 +18,7 @@ func newGraphifyCmd() *cobra.Command {
 }
 
 func newGraphifyBindCmd() *cobra.Command {
-	var workspace, indexPath, upstreamVersion, schemaVersion, fingerprint string
+	var workspace, indexPath, upstreamVersion, schemaVersion, fingerprint, server string
 	cmd := &cobra.Command{
 		Use:   "bind",
 		Short: "Explicitly bind a Graphify index to one workspace generation",
@@ -39,6 +39,7 @@ func newGraphifyBindCmd() *cobra.Command {
 				Workspace: workspace, IndexPath: indexPath, UpstreamVersion: upstreamVersion,
 				SchemaVersion: schemaVersion, GenerationFingerprint: fingerprint,
 			}
+			cfg.Endpoint = &graphify.Endpoint{Server: server}
 			if err := graphify.Save(filepath.Join(gf.stateDir, "graphify.yaml"), cfg); err != nil {
 				return err
 			}
@@ -51,11 +52,13 @@ func newGraphifyBindCmd() *cobra.Command {
 	cmd.Flags().StringVar(&upstreamVersion, "upstream-version", "", "Pinned Graphify upstream version")
 	cmd.Flags().StringVar(&schemaVersion, "schema-version", "", "Pinned Graphify tool schema version")
 	cmd.Flags().StringVar(&fingerprint, "fingerprint", "", "Deterministic source-generation fingerprint")
+	cmd.Flags().StringVar(&server, "server", "", "Explicit downstream MCP server that serves this Graphify index")
 	_ = cmd.MarkFlagRequired("workspace")
 	_ = cmd.MarkFlagRequired("index")
 	_ = cmd.MarkFlagRequired("upstream-version")
 	_ = cmd.MarkFlagRequired("schema-version")
 	_ = cmd.MarkFlagRequired("fingerprint")
+	_ = cmd.MarkFlagRequired("server")
 	return cmd
 }
 

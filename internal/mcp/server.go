@@ -171,7 +171,8 @@ type RunAgentInput struct {
 }
 
 type WorkspaceInput struct {
-	Root string `json:"root"`
+	Root                  string `json:"root"`
+	GenerationFingerprint string `json:"generation_fingerprint,omitempty"`
 }
 
 func runAgentHandler(runner app.AgentRunner, cfg Config) func(context.Context, *mcpsdk.CallToolRequest, RunAgentInput) (*mcpsdk.CallToolResult, result.RunResult, error) {
@@ -197,13 +198,20 @@ func runAgentHandler(runner app.AgentRunner, cfg Config) func(context.Context, *
 				return nil, result.RunResult{}, err
 			}
 		}
+		generationFingerprint := ""
+		if input.Workspace != nil {
+			generationFingerprint = input.Workspace.GenerationFingerprint
+		}
 		res, err := runner.Run(ctx, app.RunRequest{
 			AgentID:    input.AgentID,
 			Task:       input.Task,
 			SkillNames: input.SkillNames,
 			Format:     format,
 			Metadata:   observe.Metadata{Source: "mcp"},
-			Workspace:  app.Workspace{Root: workspaceRoot},
+			Workspace: app.Workspace{
+				Root:                  workspaceRoot,
+				GenerationFingerprint: generationFingerprint,
+			},
 		})
 		if err != nil {
 			return nil, result.RunResult{}, err

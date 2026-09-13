@@ -58,6 +58,23 @@ func TestLoadRejectsUnknownFields(t *testing.T) {
 	}
 }
 
+func TestEndpointRequiresExplicitServer(t *testing.T) {
+	if err := (Endpoint{}).Validate(); err == nil {
+		t.Fatal("expected missing endpoint server error")
+	}
+	path := filepath.Join(t.TempDir(), "graphify.yaml")
+	if err := Save(path, Config{Endpoint: &Endpoint{Server: "graphify"}}); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Endpoint == nil || cfg.Endpoint.Server != "graphify" {
+		t.Fatalf("endpoint = %#v", cfg.Endpoint)
+	}
+}
+
 func TestCheckReadinessDoesNotTreatMissingIndexAsReady(t *testing.T) {
 	workspace := t.TempDir()
 	binding := &Binding{

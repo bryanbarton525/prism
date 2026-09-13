@@ -8,7 +8,7 @@ temperature: 0.1
 allowed_skills:
   - graphify-query
 latency_budget_ms: 45000
-tools: [mcp]
+tools: [graphify]
 outputs: summary findings evidence provenance confidence
 constitution_path: constitutions/repo-investigator.md
 ---

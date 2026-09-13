@@ -34,6 +34,21 @@ type Binding struct {
 	GenerationFingerprint string `yaml:"generation_fingerprint" json:"generation_fingerprint"`
 }
 
+// Endpoint identifies the explicitly configured downstream MCP server that
+// serves the bound Graphify index. Its server configuration remains in Prism's
+// downstream-MCP state; this reference keeps Graphify access separate from
+// generic per-agent MCP access policy.
+type Endpoint struct {
+	Server string `yaml:"server" json:"server"`
+}
+
+func (e Endpoint) Validate() error {
+	if strings.TrimSpace(e.Server) == "" {
+		return fmt.Errorf("Graphify endpoint server is required")
+	}
+	return nil
+}
+
 func (b Binding) Validate() error {
 	for field, value := range map[string]string{
 		"workspace":              b.Workspace,
@@ -94,8 +109,9 @@ func ValidateTool(name string, round int, payload []byte) error {
 }
 
 type Config struct {
-	Version int      `yaml:"version" json:"version"`
-	Binding *Binding `yaml:"binding,omitempty" json:"binding,omitempty"`
+	Version  int       `yaml:"version" json:"version"`
+	Binding  *Binding  `yaml:"binding,omitempty" json:"binding,omitempty"`
+	Endpoint *Endpoint `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
 }
 
 type Readiness struct {
@@ -148,6 +164,11 @@ func Load(path string) (Config, error) {
 			return Config{}, err
 		}
 	}
+	if cfg.Endpoint != nil {
+		if err := cfg.Endpoint.Validate(); err != nil {
+			return Config{}, err
+		}
+	}
 	return cfg, nil
 }
 
@@ -160,6 +181,11 @@ func Save(path string, cfg Config) error {
 	}
 	if cfg.Binding != nil {
 		if err := cfg.Binding.Validate(); err != nil {
+			return err
+		}
+	}
+	if cfg.Endpoint != nil {
+		if err := cfg.Endpoint.Validate(); err != nil {
 			return err
 		}
 	}
