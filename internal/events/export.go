@@ -19,7 +19,7 @@ func WriteJSON(w io.Writer, events []observe.RunEvent) error {
 
 func WriteCSV(w io.Writer, events []observe.RunEvent) error {
 	cw := csv.NewWriter(w)
-	if err := cw.Write([]string{"timestamp", "run_id", "event_kind", "graph_id", "graph_node_id", "source", "agent_id", "model", "status", "skills", "plugins", "duration_ms", "prompt_tokens_estimate", "completion_tokens_estimate", "context_budget_exceeded", "policy_decision", "policy_reason", "bundle_id", "bundle_version", "error", "validation_error"}); err != nil {
+	if err := cw.Write([]string{"timestamp", "run_id", "event_kind", "graph_id", "graph_node_id", "source", "agent_id", "model", "status", "skills", "plugins", "duration_ms", "prompt_tokens_estimate", "completion_tokens_estimate", "context_budget_exceeded", "policy_decision", "policy_reason", "bundle_id", "bundle_version", "bundle_digest", "bundle_mode", "error", "validation_error"}); err != nil {
 		return err
 	}
 	for _, event := range events {
@@ -43,6 +43,8 @@ func WriteCSV(w io.Writer, events []observe.RunEvent) error {
 			event.PolicyReason,
 			event.BundleID,
 			event.BundleVersion,
+			event.BundleDigest,
+			event.BundleMode,
 			event.Error,
 			event.ValidationError,
 		}); err != nil {

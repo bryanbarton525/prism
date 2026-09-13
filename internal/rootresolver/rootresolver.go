@@ -20,6 +20,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/bryanbarton525/prism/internal/github"
 )
@@ -37,8 +38,21 @@ var (
 // cleanup removes the temporary directory.
 func Resolve(ctx context.Context, root, token string) (fsys fs.FS, cleanup func(), err error) {
 	if !github.IsURL(root) {
-		// Local filesystem path — fast path, no network.
-		return os.DirFS(root), func() {}, nil
+		absolute, err := filepath.Abs(root)
+		if err != nil {
+			return nil, func() {}, fmt.Errorf("rootresolver: canonicalizing local root: %w", err)
+		}
+		if canonical, evalErr := filepath.EvalSymlinks(absolute); evalErr == nil {
+			absolute = canonical
+		}
+		info, err := os.Stat(absolute)
+		if err != nil {
+			return nil, func() {}, fmt.Errorf("rootresolver: reading local root: %w", err)
+		}
+		if !info.IsDir() {
+			return nil, func() {}, fmt.Errorf("rootresolver: local root is not a directory: %s", absolute)
+		}
+		return os.DirFS(absolute), func() {}, nil
 	}
 
 	// --- GitHub URL ---

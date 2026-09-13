@@ -11,7 +11,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/bryanbarton525/prism/internal/bundles"
 	"github.com/bryanbarton525/prism/internal/events"
 	"github.com/bryanbarton525/prism/internal/reports"
 	"github.com/bryanbarton525/prism/internal/skill"
@@ -25,7 +24,6 @@ func newReportCmd() *cobra.Command {
 	cmd.AddCommand(newReportEventsCmd("usage"))
 	cmd.AddCommand(newReportEventsCmd("savings"))
 	cmd.AddCommand(newReportEventsCmd("adoption"))
-	cmd.AddCommand(newReportBundlesCmd())
 	cmd.AddCommand(newReportSkillsCmd())
 	return cmd
 }
@@ -71,48 +69,13 @@ func newReportEventsCmd(kind string) *cobra.Command {
 	return cmd
 }
 
-func newReportBundlesCmd() *cobra.Command {
-	var format string
-	cmd := &cobra.Command{
-		Use:   "bundles",
-		Short: "Generate bundle report",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			state, err := bundles.Load(installedBundlesPath())
-			if err != nil {
-				return err
-			}
-			if format == "json" {
-				enc := json.NewEncoder(os.Stdout)
-				enc.SetIndent("", "  ")
-				return enc.Encode(state)
-			}
-			if format == "csv" {
-				cw := csv.NewWriter(os.Stdout)
-				_ = cw.Write([]string{"id", "version", "channel", "owner", "risk_level", "deprecation_status", "installed_at"})
-				for _, b := range state.Bundles {
-					_ = cw.Write([]string{b.ID, b.Version, b.Channel, b.Owner, b.RiskLevel, b.DeprecationStatus, b.InstalledAt})
-				}
-				cw.Flush()
-				return cw.Error()
-			}
-			if format != "markdown" {
-				return fmt.Errorf("--format must be markdown, json, or csv")
-			}
-			fmt.Print(reports.BundlesMarkdown(len(state.Bundles)))
-			return nil
-		},
-	}
-	cmd.Flags().StringVar(&format, "format", "markdown", "Format: markdown, json, or csv")
-	return cmd
-}
-
 func newReportSkillsCmd() *cobra.Command {
 	var format string
 	cmd := &cobra.Command{
 		Use:   "skills",
 		Short: "Generate skill health report",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			items := reportSkillHealth(gf.skillsDirOrDefault())
+			items := reportSkillHealthFS(configuredSkillsFS(), "skills")
 			switch format {
 			case "json":
 				enc := json.NewEncoder(os.Stdout)
@@ -159,11 +122,14 @@ type reportSkill struct {
 }
 
 func reportSkillHealth(root string) []reportSkill {
-	entries, err := os.ReadDir(root)
+	return reportSkillHealthFS(os.DirFS(root), root)
+}
+
+func reportSkillHealthFS(fsys fs.FS, label string) []reportSkill {
+	entries, err := fs.ReadDir(fsys, ".")
 	if err != nil {
-		return []reportSkill{{Name: root, OK: false, Errors: []string{err.Error()}}}
+		return []reportSkill{{Name: label, OK: false, Errors: []string{err.Error()}}}
 	}
-	fsys := os.DirFS(root)
 	out := make([]reportSkill, 0, len(entries))
 	for _, entry := range entries {
 		if !entry.IsDir() {

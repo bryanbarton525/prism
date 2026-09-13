@@ -71,16 +71,8 @@ func TestLoadDefaultsWithoutDotEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load(): %v", err)
 	}
-	wantRoot, err := filepath.EvalSymlinks(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	gotRoot, err := filepath.EvalSymlinks(cfg.RootDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if gotRoot != wantRoot {
-		t.Fatalf("RootDir: want cwd, got %q", cfg.RootDir)
+	if cfg.RootDir != "" {
+		t.Fatalf("RootDir: want optional empty fallback, got %q", cfg.RootDir)
 	}
 	if cfg.OllamaHost != DefaultOllamaHost {
 		t.Fatalf("OllamaHost: want default, got %q", cfg.OllamaHost)

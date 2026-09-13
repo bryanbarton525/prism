@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 
 config_dir = os.path.expanduser('~/.gemini/config')
 mcp_file = os.path.join(config_dir, 'mcp.json')
@@ -19,13 +20,8 @@ if "mcpServers" not in data:
     data["mcpServers"] = {}
 
 data["mcpServers"]["prism"] = {
-    "command": "/Users/bbarton/go/bin/prism",
-    "args": [
-        "mcp",
-        "serve",
-        "--root",
-        "/Users/bbarton/go/modules/prism"
-    ],
+	"command": shutil.which("prism") or "prism",
+	"args": ["mcp", "serve"],
     "env": {
         "PRISM_OLLAMA_HOST": "http://127.0.0.1:11434",
         "PRISM_MODEL_RUNTIME_ENGINE": "sglang",
@@ -37,4 +33,4 @@ data["mcpServers"]["prism"] = {
 with open(mcp_file, 'w') as f:
     json.dump(data, f, indent=2)
 
-print("Successfully installed prism mcp server.")
+print("Successfully installed Prism MCP server. Prefer `prism install --target antigravity` for skills and specialists too.")
