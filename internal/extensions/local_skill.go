@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/bryanbarton525/prism/internal/agent"
 )
 
 type LocalSkillService struct {
@@ -167,6 +169,9 @@ func (s *LocalSkillService) RemoveManagedSkill(ctx context.Context, name string,
 	if err != nil {
 		return false, err
 	}
+	if err := ensureSkillUnbound(manifest, name); err != nil {
+		return false, err
+	}
 	kept := make([]ManifestEntry, 0, len(manifest.Entries))
 	removed := false
 	for _, entry := range manifest.Entries {
@@ -188,6 +193,28 @@ func (s *LocalSkillService) RemoveManagedSkill(ctx context.Context, name string,
 		return false, err
 	}
 	return true, nil
+}
+
+func ensureSkillUnbound(manifest Manifest, name string) error {
+	for _, entry := range manifest.Entries {
+		if !strings.EqualFold(entry.Kind, "agent") {
+			continue
+		}
+		data, err := os.ReadFile(entry.ObjectPath)
+		if err != nil {
+			return fmt.Errorf("read managed agent %q before removing skill: %w", entry.Identity, err)
+		}
+		spec, err := agent.Parse(data, "")
+		if err != nil {
+			return fmt.Errorf("parse managed agent %q before removing skill: %w", entry.Identity, err)
+		}
+		for _, allowed := range spec.AllowedSkills {
+			if strings.EqualFold(allowed, name) {
+				return fmt.Errorf("skill %q is still referenced by managed agent %q", name, entry.Identity)
+			}
+		}
+	}
+	return nil
 }
 
 func (s *Store) putDirectoryObject(sourceDir string) (string, string, error) {

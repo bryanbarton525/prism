@@ -87,11 +87,39 @@ func TestInstallLocalSkillsReplaceGuard(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+
 	svc := NewLocalSkillService(state)
 	if _, err := svc.InstallLocalSkills(context.Background(), InstallLocalSkillsRequest{Source: sourceA, Discover: DiscoverSkillsOptions{All: true}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := svc.InstallLocalSkills(context.Background(), InstallLocalSkillsRequest{Source: sourceB, Discover: DiscoverSkillsOptions{All: true}}); err == nil {
 		t.Fatal("expected replace guard error")
+	}
+}
+
+func TestRemoveManagedSkillRejectsAgentBinding(t *testing.T) {
+	state := t.TempDir()
+	source := t.TempDir()
+	skillPath := filepath.Join(source, "demo")
+	if err := os.MkdirAll(skillPath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillPath, "SKILL.md"), []byte("---\nname: demo\ndescription: d\n---"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	skills := NewLocalSkillService(state)
+	if _, err := skills.InstallLocalSkills(context.Background(), InstallLocalSkillsRequest{Source: source, Discover: DiscoverSkillsOptions{All: true}}); err != nil {
+		t.Fatal(err)
+	}
+	agentPath := filepath.Join(t.TempDir(), "agent.md")
+	agentSource := []byte("---\nid: agent\nname: Agent\ndescription: d\nmodel: m\ncontext_budget: 1\nallowed_skills: [demo]\n---\nbody")
+	if err := os.WriteFile(agentPath, agentSource, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewLocalAgentService(state).InstallLocalAgent(context.Background(), InstallLocalAgentRequest{Source: agentPath}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := skills.RemoveManagedSkill(context.Background(), "demo", false); err == nil {
+		t.Fatal("expected skill binding rejection")
 	}
 }
