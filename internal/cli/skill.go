@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -12,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	prismbundle "github.com/bryanbarton525/prism"
+	"github.com/bryanbarton525/prism/internal/extensions"
 	"github.com/bryanbarton525/prism/internal/skill"
 )
 
@@ -24,6 +26,112 @@ func newSkillCmd() *cobra.Command {
 	cmd.AddCommand(newSkillTestCmd())
 	cmd.AddCommand(newSkillBenchmarkCmd())
 	cmd.AddCommand(newSkillResourcesCmd())
+	cmd.AddCommand(newSkillAddCmd(), newSkillManagedCmd())
+	return cmd
+}
+
+func newSkillAddCmd() *cobra.Command {
+	var all bool
+	var names []string
+	var as string
+	var replace bool
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "add <source-dir>",
+		Short: "Install local skills into managed runtime state",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			svc := extensions.NewLocalSkillService(gf.stateDir)
+			entries, err := svc.InstallLocalSkills(context.Background(), extensions.InstallLocalSkillsRequest{
+				Source:   args[0],
+				Discover: extensions.DiscoverSkillsOptions{All: all, Names: names},
+				As:       as,
+				Replace:  replace,
+				DryRun:   dryRun,
+			})
+			if err != nil {
+				return err
+			}
+			if gf.jsonOut {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(entries)
+			}
+			for _, entry := range entries {
+				action := "installed"
+				if dryRun {
+					action = "would install"
+				}
+				fmt.Printf("%s skill %s (%s)\n", action, entry.Identity, entry.Digest)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&all, "all", false, "Install all skills discovered in source")
+	cmd.Flags().StringSliceVar(&names, "name", nil, "Install only named discovered skills (repeatable)")
+	cmd.Flags().StringVar(&as, "as", "", "Rename single installed skill identity")
+	cmd.Flags().BoolVar(&replace, "replace", false, "Replace existing managed skill entry")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview installation without mutating state")
+	return cmd
+}
+
+func newSkillManagedCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "managed",
+		Short: "Manage installed runtime skills",
+	}
+	cmd.AddCommand(newSkillManagedListCmd(), newSkillManagedRemoveCmd())
+	return cmd
+}
+
+func newSkillManagedListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List managed skills from extension manifest",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			svc := extensions.NewLocalSkillService(gf.stateDir)
+			entries, err := svc.ListManagedSkills(context.Background())
+			if err != nil {
+				return err
+			}
+			if gf.jsonOut {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(entries)
+			}
+			for _, entry := range entries {
+				fmt.Printf("%s\t%s\t%s\n", entry.Identity, entry.Source, entry.Digest)
+			}
+			return nil
+		},
+	}
+}
+
+func newSkillManagedRemoveCmd() *cobra.Command {
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "remove <skill-name>",
+		Short: "Remove a managed skill entry",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			svc := extensions.NewLocalSkillService(gf.stateDir)
+			removed, err := svc.RemoveManagedSkill(context.Background(), args[0], dryRun)
+			if err != nil {
+				return err
+			}
+			if !removed {
+				fmt.Printf("managed skill %q not found\n", args[0])
+				return nil
+			}
+			if dryRun {
+				fmt.Printf("would remove managed skill %q\n", args[0])
+			} else {
+				fmt.Printf("removed managed skill %q\n", args[0])
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview removal without mutating state")
 	return cmd
 }
 
