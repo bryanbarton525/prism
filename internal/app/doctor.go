@@ -94,6 +94,30 @@ func (r *Runner) Doctor(ctx context.Context) (result.DoctorResult, error) {
 		})
 	}
 
+	bundledAgents := 0
+	managedAgents := 0
+	bundledSkills := 0
+	managedSkills := 0
+	for _, item := range r.catalog.Agents {
+		if item.Origin == "managed" {
+			managedAgents++
+		} else if item.Origin == "bundled" {
+			bundledAgents++
+		}
+	}
+	for _, item := range r.catalog.Skills {
+		if item.Origin == "managed" {
+			managedSkills++
+		} else if item.Origin == "bundled" {
+			bundledSkills++
+		}
+	}
+	dr.Checks = append(dr.Checks, result.DoctorCheck{
+		Name:    "extension_catalog",
+		Status:  "ok",
+		Message: fmt.Sprintf("snapshot: %d bundled agent(s), %d managed agent(s), %d bundled skill(s), %d managed skill(s)", bundledAgents, managedAgents, bundledSkills, managedSkills),
+	})
+
 	return dr, nil
 }
 

@@ -19,6 +19,7 @@ import (
 	"github.com/bryanbarton525/prism/internal/agent"
 	"github.com/bryanbarton525/prism/internal/buildinfo"
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
+	"github.com/bryanbarton525/prism/internal/extensions"
 	"github.com/bryanbarton525/prism/internal/llm"
 	llmruntime "github.com/bryanbarton525/prism/internal/llm/runtime"
 	"github.com/bryanbarton525/prism/internal/ollama"
@@ -124,6 +125,10 @@ type Config struct {
 	// PolicyEngine is optional. When set, requests are checked before evidence
 	// collection and model execution.
 	PolicyEngine *internalpolicy.Engine
+	// ExtensionsStateDir enables managed-extension catalog composition.
+	ExtensionsStateDir string
+	// ExtensionSnapshot can be precomputed by callers; when nil New composes one.
+	ExtensionSnapshot *extensions.CatalogSnapshot
 }
 
 // bundleFS returns the immutable runtime definitions. RootFS/RootDir remain a
@@ -251,6 +256,7 @@ type Runner struct {
 	downmcp DownstreamMCPClient
 	events  observe.Sink
 	policy  *internalpolicy.Engine
+	catalog extensions.CatalogSnapshot
 }
 
 type DownstreamMCPClient interface {
@@ -273,6 +279,10 @@ func New(cfg Config) (*Runner, error) {
 	}
 	if cfg.BundleDigest == "" {
 		cfg.BundleDigest = prismbundle.DigestFS(cfg.bundleFS())
+	}
+	catalog, err := resolveCatalogSnapshot(cfg)
+	if err != nil {
+		return nil, err
 	}
 	agentFS := cfg.agentFS()
 	reg := agent.NewRegistry(agentFS)
@@ -307,7 +317,37 @@ func New(cfg Config) (*Runner, error) {
 		downmcp:  cfg.DownstreamMCP,
 		events:   eventSink,
 		policy:   cfg.PolicyEngine,
+		catalog:  catalog,
 	}, nil
+}
+
+func resolveCatalogSnapshot(cfg Config) (extensions.CatalogSnapshot, error) {
+	if cfg.ExtensionSnapshot != nil {
+		return *cfg.ExtensionSnapshot, nil
+	}
+	manifest := extensions.EmptyManifest()
+	if cfg.ExtensionsStateDir != "" {
+		store := extensions.NewStore(cfg.ExtensionsStateDir)
+		_, err := store.Recover(context.Background())
+		if err != nil {
+			return extensions.CatalogSnapshot{}, fmt.Errorf("recovering extension state: %w", err)
+		}
+		loaded, err := store.LoadManifest()
+		if err != nil {
+			return extensions.CatalogSnapshot{}, fmt.Errorf("loading extension manifest: %w", err)
+		}
+		manifest = loaded
+	}
+	catalog, err := extensions.ComposeCatalog(extensions.ComposeInput{
+		BundleFS:      cfg.bundleFS(),
+		Manifest:      manifest,
+		AgentOverride: cfg.AgentDir != "",
+		SkillOverride: cfg.SkillsDir != "",
+	})
+	if err != nil {
+		return extensions.CatalogSnapshot{}, fmt.Errorf("composing extension catalog: %w", err)
+	}
+	return catalog, nil
 }
 
 func defaultRuntimePlugins(root fs.FS, downstream DownstreamMCPClient) *plugins.Registry {
@@ -330,6 +370,10 @@ func defaultRuntimePlugins(root fs.FS, downstream DownstreamMCPClient) *plugins.
 // ListAgents implements AgentRunner.
 func (r *Runner) ListAgents(_ context.Context) ([]agent.Summary, error) {
 	return r.registry.List(), nil
+}
+
+func (r *Runner) CatalogSnapshot() extensions.CatalogSnapshot {
+	return r.catalog
 }
 
 // GetSpec returns the full parsed Spec for agentID.

@@ -19,6 +19,7 @@ import (
 	"github.com/bryanbarton525/prism/internal/buildinfo"
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
 	"github.com/bryanbarton525/prism/internal/events"
+	"github.com/bryanbarton525/prism/internal/extensions"
 	internalgraph "github.com/bryanbarton525/prism/internal/graph"
 	internalpolicy "github.com/bryanbarton525/prism/internal/policy"
 	"github.com/bryanbarton525/prism/internal/result"
@@ -606,5 +607,17 @@ func StatusSummary(runner app.AgentRunner) string {
 	for i, a := range agents {
 		ids[i] = a.ID
 	}
-	return fmt.Sprintf("prism MCP server ready: %d agent(s) [%s]", len(ids), strings.Join(ids, ", "))
+	managed := 0
+	if concrete, ok := runner.(interface{ CatalogSnapshot() extensions.CatalogSnapshot }); ok {
+		snapshot := concrete.CatalogSnapshot()
+		for _, item := range snapshot.Agents {
+			if item.Origin == "managed" {
+				managed++
+			}
+		}
+	}
+	if managed == 0 {
+		return fmt.Sprintf("prism MCP server ready: %d agent(s) [%s]", len(ids), strings.Join(ids, ", "))
+	}
+	return fmt.Sprintf("prism MCP server ready: %d agent(s) [%s] + %d managed extension agent(s)", len(ids), strings.Join(ids, ", "), managed)
 }

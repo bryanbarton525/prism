@@ -268,6 +268,7 @@ func newRunnerWithControls(ctx context.Context, sink observe.Sink, policyEngine 
 		PolicyEngine:   policyEngine,
 		DownstreamMCP:  downstreammcp.New(mcpState),
 		ModelRuntime:   modelRuntime,
+		ExtensionsStateDir: gf.stateDir,
 	})
 	if err != nil {
 		cleanup()
