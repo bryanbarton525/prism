@@ -15,16 +15,18 @@ import (
 )
 
 type installFlags struct {
-	project     bool
-	global      bool
-	targets     []string
-	skills      []string
-	specialists []string
-	copyMode    bool
-	yes         bool
-	all         bool
-	dryRun      bool
-	force       bool
+	project      bool
+	global       bool
+	runtimeOnly  bool
+	runtimeScope string
+	targets      []string
+	skills       []string
+	specialists  []string
+	copyMode     bool
+	yes          bool
+	all          bool
+	dryRun       bool
+	force        bool
 }
 
 func newInstallCmd() *cobra.Command {
@@ -38,6 +40,8 @@ func newInstallCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&flags.project, "project", false, "Install into the current project")
 	cmd.Flags().BoolVar(&flags.global, "global", false, "Install into user-global host directories")
+	cmd.Flags().BoolVar(&flags.runtimeOnly, "runtime-only", false, "Configure runtime extension state only (skip host installer changes)")
+	cmd.Flags().StringVar(&flags.runtimeScope, "runtime-scope", "project", "Runtime extension scope: user|project")
 	cmd.Flags().StringSliceVar(&flags.targets, "target", nil, "Host target: codex, copilot, antigravity, claude, or opencode")
 	cmd.Flags().StringSliceVar(&flags.skills, "skill", nil, "Bundled skill to install")
 	cmd.Flags().StringSliceVar(&flags.specialists, "specialist", nil, "Bundled specialist wrapper to install")
@@ -54,9 +58,32 @@ func runInstall(cmd *cobra.Command, flags installFlags) error {
 	if flags.project && flags.global {
 		return fmt.Errorf("--project and --global are mutually exclusive")
 	}
+	if err := validateRuntimeScope(flags.runtimeScope); err != nil {
+		return err
+	}
+	runtimeStateDir, err := resolveRuntimeStateDir(flags.runtimeScope)
+	if err != nil {
+		return err
+	}
+	if cmd.Flags().Changed("state-dir") {
+		explicitStateDir, err := filepath.Abs(gf.stateDir)
+		if err != nil {
+			return err
+		}
+		if filepath.Clean(explicitStateDir) != filepath.Clean(runtimeStateDir) {
+			return fmt.Errorf("--state-dir %q conflicts with --runtime-scope %q (expected %q)", gf.stateDir, flags.runtimeScope, runtimeStateDir)
+		}
+	}
 	scope := installer.Project
 	if flags.global {
 		scope = installer.Global
+	}
+	if flags.global && strings.EqualFold(strings.TrimSpace(flags.runtimeScope), "project") {
+		return fmt.Errorf("--global host install is incompatible with --runtime-scope project")
+	}
+	if flags.runtimeOnly {
+		fmt.Fprintf(cmd.OutOrStdout(), "Runtime-only setup selected (scope=%s, state-dir=%s). Host installer changes are skipped in this mode.\n", flags.runtimeScope, runtimeStateDir)
+		return nil
 	}
 	skills, specialists, err := installer.Catalog()
 	if err != nil {
@@ -263,6 +290,7 @@ func detectedTargets(scope installer.Scope) []string {
 		"claude":      {filepath.Join(home, ".claude")},
 		"opencode":    {filepath.Join(home, ".config", "opencode")},
 	}
+
 	if scope == installer.Project {
 		cwd, _ := os.Getwd()
 		checks["codex"] = append(checks["codex"], filepath.Join(cwd, ".codex"))
@@ -287,4 +315,32 @@ func shortDigest(value string) string {
 		return value[:12]
 	}
 	return value
+}
+
+func validateRuntimeScope(scope string) error {
+	scope = strings.ToLower(strings.TrimSpace(scope))
+	if scope != "project" && scope != "user" {
+		return fmt.Errorf("runtime scope must be 'project' or 'user'")
+	}
+	return nil
+}
+
+func resolveRuntimeStateDir(scope string) (string, error) {
+	scope = strings.ToLower(strings.TrimSpace(scope))
+	switch scope {
+	case "project":
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Abs(filepath.Join(cwd, ".prism"))
+	case "user":
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Abs(filepath.Join(home, ".prism"))
+	default:
+		return "", fmt.Errorf("runtime scope must be 'project' or 'user'")
+	}
 }
