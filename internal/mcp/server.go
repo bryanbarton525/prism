@@ -19,6 +19,7 @@ import (
 	"github.com/bryanbarton525/prism/internal/buildinfo"
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
 	"github.com/bryanbarton525/prism/internal/events"
+	"github.com/bryanbarton525/prism/internal/extensions"
 	internalgraph "github.com/bryanbarton525/prism/internal/graph"
 	internalpolicy "github.com/bryanbarton525/prism/internal/policy"
 	"github.com/bryanbarton525/prism/internal/result"
@@ -170,7 +171,8 @@ type RunAgentInput struct {
 }
 
 type WorkspaceInput struct {
-	Root string `json:"root"`
+	Root                  string `json:"root"`
+	GenerationFingerprint string `json:"generation_fingerprint,omitempty"`
 }
 
 func runAgentHandler(runner app.AgentRunner, cfg Config) func(context.Context, *mcpsdk.CallToolRequest, RunAgentInput) (*mcpsdk.CallToolResult, result.RunResult, error) {
@@ -196,13 +198,20 @@ func runAgentHandler(runner app.AgentRunner, cfg Config) func(context.Context, *
 				return nil, result.RunResult{}, err
 			}
 		}
+		generationFingerprint := ""
+		if input.Workspace != nil {
+			generationFingerprint = input.Workspace.GenerationFingerprint
+		}
 		res, err := runner.Run(ctx, app.RunRequest{
 			AgentID:    input.AgentID,
 			Task:       input.Task,
 			SkillNames: input.SkillNames,
 			Format:     format,
 			Metadata:   observe.Metadata{Source: "mcp"},
-			Workspace:  app.Workspace{Root: workspaceRoot},
+			Workspace: app.Workspace{
+				Root:                  workspaceRoot,
+				GenerationFingerprint: generationFingerprint,
+			},
 		})
 		if err != nil {
 			return nil, result.RunResult{}, err
@@ -449,14 +458,14 @@ func collectSkillHealthFS(fsys fs.FS, only string) ([]SkillHealth, error) {
 			item.OK = false
 			item.Errors = append(item.Errors, err.Error())
 		}
-		if err := skill.ValidateStructure(fsys, name); err != nil {
+		if err := skill.ValidatePortableStructure(fsys, name); err != nil {
 			item.OK = false
 			item.Errors = append(item.Errors, err.Error())
 		}
+		item.Warnings = append(item.Warnings, skill.ExecutionLimitations(fsys, name)...)
 		count, err := skill.ValidateEvals(fsys, name)
 		if err != nil {
-			item.OK = false
-			item.Errors = append(item.Errors, err.Error())
+			item.Warnings = append(item.Warnings, "eval validation unavailable: "+err.Error())
 		} else {
 			item.Evals = count
 		}
@@ -606,5 +615,17 @@ func StatusSummary(runner app.AgentRunner) string {
 	for i, a := range agents {
 		ids[i] = a.ID
 	}
-	return fmt.Sprintf("prism MCP server ready: %d agent(s) [%s]", len(ids), strings.Join(ids, ", "))
+	managed := 0
+	if concrete, ok := runner.(interface{ CatalogSnapshot() extensions.CatalogSnapshot }); ok {
+		snapshot := concrete.CatalogSnapshot()
+		for _, item := range snapshot.Agents {
+			if item.Origin == "managed" {
+				managed++
+			}
+		}
+	}
+	if managed == 0 {
+		return fmt.Sprintf("prism MCP server ready: %d agent(s) [%s]", len(ids), strings.Join(ids, ", "))
+	}
+	return fmt.Sprintf("prism MCP server ready: %d agent(s) [%s] + %d managed extension agent(s)", len(ids), strings.Join(ids, ", "), managed)
 }

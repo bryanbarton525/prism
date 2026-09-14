@@ -90,6 +90,14 @@ type candidate struct {
 
 func candidateRules(task string) []candidate {
 	var out []candidate
+	if repositoryInvestigationTask(task) {
+		out = append(out, candidate{
+			AgentID:    "repo-investigator",
+			SkillNames: []string{"graphify-query"},
+			Reason:     "The task requests repository architecture, relationships, dependency paths, or change-impact investigation.",
+			Risk:       "read_only",
+		})
+	}
 	if containsAny(task, "linear", "linear issue", "linear ticket", "linear project", "linear cycle", "linear roadmap") {
 		out = append(out, candidate{
 			AgentID:    "linear",
@@ -131,6 +139,23 @@ func candidateRules(task string) []candidate {
 		})
 	}
 	return out
+}
+
+func repositoryInvestigationTask(task string) bool {
+	return containsAny(task,
+		"repository architecture",
+		"architecture of",
+		"component relationship",
+		"component relationships",
+		"relationship between",
+		"dependency path",
+		"dependency paths",
+		"call path",
+		"change impact",
+		"impact analysis",
+		"blast radius",
+		"cross-file",
+	)
 }
 
 func containsAny(s string, needles ...string) bool {

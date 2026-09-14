@@ -56,11 +56,24 @@ func TestParseFile_Valid(t *testing.T) {
 func TestParseFile_NameMismatch(t *testing.T) {
 	root := makeSkillDir(t, "wrong-dir-name", validSkillMD)
 	_, err := LoadDir(os.DirFS(root), "wrong-dir-name")
-	if err == nil {
-		t.Fatal("expected error when skill name != directory name")
+	if err != nil {
+		t.Fatalf("portable load should not require directory-name match: %v", err)
 	}
-	if !strings.Contains(err.Error(), "does not match directory name") {
-		t.Errorf("unexpected error: %v", err)
+}
+
+func TestParseFile_InvalidNamePattern(t *testing.T) {
+	content := `---
+name: GH PR Triage
+description: desc
+---
+body`
+	root := makeSkillDir(t, "x", content)
+	_, err := LoadDir(os.DirFS(root), "x")
+	if err == nil {
+		t.Fatal("expected error for invalid standard name")
+	}
+	if !strings.Contains(err.Error(), "must match") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

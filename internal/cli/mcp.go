@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
+	"github.com/bryanbarton525/prism/internal/extensions"
 	"github.com/bryanbarton525/prism/internal/mcp"
 )
 
@@ -20,8 +23,137 @@ func newMCPCmd() *cobra.Command {
 		Short: "MCP server and downstream MCP clients",
 	}
 	cmd.AddCommand(newMCPServeCmd())
+	cmd.AddCommand(newMCPAddCmd())
+	cmd.AddCommand(newMCPListCmd())
+	cmd.AddCommand(newMCPShowCmd())
+	cmd.AddCommand(newMCPRemoveCmd())
+	cmd.AddCommand(newMCPToolsCmd())
+	cmd.AddCommand(newMCPCallCmd())
+	cmd.AddCommand(newMCPAccessCmd())
 	cmd.AddCommand(newMCPServerCmd())
 	return cmd
+}
+
+func newMCPAccessCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "access",
+		Short: "Configure per-agent downstream MCP access",
+	}
+	cmd.AddCommand(newMCPAccessDefaultSetCmd(), newMCPAccessDefaultShowCmd(), newMCPAccessAgentSetCmd(), newMCPAccessAgentShowCmd())
+	return cmd
+}
+
+func newMCPAccessDefaultSetCmd() *cobra.Command {
+	var servers []string
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "default set",
+		Short: "Set shared default downstream server allowlist",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			state, _, err := extensions.LoadMCPAccess(gf.stateDir)
+			if err != nil {
+				return err
+			}
+			state.DefaultServers = servers
+			if dryRun {
+				fmt.Printf("would set default MCP access servers: %v\n", state.DefaultServers)
+				return nil
+			}
+			if err := extensions.SaveMCPAccess(gf.stateDir, state); err != nil {
+				return err
+			}
+			fmt.Printf("set default MCP access servers: %v\n", state.DefaultServers)
+			return nil
+		},
+	}
+	cmd.Flags().StringSliceVar(&servers, "server", nil, "Allowed downstream server name (repeatable)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without mutation")
+	return cmd
+}
+
+func newMCPAccessDefaultShowCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "default show",
+		Short: "Show shared default downstream server allowlist",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			state, configured, err := extensions.LoadMCPAccess(gf.stateDir)
+			if err != nil {
+				return err
+			}
+			if gf.jsonOut {
+				out := map[string]any{"configured": configured, "default_servers": state.DefaultServers}
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(out)
+			}
+			fmt.Printf("configured: %t\n", configured)
+			fmt.Printf("default servers: %v\n", state.DefaultServers)
+			return nil
+		},
+	}
+}
+
+func newMCPAccessAgentSetCmd() *cobra.Command {
+	var mode string
+	var servers []string
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "agent set <agent-id>",
+		Short: "Set per-agent downstream MCP access mode",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			agentID := strings.ToLower(strings.TrimSpace(args[0]))
+			state, _, err := extensions.LoadMCPAccess(gf.stateDir)
+			if err != nil {
+				return err
+			}
+			if state.Agents == nil {
+				state.Agents = map[string]extensions.MCPAccessRule{}
+			}
+			rule := extensions.MCPAccessRule{Mode: mode, Servers: servers}
+			if dryRun {
+				fmt.Printf("would set agent %s MCP access: mode=%s servers=%v\n", agentID, rule.Mode, rule.Servers)
+				return nil
+			}
+			state.Agents[agentID] = rule
+			if err := extensions.SaveMCPAccess(gf.stateDir, state); err != nil {
+				return err
+			}
+			fmt.Printf("set agent %s MCP access: mode=%s servers=%v\n", agentID, rule.Mode, rule.Servers)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&mode, "mode", extensions.MCPAccessModeDefault, "Access mode: default|custom|none")
+	cmd.Flags().StringSliceVar(&servers, "server", nil, "Allowed server for mode=custom (repeatable)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without mutation")
+	return cmd
+}
+
+func newMCPAccessAgentShowCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "agent show <agent-id>",
+		Short: "Show per-agent downstream MCP access configuration",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			agentID := strings.ToLower(strings.TrimSpace(args[0]))
+			state, configured, err := extensions.LoadMCPAccess(gf.stateDir)
+			if err != nil {
+				return err
+			}
+			rule := extensions.MCPAccessRule{Mode: extensions.MCPAccessModeDefault}
+			if cfgRule, ok := state.Agents[agentID]; ok {
+				rule = cfgRule
+			}
+			if gf.jsonOut {
+				out := map[string]any{"configured": configured, "agent_id": agentID, "rule": rule, "default_servers": state.DefaultServers}
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(out)
+			}
+			fmt.Printf("configured: %t\nagent: %s\nmode: %s\nservers: %v\ndefault servers: %v\n", configured, agentID, rule.Mode, rule.Servers, state.DefaultServers)
+			return nil
+		},
+	}
 }
 
 func newMCPServeCmd() *cobra.Command {
@@ -90,10 +222,169 @@ Example Cursor mcp.json:
 	}
 }
 
+func newMCPAddCmd() *cobra.Command {
+	var transport string
+	var command string
+	var commandArgs []string
+	var url string
+	var timeoutMS int
+	var maxBytes int
+	var replace bool
+	var dryRun bool
+	var description string
+	var envFrom []string
+	var headerFrom []string
+	var legacyEnvRef []string
+	var legacyHeaderRef []string
+
+	cmd := &cobra.Command{
+		Use:   "add [flags] <name> [-- <command> [args...]]",
+		Short: "Add a downstream MCP server using command, sse, or streamable-http transport",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := args[0]
+			finalTransport, err := resolveAddTransport(transport, strings.TrimSpace(url))
+			if err != nil {
+				return err
+			}
+			envAssignments := append([]string{}, envFrom...)
+			envAssignments = append(envAssignments, legacyEnvRef...)
+			headerAssignments := append([]string{}, headerFrom...)
+			headerAssignments = append(headerAssignments, legacyHeaderRef...)
+			envRefs, err := parseReferenceAssignments(envAssignments, "--env-from")
+			if err != nil {
+				return err
+			}
+			headerRefs, err := parseReferenceAssignments(headerAssignments, "--header-from")
+			if err != nil {
+				return err
+			}
+			resolvedCommand := strings.TrimSpace(command)
+			resolvedArgs := append([]string{}, commandArgs...)
+			if len(args) > 1 {
+				if resolvedCommand != "" {
+					return fmt.Errorf("command was provided both by --command and positional argv; use one form")
+				}
+				resolvedCommand = args[1]
+				resolvedArgs = append([]string{}, args[2:]...)
+			}
+			server := downstreammcp.Server{
+				Name:        name,
+				Transport:   finalTransport,
+				Command:     resolvedCommand,
+				Args:        resolvedArgs,
+				EnvRefs:     envRefs,
+				URL:         strings.TrimSpace(url),
+				HeaderRefs:  headerRefs,
+				TimeoutMS:   timeoutMS,
+				MaxBytes:    maxBytes,
+				Description: strings.TrimSpace(description),
+			}
+			if err := validateAddCommandFlags(cmd, server); err != nil {
+				return err
+			}
+			if err := server.Validate(); err != nil {
+				return err
+			}
+			return mutateDownstreamMCPServer(cmd.Context(), server, replace, dryRun)
+		},
+	}
+	cmd.Flags().StringVar(&transport, "transport", "", "Transport: command, sse, http, streamable-http")
+	cmd.Flags().StringVar(&command, "command", "", "Executable for command transport")
+	cmd.Flags().StringArrayVar(&commandArgs, "arg", nil, "Command argument (repeatable)")
+	cmd.Flags().StringVar(&url, "url", "", "Endpoint URL for sse or streamable-http transport")
+	cmd.Flags().IntVar(&timeoutMS, "timeout-ms", downstreammcp.DefaultTimeoutMS, "Per-call timeout in milliseconds")
+	cmd.Flags().IntVar(&maxBytes, "max-bytes", downstreammcp.DefaultMaxBytes, "Maximum returned content bytes")
+	cmd.Flags().StringVar(&description, "description", "", "Human-readable server description")
+	cmd.Flags().BoolVar(&replace, "replace", false, "Replace existing server with same name")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show outcome without writing state")
+	cmd.Flags().StringArrayVar(&envFrom, "env-from", nil, "Command env reference assignment KEY=ENV_VAR (repeatable)")
+	cmd.Flags().StringArrayVar(&headerFrom, "header-from", nil, "HTTP header reference assignment HEADER=ENV_VAR (repeatable)")
+	cmd.Flags().StringArrayVar(&legacyEnvRef, "env-ref", nil, "Deprecated alias for --env-from")
+	cmd.Flags().StringArrayVar(&legacyHeaderRef, "header-ref", nil, "Deprecated alias for --header-from")
+	_ = cmd.Flags().MarkHidden("env-ref")
+	_ = cmd.Flags().MarkHidden("header-ref")
+	return cmd
+}
+
+func newMCPListCmd() *cobra.Command {
+	return newMCPServerListCmd()
+}
+
+func newMCPShowCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "show <name>",
+		Short: "Show one configured downstream MCP server",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			state, err := configuredDownstreamMCPState()
+			if err != nil {
+				return err
+			}
+			server, ok := state.Get(args[0])
+			if !ok {
+				return fmt.Errorf("downstream MCP server %s not found", args[0])
+			}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			return enc.Encode(server)
+		},
+	}
+}
+
+func newMCPRemoveCmd() *cobra.Command {
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "remove [flags] <name>",
+		Short: "Remove one configured downstream MCP server",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := args[0]
+			if dryRun {
+				state, err := downstreammcp.Load(mcpServersPath())
+				if err != nil {
+					return err
+				}
+				if _, ok := state.Get(name); !ok {
+					fmt.Printf("downstream MCP server %s unchanged\n", name)
+					return nil
+				}
+				fmt.Printf("downstream MCP server %s removed\n", name)
+				return nil
+			}
+			result, err := downstreammcp.NewService(mcpServersPath()).Remove(cmd.Context(), name)
+			if err != nil {
+				return err
+			}
+			switch result.Outcome {
+			case downstreammcp.OutcomeRemoved:
+				fmt.Printf("downstream MCP server %s removed\n", name)
+			case downstreammcp.OutcomeUnchanged:
+				fmt.Printf("downstream MCP server %s unchanged\n", name)
+			case downstreammcp.OutcomeConflict:
+				return fmt.Errorf("downstream MCP server %s changed concurrently; retry remove", name)
+			default:
+				return fmt.Errorf("unexpected downstream MCP remove outcome: %s", result.Outcome)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show outcome without writing state")
+	return cmd
+}
+
+func newMCPToolsCmd() *cobra.Command {
+	return newMCPServerToolsCmd()
+}
+
+func newMCPCallCmd() *cobra.Command {
+	return newMCPServerCallCmd()
+}
+
 func newMCPServerCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "server",
-		Short: "Manage downstream MCP servers Prism can call",
+		Short: "Compatibility wrappers for downstream MCP commands",
 	}
 	cmd.AddCommand(newMCPServerAddCommandCmd())
 	cmd.AddCommand(newMCPServerAddSSECmd())
@@ -106,6 +397,8 @@ func newMCPServerCmd() *cobra.Command {
 func newMCPServerAddCommandCmd() *cobra.Command {
 	var timeoutMS int
 	var maxBytes int
+	var description string
+	var envFrom []string
 	cmd := &cobra.Command{
 		Use:   "add-command [flags] <name> <command> [args...]",
 		Short: "Add a downstream MCP server launched as a command",
@@ -121,31 +414,30 @@ flags such as --timeout-ms and --max-bytes must come BEFORE <name>:
 			if err := rejectMisplacedPrismFlags(args); err != nil {
 				return err
 			}
-			state, err := downstreammcp.Load(mcpServersPath())
+			envRefs, err := parseReferenceAssignments(envFrom, "--env-from")
 			if err != nil {
 				return err
 			}
 			server := downstreammcp.Server{
-				Name:      args[0],
-				Transport: downstreammcp.TransportCommand,
-				Command:   args[1],
-				Args:      append([]string{}, args[2:]...),
-				TimeoutMS: timeoutMS,
-				MaxBytes:  maxBytes,
+				Name:        args[0],
+				Transport:   downstreammcp.TransportCommand,
+				Command:     args[1],
+				Args:        append([]string{}, args[2:]...),
+				EnvRefs:     envRefs,
+				TimeoutMS:   timeoutMS,
+				MaxBytes:    maxBytes,
+				Description: strings.TrimSpace(description),
 			}
 			if err := server.Validate(); err != nil {
 				return err
 			}
-			state.Upsert(server)
-			if err := downstreammcp.Save(mcpServersPath(), state); err != nil {
-				return err
-			}
-			fmt.Printf("downstream MCP server %s saved\n", server.Name)
-			return nil
+			return mutateDownstreamMCPServer(context.Background(), server, true, false)
 		},
 	}
 	cmd.Flags().IntVar(&timeoutMS, "timeout-ms", downstreammcp.DefaultTimeoutMS, "Per-call timeout in milliseconds")
 	cmd.Flags().IntVar(&maxBytes, "max-bytes", downstreammcp.DefaultMaxBytes, "Maximum returned content bytes")
+	cmd.Flags().StringVar(&description, "description", "", "Human-readable server description")
+	cmd.Flags().StringArrayVar(&envFrom, "env-from", nil, "Command env reference assignment KEY=ENV_VAR (repeatable)")
 	cmd.Flags().SetInterspersed(false)
 	return cmd
 }
@@ -171,36 +463,168 @@ func rejectMisplacedPrismFlags(args []string) error {
 func newMCPServerAddSSECmd() *cobra.Command {
 	var timeoutMS int
 	var maxBytes int
+	var description string
+	var headerFrom []string
 	cmd := &cobra.Command{
 		Use:   "add-sse <name> <url>",
 		Short: "Add a downstream MCP server using SSE transport",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
-			state, err := downstreammcp.Load(mcpServersPath())
+			headerRefs, err := parseReferenceAssignments(headerFrom, "--header-from")
 			if err != nil {
 				return err
 			}
 			server := downstreammcp.Server{
-				Name:      args[0],
-				Transport: downstreammcp.TransportSSE,
-				URL:       args[1],
-				TimeoutMS: timeoutMS,
-				MaxBytes:  maxBytes,
+				Name:        args[0],
+				Transport:   downstreammcp.TransportSSE,
+				URL:         args[1],
+				HeaderRefs:  headerRefs,
+				TimeoutMS:   timeoutMS,
+				MaxBytes:    maxBytes,
+				Description: strings.TrimSpace(description),
 			}
 			if err := server.Validate(); err != nil {
 				return err
 			}
-			state.Upsert(server)
-			if err := downstreammcp.Save(mcpServersPath(), state); err != nil {
-				return err
-			}
-			fmt.Printf("downstream MCP server %s saved\n", server.Name)
-			return nil
+			return mutateDownstreamMCPServer(context.Background(), server, true, false)
 		},
 	}
 	cmd.Flags().IntVar(&timeoutMS, "timeout-ms", downstreammcp.DefaultTimeoutMS, "Per-call timeout in milliseconds")
 	cmd.Flags().IntVar(&maxBytes, "max-bytes", downstreammcp.DefaultMaxBytes, "Maximum returned content bytes")
+	cmd.Flags().StringVar(&description, "description", "", "Human-readable server description")
+	cmd.Flags().StringArrayVar(&headerFrom, "header-from", nil, "HTTP header reference assignment HEADER=ENV_VAR (repeatable)")
 	return cmd
+}
+
+func printDownstreamMCPMutation(name, outcome string) error {
+	switch outcome {
+	case downstreammcp.OutcomeCreated:
+		fmt.Printf("downstream MCP server %s created\n", name)
+		return nil
+	case downstreammcp.OutcomeUnchanged:
+		fmt.Printf("downstream MCP server %s unchanged\n", name)
+		return nil
+	case downstreammcp.OutcomeReplaced:
+		fmt.Printf("downstream MCP server %s replaced\n", name)
+		return nil
+	case downstreammcp.OutcomeConflict:
+		return fmt.Errorf("downstream MCP server %s already exists with different settings; rerun with --replace", name)
+	default:
+		return fmt.Errorf("unexpected downstream MCP mutation outcome: %s", outcome)
+	}
+}
+
+func mutateDownstreamMCPServer(ctx context.Context, server downstreammcp.Server, replace, dryRun bool) error {
+	if dryRun {
+		state, err := downstreammcp.Load(mcpServersPath())
+		if err != nil {
+			return err
+		}
+		current, ok := state.Get(server.Name)
+		if !ok {
+			return printDownstreamMCPMutation(server.Name, downstreammcp.OutcomeCreated)
+		}
+		if current.Equals(server) {
+			return printDownstreamMCPMutation(server.Name, downstreammcp.OutcomeUnchanged)
+		}
+		if !replace {
+			return printDownstreamMCPMutation(server.Name, downstreammcp.OutcomeConflict)
+		}
+		return printDownstreamMCPMutation(server.Name, downstreammcp.OutcomeReplaced)
+	}
+	result, err := downstreammcp.NewService(mcpServersPath()).AddOrUpdate(ctx, server, replace)
+	if err != nil {
+		return err
+	}
+	return printDownstreamMCPMutation(server.Name, result.Outcome)
+}
+
+func parseReferenceAssignments(assignments []string, flagName string) (map[string]string, error) {
+	out := map[string]string{}
+	for _, assignment := range assignments {
+		parts := strings.SplitN(assignment, "=", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid %s assignment %q (expected KEY=ENV_VAR)", flagName, assignment)
+		}
+		key := strings.TrimSpace(parts[0])
+		ref := strings.TrimSpace(parts[1])
+		if key == "" || ref == "" {
+			return nil, fmt.Errorf("invalid %s assignment %q (expected KEY=ENV_VAR)", flagName, assignment)
+		}
+		out[key] = ref
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
+}
+
+func resolveAddTransport(rawTransport, rawURL string) (string, error) {
+	transport := strings.TrimSpace(strings.ToLower(rawTransport))
+	if transport == "http" {
+		transport = downstreammcp.TransportStreamableHTTP
+	}
+	if transport == "" {
+		if rawURL != "" {
+			return downstreammcp.TransportStreamableHTTP, nil
+		}
+		return downstreammcp.TransportCommand, nil
+	}
+	switch transport {
+	case downstreammcp.TransportCommand, downstreammcp.TransportSSE, downstreammcp.TransportStreamableHTTP:
+		return transport, nil
+	default:
+		return "", fmt.Errorf("unsupported transport %q", rawTransport)
+	}
+}
+
+func validateAddCommandFlags(cmd *cobra.Command, server downstreammcp.Server) error {
+	if cmd.Flags().Changed("timeout-ms") && server.TimeoutMS <= 0 {
+		return fmt.Errorf("--timeout-ms must be > 0")
+	}
+	if cmd.Flags().Changed("max-bytes") && server.MaxBytes <= 0 {
+		return fmt.Errorf("--max-bytes must be > 0")
+	}
+	switch server.Transport {
+	case downstreammcp.TransportCommand:
+		if strings.TrimSpace(server.URL) != "" {
+			return fmt.Errorf("--url is not valid with command transport")
+		}
+		if len(server.HeaderRefs) > 0 {
+			return fmt.Errorf("--header-from is not valid with command transport")
+		}
+		if strings.TrimSpace(server.Command) == "" {
+			return fmt.Errorf("command transport requires executable command (use --command or argv after --)")
+		}
+	case downstreammcp.TransportSSE, downstreammcp.TransportStreamableHTTP:
+		if strings.TrimSpace(server.Command) != "" || len(server.Args) > 0 {
+			return fmt.Errorf("URL-based transports do not accept command argv")
+		}
+		if len(server.EnvRefs) > 0 {
+			return fmt.Errorf("--env-from is not valid with URL-based transports")
+		}
+		if err := validateAbsoluteHTTPURL(server.URL); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateAbsoluteHTTPURL(raw string) error {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("invalid --url: %w", err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("--url must use http or https scheme")
+	}
+	if parsed.Host == "" {
+		return fmt.Errorf("--url must be absolute")
+	}
+	if filepath.IsAbs(raw) {
+		return fmt.Errorf("--url must be an absolute URL, not a path")
+	}
+	return nil
 }
 
 func newMCPServerListCmd() *cobra.Command {

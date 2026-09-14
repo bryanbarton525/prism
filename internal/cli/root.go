@@ -36,6 +36,36 @@ var rootCmd = &cobra.Command{
 Each agent is defined by a Markdown+frontmatter spec and a constitution.
 Skills are attached per invocation to control scope.`,
 	SilenceUsage: true,
+	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+		if !flagChanged(cmd, "state-dir") {
+			return nil
+		}
+		loaded, err := config.LoadForStateDir(gf.stateDir)
+		if err != nil {
+			return fmt.Errorf("load selected runtime configuration: %w", err)
+		}
+		cfg = loaded
+		gf.stateDir = loaded.StateDir
+		if !flagChanged(cmd, "ollama-host") {
+			gf.ollamaHost = loaded.OllamaHost
+		}
+		if !flagChanged(cmd, "root") {
+			gf.rootDir = loaded.RootDir
+		}
+		if !flagChanged(cmd, "agent-dir") {
+			gf.agentDir = loaded.AgentDir
+		}
+		if !flagChanged(cmd, "skills-dir") {
+			gf.skillsDir = loaded.SkillsDir
+		}
+		if !flagChanged(cmd, "event-store") {
+			gf.eventStore = loaded.EventStore
+		}
+		if !flagChanged(cmd, "policy-file") {
+			gf.policyFile = loaded.PolicyFile
+		}
+		return nil
+	},
 }
 
 // Execute runs the Cobra command tree.
@@ -81,6 +111,7 @@ func init() {
 	rootCmd.AddCommand(newRouteCmd())
 	rootCmd.AddCommand(newSkillCmd())
 	rootCmd.AddCommand(newGraphCmd())
+	rootCmd.AddCommand(newGraphifyCmd())
 	rootCmd.AddCommand(newDashboardCmd())
 	rootCmd.AddCommand(newReportCmd())
 	rootCmd.AddCommand(newInstructionsCmd())
@@ -104,4 +135,11 @@ func eventStorePath() string {
 
 func mcpServersPath() string {
 	return filepath.Join(gf.stateDir, "mcp-servers.yaml")
+}
+
+func flagChanged(cmd *cobra.Command, name string) bool {
+	if flag := cmd.Flags().Lookup(name); flag != nil && flag.Changed {
+		return true
+	}
+	return cmd.InheritedFlags().Lookup(name) != nil && cmd.InheritedFlags().Lookup(name).Changed
 }

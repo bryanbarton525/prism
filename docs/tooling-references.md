@@ -38,6 +38,20 @@ re-checked before major dependency upgrades.
   - Keep plugin calls read-only unless a future agent explicitly declares and
     audits write capabilities.
 
+## Graphify repository investigation
+
+- Graphify: <https://github.com/Graphify-Labs/graphify>
+  - Prism's reviewed external reference is tag `v0.9.61` at commit
+    `fe66389083369c3159aa391117185c8f58b4d07c`.
+  - The fixed Prism MCP contract is `prism-graphify-mcp-v0.9.61`, restricted
+    to `query_graph`, `get_node`, `get_neighbors`, and `shortest_path`.
+  - The executable, Python environment, and generated repository index remain
+    operator-managed prerequisites. Required CI never downloads, builds, or
+    contacts Graphify; see [usage](usage.md#graphify-repository-investigation).
+  - The reviewed local-only index command is
+    `graphify extract <absolute-workspace> --code-only --no-viz`, which writes
+    the graph passed to MCP as `<absolute-workspace>/graphify-out/graph.json`.
+
 ## Agent Skills
 
 - Agent Skills specification: <https://agentskills.io/specification>

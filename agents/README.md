@@ -1,8 +1,8 @@
 # Agent specifications
 
-Each Prism agent is defined as **Markdown with YAML frontmatter**. The runtime
-loads every `agents/*.md` file (except `README.md`) at startup via `prism agent
-list`, `prism run`, and MCP tools.
+Each Prism agent is defined as **Markdown with YAML frontmatter**. Release
+builds load the immutable embedded `agents/*.md` bundle (except `README.md`);
+development overrides and managed extensions use the same format.
 
 The frontmatter is the machine-readable spec; the Markdown body is the
 constitution (behavior contract) unless `constitution_path` points elsewhere.
@@ -63,6 +63,7 @@ All agents are live and loaded at startup:
 - `agents/go-helper.md` — small Go helpers and pure utilities
 - `agents/go-scaffold.md` — package boilerplate and test scaffolds
 - `agents/frontend-builder.md` — vanilla HTML/CSS/JS UI subtasks
+- `agents/repo-investigator.md` — bounded repository architecture and relationship investigation through Prism
 
 Each spec uses Markdown + YAML frontmatter and references a matching
 constitution plus an `allowed_skills` list.

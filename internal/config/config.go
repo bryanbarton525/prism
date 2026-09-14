@@ -34,15 +34,38 @@ type Settings struct {
 // working directory, an optional Prism config env file, and environment
 // variables.
 func Load() (Settings, error) {
+	return load("")
+}
+
+// LoadForStateDir loads runtime configuration for an explicitly selected state
+// directory. Command-line state selection takes precedence over the state
+// directory configured in .env or the environment, while explicit model
+// environment variables still take precedence over the selected config file.
+func LoadForStateDir(stateDir string) (Settings, error) {
+	if strings.TrimSpace(stateDir) == "" {
+		return Load()
+	}
+	absolute, err := filepath.Abs(stateDir)
+	if err != nil {
+		return Settings{}, fmt.Errorf("canonicalizing state directory: %w", err)
+	}
+	return load(absolute)
+}
+
+func load(selectedStateDir string) (Settings, error) {
 	v := newViper()
 	if err := v.ReadInConfig(); err != nil && !isConfigNotFound(err) {
 		return Settings{}, err
 	}
-	fileEnv, err := loadPrismConfigEnv(v)
+	fileEnv, err := loadPrismConfigEnv(v, selectedStateDir)
 	if err != nil {
 		return Settings{}, err
 	}
-	return settingsFrom(v, fileEnv), nil
+	settings := settingsFrom(v, fileEnv)
+	if selectedStateDir != "" {
+		settings.StateDir = selectedStateDir
+	}
+	return settings, nil
 }
 
 func newViper() *viper.Viper {
@@ -144,8 +167,8 @@ func isDefaultOnly(key, value string) bool {
 	}
 }
 
-func loadPrismConfigEnv(v *viper.Viper) (map[string]string, error) {
-	path := prismConfigPath(v)
+func loadPrismConfigEnv(v *viper.Viper, selectedStateDir string) (map[string]string, error) {
+	path := prismConfigPath(v, selectedStateDir)
 	if path == "" {
 		return nil, nil
 	}
@@ -159,9 +182,12 @@ func loadPrismConfigEnv(v *viper.Viper) (map[string]string, error) {
 	return env, nil
 }
 
-func prismConfigPath(v *viper.Viper) string {
+func prismConfigPath(v *viper.Viper, selectedStateDir string) string {
 	if path := firstNonEmpty(os.Getenv("PRISM_CONFIG_FILE"), v.GetString("PRISM_CONFIG_FILE"), v.GetString("config_file")); path != "" {
 		return path
+	}
+	if selectedStateDir != "" {
+		return filepath.Join(selectedStateDir, "config.env")
 	}
 	stateDir := firstNonEmpty(os.Getenv("PRISM_STATE_DIR"), v.GetString("PRISM_STATE_DIR"), v.GetString("state_dir"))
 	if stateDir == "" {

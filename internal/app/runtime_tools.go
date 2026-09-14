@@ -22,6 +22,11 @@ type runtimeEvidence struct {
 func collectRuntimeEvidence(ctx context.Context, registry *plugins.Registry, spec *agent.Spec, task string) runtimeEvidence {
 	var out runtimeEvidence
 	for _, tool := range spec.Tools {
+		// Graphify is an interactive, dedicated downstream-MCP capability. It
+		// is handled by the tool loop rather than eagerly as a runtime plugin.
+		if tool == "graphify" {
+			continue
+		}
 		plugin, ok := registry.Get(tool)
 		if !ok {
 			msg := fmt.Sprintf("runtime tool %q is declared by the agent but is not implemented by Prism", tool)
