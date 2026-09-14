@@ -25,12 +25,15 @@ func TestGraphifyBindWritesExplicitBinding(t *testing.T) {
 	t.Cleanup(func() { gf.stateDir = originalStateDir })
 	workspace := t.TempDir()
 	index := filepath.Join(workspace, "index")
+	if err := os.WriteFile(index, []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	cmd := newGraphifyBindCmd()
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetArgs([]string{
-		"--workspace", workspace, "--index", index, "--upstream-version", "1.2.3",
-		"--schema-version", "v1", "--fingerprint", "source-sha", "--server", "graphify",
+		"--workspace", workspace, "--index", index, "--upstream-version", graphify.PinnedUpstreamVersion,
+		"--schema-version", graphify.PinnedContractID, "--fingerprint", "source-sha", "--server", "graphify",
 		"--endpoint-kind", "self-hosted", "--approve",
 	})
 	if err := cmd.Execute(); err != nil {
@@ -54,10 +57,13 @@ func TestGraphifySetupRequiresApprovalAndDryRunDoesNotWrite(t *testing.T) {
 	t.Cleanup(func() { gf.stateDir = originalStateDir })
 	workspace := t.TempDir()
 	index := filepath.Join(workspace, "index")
+	if err := os.WriteFile(index, []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	cmd := newGraphifySetupCmd()
 	cmd.SetArgs([]string{
-		"--workspace", workspace, "--index", index, "--upstream-version", "1.2.3",
-		"--schema-version", "v1", "--fingerprint", "source-sha", "--server", "graphify",
+		"--workspace", workspace, "--index", index, "--upstream-version", graphify.PinnedUpstreamVersion,
+		"--schema-version", graphify.PinnedContractID, "--fingerprint", "source-sha", "--server", "graphify",
 		"--endpoint-kind", "self-hosted",
 	})
 	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "--approve") {
@@ -65,8 +71,8 @@ func TestGraphifySetupRequiresApprovalAndDryRunDoesNotWrite(t *testing.T) {
 	}
 	cmd = newGraphifySetupCmd()
 	cmd.SetArgs([]string{
-		"--workspace", workspace, "--index", index, "--upstream-version", "1.2.3",
-		"--schema-version", "v1", "--fingerprint", "source-sha", "--server", "graphify",
+		"--workspace", workspace, "--index", index, "--upstream-version", graphify.PinnedUpstreamVersion,
+		"--schema-version", graphify.PinnedContractID, "--fingerprint", "source-sha", "--server", "graphify",
 		"--endpoint-kind", "self-hosted", "--approve", "--dry-run",
 	})
 	if err := cmd.Execute(); err != nil {
@@ -81,8 +87,8 @@ func TestGraphifyRemovePreservesExternalResources(t *testing.T) {
 	originalStateDir := gf.stateDir
 	gf.stateDir = t.TempDir()
 	t.Cleanup(func() { gf.stateDir = originalStateDir })
-	index := filepath.Join(t.TempDir(), "user-index")
-	if err := os.Mkdir(index, 0o755); err != nil {
+	index := filepath.Join(t.TempDir(), "user-graph.json")
+	if err := os.WriteFile(index, []byte("{}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	config := filepath.Join(gf.stateDir, "graphify.yaml")
@@ -97,7 +103,7 @@ func TestGraphifyRemovePreservesExternalResources(t *testing.T) {
 	if _, err := os.Stat(config); !os.IsNotExist(err) {
 		t.Fatalf("configuration was not removed: %v", err)
 	}
-	if info, err := os.Stat(index); err != nil || !info.IsDir() {
+	if info, err := os.Stat(index); err != nil || !info.Mode().IsRegular() {
 		t.Fatalf("user-managed index changed: info=%#v err=%v", info, err)
 	}
 }
@@ -108,14 +114,14 @@ func TestGraphifyDoctorChecksRegisteredEndpointWithoutContactingIt(t *testing.T)
 	t.Cleanup(func() { gf.stateDir = originalStateDir })
 	workspace := t.TempDir()
 	index := filepath.Join(workspace, "index")
-	if err := os.Mkdir(index, 0o755); err != nil {
+	if err := os.WriteFile(index, []byte("{}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := graphify.Save(filepath.Join(gf.stateDir, "graphify.yaml"), graphify.Config{
 		OperatorApproved: true,
 		Binding: &graphify.Binding{
-			Workspace: workspace, IndexPath: index, UpstreamVersion: "1.2.3",
-			SchemaVersion: "v1", GenerationFingerprint: "source-sha",
+			Workspace: workspace, IndexPath: index, UpstreamVersion: graphify.PinnedUpstreamVersion,
+			SchemaVersion: graphify.PinnedContractID, GenerationFingerprint: "source-sha",
 		},
 		Endpoint: &graphify.Endpoint{Server: "graphify", Kind: graphify.EndpointSelfHosted},
 	}); err != nil {
@@ -135,5 +141,21 @@ func TestGraphifyDoctorChecksRegisteredEndpointWithoutContactingIt(t *testing.T)
 	}
 	if !strings.Contains(out.String(), "ready") {
 		t.Fatalf("doctor output = %q", out.String())
+	}
+}
+
+func TestGraphifySetupRejectsUnpinnedContract(t *testing.T) {
+	originalStateDir := gf.stateDir
+	gf.stateDir = t.TempDir()
+	t.Cleanup(func() { gf.stateDir = originalStateDir })
+	workspace := t.TempDir()
+	cmd := newGraphifySetupCmd()
+	cmd.SetArgs([]string{
+		"--workspace", workspace, "--index", filepath.Join(workspace, "index"), "--upstream-version", "v0.0.1",
+		"--fingerprint", "fixture", "--server", "graphify", "--endpoint-kind", "self-hosted", "--approve",
+	})
+	err := cmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), "pinned release") {
+		t.Fatalf("error = %v", err)
 	}
 }

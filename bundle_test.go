@@ -4,6 +4,8 @@ import (
 	"io/fs"
 	"testing"
 	"testing/fstest"
+
+	"github.com/bryanbarton525/prism/internal/graphify"
 )
 
 func TestEmbeddedBundle(t *testing.T) {
@@ -18,6 +20,7 @@ func TestEmbeddedBundle(t *testing.T) {
 		"skills/gh-pr-triage/evals/smoke.yaml",
 		"skills/graphify-query/SKILL.md",
 		"skills/graphify-query/references/REFERENCE.md",
+		"skills/graphify-query/references/GRAPHIFY-RELEASE.json",
 		"skills/graphify-query/scripts/collect.sh",
 		"skills/graphify-query/evals/smoke.yaml",
 	} {
@@ -27,6 +30,27 @@ func TestEmbeddedBundle(t *testing.T) {
 	}
 	if got := BundleDigest(); len(got) != 64 {
 		t.Fatalf("digest length = %d, want 64: %q", len(got), got)
+	}
+}
+
+func TestGraphifyReleaseMetadataIsEmbeddedAndPinned(t *testing.T) {
+	path := "skills/graphify-query/references/GRAPHIFY-RELEASE.json"
+	data, err := fs.ReadFile(BundleFS(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := graphify.ValidateReleaseMetadata(data); err != nil {
+		t.Fatal(err)
+	}
+	manifest := Manifest()
+	found := false
+	for _, item := range manifest.Files {
+		if item.Path == path && len(item.SHA256) == 64 {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("embedded Graphify metadata %q is missing from manifest: %#v", path, manifest.Files)
 	}
 }
 

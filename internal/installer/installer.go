@@ -18,6 +18,8 @@ import (
 	prism "github.com/bryanbarton525/prism"
 	"github.com/bryanbarton525/prism/internal/agent"
 	"github.com/bryanbarton525/prism/internal/buildinfo"
+	"github.com/bryanbarton525/prism/internal/graphify"
+	"github.com/bryanbarton525/prism/internal/skill"
 )
 
 type Scope string
@@ -69,6 +71,9 @@ type Plan struct {
 }
 
 func Catalog() (skills []string, specialists []agent.Summary, err error) {
+	if err := ValidateGraphifyCapability(); err != nil {
+		return nil, nil, err
+	}
 	entries, err := fs.ReadDir(prism.BundleFS(), "skills")
 	if err != nil {
 		return nil, nil, err
@@ -78,6 +83,9 @@ func Catalog() (skills []string, specialists []agent.Summary, err error) {
 			continue
 		}
 		if _, err := fs.Stat(prism.BundleFS(), filepath.ToSlash(filepath.Join("skills", entry.Name(), "SKILL.md"))); err == nil {
+			if internalOnlySkill(entry.Name()) {
+				continue
+			}
 			skills = append(skills, entry.Name())
 		}
 	}
@@ -88,6 +96,66 @@ func Catalog() (skills []string, specialists []agent.Summary, err error) {
 		return nil, nil, err
 	}
 	return skills, registry.List(), nil
+}
+
+func internalOnlySkill(name string) bool {
+	return name == "graphify-query"
+}
+
+func ValidateGraphifyCapability() error {
+	required := []string{
+		"agents/repo-investigator.md",
+		"constitutions/repo-investigator.md",
+		"skills/graphify-query/SKILL.md",
+		"skills/graphify-query/references/REFERENCE.md",
+		"skills/graphify-query/references/GRAPHIFY-RELEASE.json",
+		"skills/graphify-query/scripts/collect.sh",
+		"skills/graphify-query/evals/smoke.yaml",
+	}
+	for _, name := range required {
+		if _, err := fs.Stat(prism.BundleFS(), name); err != nil {
+			return fmt.Errorf("Graphify bundle asset %q: %w", name, err)
+		}
+	}
+	metadata, err := fs.ReadFile(prism.BundleFS(), "skills/graphify-query/references/GRAPHIFY-RELEASE.json")
+	if err != nil {
+		return err
+	}
+	if err := graphify.ValidateReleaseMetadata(metadata); err != nil {
+		return err
+	}
+	agents, err := fs.Sub(prism.BundleFS(), "agents")
+	if err != nil {
+		return err
+	}
+	registry := agent.NewRegistry(agents)
+	if err := registry.Load(); err != nil {
+		return err
+	}
+	spec, err := registry.Get("repo-investigator")
+	if err != nil {
+		return err
+	}
+	if !spec.AllowsSkill("graphify-query") || !contains(spec.Tools, "graphify") {
+		return fmt.Errorf("repo-investigator must retain graphify-query and fixed Graphify capability")
+	}
+	skills, err := fs.Sub(prism.BundleFS(), "skills")
+	if err != nil {
+		return err
+	}
+	if err := skill.ValidateAuthoringStructure(skills, "graphify-query"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func contains(values []string, wanted string) bool {
+	for _, value := range values {
+		if value == wanted {
+			return true
+		}
+	}
+	return false
 }
 
 func BuildPlan(opts Options) (Plan, error) {
@@ -343,7 +411,7 @@ func wrapperFilename(target, id string) string {
 
 func renderWrapper(target string, spec *agent.Spec) string {
 	skills := strings.Join(spec.AllowedSkills, ", ")
-	body := fmt.Sprintf("Delegate this specialist's work to the Prism MCP server by calling `run_agent` with `agent_id` `%s`, one or more `skill_names` from [%s], the user's bounded task, and `workspace.root` when repository evidence is needed. Prism's compiled constitution, model, tools, and policy are authoritative. Return Prism's evidence and result without inventing missing evidence.", spec.ID, skills)
+	body := hostDelegationBody(spec, skills)
 	if target == "codex" {
 		return fmt.Sprintf("name = %q\ndescription = %q\ndeveloper_instructions = %q\n", spec.Name, spec.Description, body)
 	}
@@ -357,6 +425,14 @@ func renderWrapper(target string, spec *agent.Spec) string {
 		front += "tools: ['prism/*']\n"
 	}
 	return front + "---\n\n# " + spec.Name + "\n\n" + body + "\n"
+}
+
+func hostDelegationBody(spec *agent.Spec, skills string) string {
+	delegation := fmt.Sprintf("Delegate this specialist's work to the Prism MCP server by calling `run_agent` with `agent_id` `%s`, one or more `skill_names` from [%s], the user's bounded task, and `workspace.root` when repository evidence is needed. Prism's compiled constitution, model, tools, and policy are authoritative. Return Prism's evidence and result without inventing missing evidence.", spec.ID, skills)
+	if spec.ID != "repo-investigator" {
+		return delegation
+	}
+	return "Use this specialist for repository architecture, cross-component relationships, dependency paths, and change-impact investigations. Do not route an ordinary one-file lookup, a direct file read, or a simple symbol search here. " + delegation
 }
 
 func lookupAgent(id string) (*agent.Spec, error) {

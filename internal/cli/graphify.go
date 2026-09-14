@@ -59,6 +59,12 @@ one endpoint kind:
 			if err := endpoint.Validate(); err != nil {
 				return err
 			}
+			if upstreamVersion != graphify.PinnedUpstreamVersion {
+				return fmt.Errorf("Graphify upstream version %q is unsupported; Prism requires pinned release %q", upstreamVersion, graphify.PinnedUpstreamVersion)
+			}
+			if schemaVersion != graphify.PinnedContractID {
+				return fmt.Errorf("Graphify tool contract %q is unsupported; Prism requires %q", schemaVersion, graphify.PinnedContractID)
+			}
 			if dryRun {
 				fmt.Fprintf(cmd.OutOrStdout(), "Would record operator-approved Graphify %s endpoint %q and bind %s to %s. No executable, endpoint, or index will be started or changed.\n", endpoint.Kind, endpoint.Server, indexPath, workspace)
 				return nil
@@ -81,9 +87,9 @@ one endpoint kind:
 		},
 	}
 	cmd.Flags().StringVar(&workspace, "workspace", "", "Absolute or relative workspace path")
-	cmd.Flags().StringVar(&indexPath, "index", "", "Absolute or relative Graphify index path")
-	cmd.Flags().StringVar(&upstreamVersion, "upstream-version", "", "Pinned Graphify upstream version")
-	cmd.Flags().StringVar(&schemaVersion, "schema-version", "", "Pinned Graphify tool schema version")
+	cmd.Flags().StringVar(&indexPath, "index", "", "Absolute or relative Graphify graph.json path")
+	cmd.Flags().StringVar(&upstreamVersion, "upstream-version", graphify.PinnedUpstreamVersion, "Pinned Graphify upstream version")
+	cmd.Flags().StringVar(&schemaVersion, "schema-version", graphify.PinnedContractID, "Pinned Prism Graphify MCP contract ID")
 	cmd.Flags().StringVar(&fingerprint, "fingerprint", "", "Deterministic source-generation fingerprint")
 	cmd.Flags().StringVar(&server, "server", "", "Explicit downstream MCP server that serves this Graphify index")
 	cmd.Flags().StringVar(&kind, "endpoint-kind", "", "Endpoint ownership: local, self-hosted, or managed")
@@ -94,8 +100,6 @@ one endpoint kind:
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview configuration only; never write or run Graphify")
 	_ = cmd.MarkFlagRequired("workspace")
 	_ = cmd.MarkFlagRequired("index")
-	_ = cmd.MarkFlagRequired("upstream-version")
-	_ = cmd.MarkFlagRequired("schema-version")
 	_ = cmd.MarkFlagRequired("fingerprint")
 	_ = cmd.MarkFlagRequired("server")
 	_ = cmd.MarkFlagRequired("endpoint-kind")

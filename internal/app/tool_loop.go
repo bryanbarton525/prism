@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"regexp"
 	"strings"
 
@@ -23,9 +24,9 @@ type chatToolResult struct {
 	completionTokens int
 }
 
-func (r *Runner) chatWithTools(ctx context.Context, req llmruntime.ChatRequest, spec *agent.Spec, workspace Workspace) (*chatToolResult, error) {
+func (r *Runner) chatWithTools(ctx context.Context, req llmruntime.ChatRequest, spec *agent.Spec, workspace Workspace, workspaceFS fs.FS) (*chatToolResult, error) {
 	if r.usesGraphifyCapability(spec) {
-		return r.chatWithGraphifyToolLoop(ctx, req, r.graphifyAccess(workspace))
+		return r.chatWithGraphifyToolLoop(ctx, req, r.graphifyAccess(ctx, workspace), workspaceFS)
 	}
 	if !agentUsesMCP(spec) || r.downmcp == nil {
 		resp, err := r.llm.Chat(ctx, req)
@@ -54,7 +55,7 @@ type graphifyAccess struct {
 	err    error
 }
 
-func (r *Runner) graphifyAccess(workspace Workspace) graphifyAccess {
+func (r *Runner) graphifyAccess(ctx context.Context, workspace Workspace) graphifyAccess {
 	if r.cfg.Graphify.Endpoint == nil {
 		return graphifyAccess{err: fmt.Errorf("Graphify endpoint is not configured")}
 	}
@@ -81,6 +82,21 @@ func (r *Runner) graphifyAccess(workspace Workspace) graphifyAccess {
 		}
 		if server.Transport == downstreammcp.TransportCommand && !containsArgument(server.Args, r.cfg.Graphify.Binding.IndexPath) {
 			return graphifyAccess{err: fmt.Errorf("Graphify command server %q must receive bound index path %q as an argument", server.Name, r.cfg.Graphify.Binding.IndexPath)}
+		}
+		listed, err := r.downmcp.ListTools(ctx, server.Name, downstreammcp.ListToolsOptions{IncludeSchema: true})
+		if err != nil {
+			return graphifyAccess{err: fmt.Errorf("checking Graphify MCP contract: %w", err)}
+		}
+		contracts := make([]graphify.ToolContract, 0, len(listed.Tools))
+		for _, tool := range listed.Tools {
+			schema, ok := tool.InputSchema.(map[string]any)
+			if !ok {
+				return graphifyAccess{err: fmt.Errorf("Graphify MCP contract drift: tool %q has no object input schema", tool.Name)}
+			}
+			contracts = append(contracts, graphify.ToolContract{Name: tool.Name, InputSchema: schema})
+		}
+		if err := graphify.ValidatePinnedToolInventory(contracts); err != nil {
+			return graphifyAccess{err: err}
 		}
 		return graphifyAccess{server: server}
 	}
@@ -114,15 +130,30 @@ unavailable.`
 }
 
 func graphifyMCPTools() []llmruntime.Tool {
-	return []llmruntime.Tool{
-		functionTool("query_graph", "Run one bounded query against the configured Graphify index.", map[string]any{"type": "object", "properties": map[string]any{}}),
-		functionTool("get_node", "Get one Graphify graph node by identifier.", map[string]any{"type": "object", "properties": map[string]any{}}),
-		functionTool("get_neighbors", "Get bounded neighbors of one Graphify graph node.", map[string]any{"type": "object", "properties": map[string]any{}}),
-		functionTool("shortest_path", "Find a bounded path between two Graphify graph nodes.", map[string]any{"type": "object", "properties": map[string]any{}}),
+	contracts := graphify.PinnedToolContracts()
+	tools := make([]llmruntime.Tool, 0, len(contracts))
+	for _, contract := range contracts {
+		tools = append(tools, functionTool(contract.Name, graphifyToolDescription(contract.Name), contract.InputSchema))
+	}
+	return tools
+}
+
+func graphifyToolDescription(name string) string {
+	switch name {
+	case "query_graph":
+		return "Run one bounded query against the configured Graphify index."
+	case "get_node":
+		return "Get one Graphify graph node by identifier."
+	case "get_neighbors":
+		return "Get bounded neighbors of one Graphify graph node."
+	case "shortest_path":
+		return "Find a bounded path between two Graphify graph nodes."
+	default:
+		return "Run a bounded Graphify query."
 	}
 }
 
-func (r *Runner) chatWithGraphifyToolLoop(ctx context.Context, req llmruntime.ChatRequest, access graphifyAccess) (*chatToolResult, error) {
+func (r *Runner) chatWithGraphifyToolLoop(ctx context.Context, req llmruntime.ChatRequest, access graphifyAccess, workspace fs.FS) (*chatToolResult, error) {
 	req.Tools = graphifyMCPTools()
 	offered := make(map[string]bool, len(req.Tools))
 	for _, tool := range req.Tools {
@@ -170,8 +201,8 @@ func (r *Runner) chatWithGraphifyToolLoop(ctx context.Context, req llmruntime.Ch
 				})
 				continue
 			}
-			content, artifact := r.executeGraphifyToolCall(ctx, access, round, call.Function.Name, call.Function.Arguments)
-			artifacts = append(artifacts, artifact)
+			content, callArtifacts := r.executeGraphifyToolCall(ctx, access, workspace, round, call.Function.Name, call.Function.Arguments)
+			artifacts = append(artifacts, callArtifacts...)
 			req.Messages = append(req.Messages, llmruntime.Message{
 				Role:       "tool",
 				Content:    content,
@@ -195,57 +226,88 @@ func (r *Runner) chatWithGraphifyToolLoop(ctx context.Context, req llmruntime.Ch
 	return &chatToolResult{response: resp, artifacts: artifacts, promptTokens: promptTokens, completionTokens: completionTokens}, nil
 }
 
-func (r *Runner) executeGraphifyToolCall(ctx context.Context, access graphifyAccess, round int, name string, args map[string]any) (string, result.Artifact) {
-	content, err := r.dispatchGraphifyToolCall(ctx, access, round, name, args)
+func (r *Runner) executeGraphifyToolCall(ctx context.Context, access graphifyAccess, workspace fs.FS, round int, name string, args map[string]any) (string, []result.Artifact) {
+	content, verifications, err := r.dispatchGraphifyToolCall(ctx, access, workspace, round, name, args)
 	if err != nil {
 		content = marshalToolResult(map[string]any{"error": err.Error()})
 	}
-	return content, result.Artifact{
+	artifacts := []result.Artifact{{
 		Type:    "mcp_tool_call",
 		Label:   "graphify-tool:" + name,
 		Content: content,
+	}}
+	if err != nil {
+		return content, artifacts
 	}
+	if len(verifications) == 0 {
+		artifacts = append(artifacts, result.Artifact{
+			Type:    "source_verification",
+			Label:   "graphify-source:none",
+			Content: `{"verified":false,"reason":"Graphify returned no recognizable source citation; graph output remains an unverified lead"}`,
+		})
+		return content, artifacts
+	}
+	for _, verification := range verifications {
+		data, _ := json.Marshal(verification)
+		artifacts = append(artifacts, result.Artifact{
+			Type:    "source_verification",
+			Label:   "graphify-source:" + verification.Citation.Path,
+			Content: string(data),
+		})
+	}
+	return content, artifacts
 }
 
-func (r *Runner) dispatchGraphifyToolCall(ctx context.Context, access graphifyAccess, round int, name string, args map[string]any) (string, error) {
+func (r *Runner) dispatchGraphifyToolCall(ctx context.Context, access graphifyAccess, workspace fs.FS, round int, name string, args map[string]any) (string, []graphify.SourceVerification, error) {
 	if err := graphify.ValidateTool(name, round, nil); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if access.err != nil {
-		return "", access.err
+		return "", nil, access.err
 	}
 	if args == nil {
 		args = map[string]any{}
 	}
 	input, err := json.Marshal(args)
 	if err != nil {
-		return "", fmt.Errorf("encode Graphify tool arguments: %w", err)
+		return "", nil, fmt.Errorf("encode Graphify tool arguments: %w", err)
 	}
 	if err := graphify.ValidateTool(name, round, input); err != nil {
-		return "", err
+		return "", nil, err
+	}
+	if err := graphify.ValidateToolArguments(name, args); err != nil {
+		return "", nil, err
 	}
 	res, err := r.downmcp.CallTool(ctx, access.server.Name, name, args)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
+	if err := graphify.ValidateTool(name, round, []byte(res.Content)); err != nil {
+		return "", nil, err
+	}
+	if len(res.Content) > graphify.MaxGraphResponseBytes {
+		return "", nil, fmt.Errorf("Graphify tool response exceeds %d byte limit", graphify.MaxGraphResponseBytes)
+	}
+	verifications := graphify.VerifyGraphSources(workspace, res.Content)
 	content := marshalToolResult(map[string]any{
-		"server":    access.server.Name,
-		"tool":      name,
-		"is_error":  res.IsError,
-		"content":   res.Content,
-		"truncated": res.Truncated,
+		"server":              access.server.Name,
+		"tool":                name,
+		"is_error":            res.IsError,
+		"content":             res.Content,
+		"truncated":           res.Truncated,
+		"source_verification": verifications,
 		"provenance": map[string]string{
 			"workspace":              r.cfg.Graphify.Binding.Workspace,
 			"index_path":             r.cfg.Graphify.Binding.IndexPath,
 			"upstream_version":       r.cfg.Graphify.Binding.UpstreamVersion,
-			"schema_version":         r.cfg.Graphify.Binding.SchemaVersion,
+			"contract_id":            r.cfg.Graphify.Binding.SchemaVersion,
 			"generation_fingerprint": r.cfg.Graphify.Binding.GenerationFingerprint,
 		},
 	})
 	if err := graphify.ValidateTool(name, round, []byte(content)); err != nil {
-		return "", err
+		return "", nil, err
 	}
-	return content, nil
+	return content, verifications, nil
 }
 
 func (r *Runner) chatWithMCPToolLoop(ctx context.Context, req llmruntime.ChatRequest, agentID string) (*chatToolResult, error) {

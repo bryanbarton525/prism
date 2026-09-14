@@ -1,7 +1,7 @@
 ---
 id: repo-investigator
 name: Repository Investigator
-description: Investigate repository architecture and relationships using bounded Graphify queries plus source verification.
+description: Investigate repository architecture, cross-component relationships, dependency paths, and change impact; not ordinary one-file lookups.
 model: qwen3.5:9b
 context_budget: 8192
 temperature: 0.1

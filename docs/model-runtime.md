@@ -182,7 +182,10 @@ printing API keys.
 
 - The adapter targets the OpenAI-compatible `chat/completions` API surface used
   by Prism.
-- Tool calling is not exposed through the new runtime in this pass.
+- Prism uses provider tool calls for its bounded downstream-MCP bridge and the
+  fixed `repo-investigator` Graphify workflow. Providers that emit tool calls
+  as fenced JSON text are recovered only when the named tool was offered; no
+  arbitrary text command is executed.
 - Structured output support depends on the serving engine honoring
   `response_format`.
 - Normal `go test ./...` does not require a running model server.

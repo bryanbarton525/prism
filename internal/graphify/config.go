@@ -29,14 +29,7 @@ const (
 	EndpointManaged EndpointKind = "managed"
 )
 
-var approvedTools = map[string]struct{}{
-	"query_graph":   {},
-	"get_node":      {},
-	"get_neighbors": {},
-	"shortest_path": {},
-}
-
-// Binding ties a Graphify index to one exact workspace and generation.
+// Binding ties a Graphify graph.json file to one exact workspace and generation.
 // Prism never discovers an index implicitly: setup must record this binding.
 type Binding struct {
 	Workspace             string `yaml:"workspace" json:"workspace"`
@@ -129,8 +122,12 @@ func (b Binding) Matches(workspace, fingerprint string) error {
 }
 
 func IsApprovedTool(name string) bool {
-	_, ok := approvedTools[name]
-	return ok
+	for _, approved := range ApprovedTools() {
+		if name == approved {
+			return true
+		}
+	}
+	return false
 }
 
 func ValidateTool(name string, round int, payload []byte) error {
@@ -189,17 +186,17 @@ func CheckReadiness(cfg Config, workspace, fingerprint string) Readiness {
 			} else {
 				add("index", false, fmt.Sprintf("inspect Graphify index: %v", err))
 			}
-		} else if !info.IsDir() {
-			add("index", false, fmt.Sprintf("Graphify index %q is not a directory", cfg.Binding.IndexPath))
+		} else if !info.Mode().IsRegular() {
+			add("index", false, fmt.Sprintf("Graphify index %q is not a regular graph.json file", cfg.Binding.IndexPath))
 		} else {
-			add("index", true, "Graphify index directory is present")
+			add("index", true, "Graphify index graph.json is present")
 		}
 	}
 	if cfg.Binding != nil {
-		schemaReady := cfg.Binding.SchemaVersion == "v1"
+		schemaReady := cfg.Binding.SchemaVersion == PinnedContractID
 		add("schema", schemaReady, schemaMessage(cfg.Binding.SchemaVersion, schemaReady))
-		add("upstream_version", strings.TrimSpace(cfg.Binding.UpstreamVersion) != "",
-			fmt.Sprintf("Graphify upstream version is pinned to %q", cfg.Binding.UpstreamVersion))
+		upstreamReady := cfg.Binding.UpstreamVersion == PinnedUpstreamVersion
+		add("upstream_version", upstreamReady, upstreamMessage(cfg.Binding.UpstreamVersion, upstreamReady))
 	}
 	if cfg.Endpoint == nil {
 		add("endpoint", false, "Graphify endpoint is not configured")
@@ -238,9 +235,16 @@ func approvalMessage(approved bool) string {
 
 func schemaMessage(version string, ready bool) string {
 	if ready {
-		return `Graphify tool schema "v1" is supported`
+		return fmt.Sprintf("Graphify tool contract %q is supported", PinnedContractID)
 	}
-	return fmt.Sprintf("Graphify tool schema %q is unsupported; Prism requires %q", version, "v1")
+	return fmt.Sprintf("Graphify tool contract %q is unsupported; Prism requires %q", version, PinnedContractID)
+}
+
+func upstreamMessage(version string, ready bool) string {
+	if ready {
+		return fmt.Sprintf("Graphify upstream version is pinned to %q", PinnedUpstreamVersion)
+	}
+	return fmt.Sprintf("Graphify upstream version %q is unsupported; Prism requires %q", version, PinnedUpstreamVersion)
 }
 
 func endpointMessage(endpoint Endpoint) string {

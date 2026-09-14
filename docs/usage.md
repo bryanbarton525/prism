@@ -85,24 +85,69 @@ project runtime.
 
 Graphify is optional and disabled until an operator records an exact binding.
 Prism never downloads its executable, starts a service during setup or doctor,
-or builds an index. Create those resources separately, register the MCP server
-separately, then record the exact configuration:
+or builds an index. The bundled `repo-investigator` is intended only for
+repository architecture, cross-component relationship, dependency-path, and
+change-impact investigations. Hosts delegate it through Prism `run_agent`;
+they do not receive its internal Graphify tool instructions. Keep ordinary
+one-file reads and simple symbol searches in the parent.
+
+The reviewed upstream reference is
+[`Graphify-Labs/graphify` `v0.9.61`](https://github.com/Graphify-Labs/graphify/tree/v0.9.61)
+at commit `fe66389083369c3159aa391117185c8f58b4d07c`. Its package is
+`graphifyy[mcp]==0.9.61`, requires Python `>=3.10`, and provides
+`graphify-mcp`; the MCP extra declares `mcp>=1,<3` and
+`starlette>=1.3.1,<2`. Prism's checked tool contract is
+`prism-graphify-mcp-v0.9.61`. The embedded
+`skills/graphify-query/references/GRAPHIFY-RELEASE.json` records the release
+asset digest, Apache-2.0 notice, exact source basis, and intentionally
+unsupported dependency operations.
+
+Prism does **not** create a Python environment, fetch a Python distribution,
+or certify a platform: upstream declares the Python floor but gives Prism no
+platform contract. Operators provision a compatible environment and index
+outside Prism. The reviewed, deterministic code-only indexing command is:
 
 ```bash
-# A service you operate or a local MCP bridge. This writes only state-dir/graphify.yaml.
+python -m pip install "graphifyy[mcp]==0.9.61"
+graphify extract "$PWD" --code-only --no-viz
+graphify-mcp --graph "$PWD/graphify-out/graph.json"
+```
+
+The commands above are not run by Prism or by CI. `--code-only` is the pinned
+upstream's local AST-only mode and does not use an LLM or API key;
+`--no-viz` omits the unneeded visual output. `graphify-mcp --graph` receives
+the absolute `graph.json` path when Prism launches it as a local downstream
+server. Create those resources separately, register the MCP server separately,
+then record the exact configuration:
+
+```bash
+# A service you operate. This writes only state-dir/graphify.yaml.
 prism graphify setup --approve \
-  --workspace "$PWD" --index "$PWD/.graphify/index" \
-  --upstream-version 1.2.3 --schema-version v1 --fingerprint "$SOURCE_FINGERPRINT" \
+  --workspace "$PWD" --index "$PWD/graphify-out/graph.json" \
+  --fingerprint "$SOURCE_FINGERPRINT" \
   --server graphify --endpoint-kind self-hosted
 
-# A pinned managed service requires both identity and version.
+# A named managed endpoint requires both environment identity and version.
 prism graphify setup --approve \
-  --workspace "$PWD" --index "$PWD/.graphify/index" \
-  --upstream-version 1.2.3 --schema-version v1 --fingerprint "$SOURCE_FINGERPRINT" \
+  --workspace "$PWD" --index "$PWD/graphify-out/graph.json" \
+  --fingerprint "$SOURCE_FINGERPRINT" \
   --server graphify-prod --endpoint-kind managed \
   --environment production --environment-version 2026.09.1
 
 prism graphify doctor --workspace "$PWD" --fingerprint "$SOURCE_FINGERPRINT"
+```
+
+`--upstream-version` and `--schema-version` default to, and reject values
+other than, the reviewed upstream release and Prism contract above. For a
+user-managed stdio endpoint, register the exact bounded command and bind it
+without giving the model a `project_path` override:
+
+```bash
+prism mcp add graphify -- graphify-mcp --graph "$PWD/graphify-out/graph.json"
+prism graphify setup --approve \
+  --workspace "$PWD" --index "$PWD/graphify-out/graph.json" \
+  --fingerprint "$SOURCE_FINGERPRINT" \
+  --server graphify --endpoint-kind local --executable graphify-mcp
 ```
 
 Use `--endpoint-kind local --executable /path/to/graphify-mcp` only for a
@@ -117,6 +162,20 @@ index build. `graphify setup --dry-run` is configuration preview only.
 `prism graphify remove --approve` deletes only Prism's configuration file. It
 preserves all user-managed executables, indexes, endpoints, and MCP server
 registrations.
+
+At invocation Prism checks the pinned MCP schemas before offering the
+specialist any tools, allows only `query_graph`, `get_node`, `get_neighbors`,
+and `shortest_path`, denies upstream `project_path`, and bounds arguments,
+rounds, response bytes, and source reads. Graph results are untrusted leads.
+Recognizable source locations are read again through the selected workspace
+and returned as `source_verification` artifacts alongside binding, upstream,
+and contract provenance. A graph without a recognizable source location stays
+explicitly unverified.
+
+For an opt-in local smoke test that uses an operator-provisioned index and
+offload model, see [`scripts/graphify-smoke.sh`](../scripts/graphify-smoke.sh).
+It is excluded from required CI and refuses to run unless
+`PRISM_GRAPHIFY_SMOKE=1` is set.
 
 ## Versioning and provenance
 

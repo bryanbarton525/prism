@@ -11,11 +11,14 @@ import (
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	prismbundle "github.com/bryanbarton525/prism"
 	"github.com/bryanbarton525/prism/internal/agent"
 	"github.com/bryanbarton525/prism/internal/app"
 	"github.com/bryanbarton525/prism/internal/buildinfo"
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
 	"github.com/bryanbarton525/prism/internal/extensions"
+	"github.com/bryanbarton525/prism/internal/graphify"
+	llmruntime "github.com/bryanbarton525/prism/internal/llm/runtime"
 	internalpolicy "github.com/bryanbarton525/prism/internal/policy"
 	"github.com/bryanbarton525/prism/internal/result"
 	policypkg "github.com/bryanbarton525/prism/pkg/policy"
@@ -289,6 +292,219 @@ func TestRunAgentHandlerMarksFailedEnvelopesAsErrors(t *testing.T) {
 	if res.IsError {
 		t.Fatal("IsError = true for status ok")
 	}
+}
+
+func TestFixtureParentRoutesGraphifyInvestigationThroughRunAgent(t *testing.T) {
+	workspace := t.TempDir()
+	sourcePath := filepath.Join(workspace, "cmd", "prism", "main.go")
+	if err := os.MkdirAll(filepath.Dir(sourcePath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(sourcePath, []byte("package main\nfunc main() {}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	index := filepath.Join(workspace, "graphify-out", "graph.json")
+	if err := os.MkdirAll(filepath.Dir(index), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	indexFixture := readGraphifyFixture(t, "fake-index", "graph.json")
+	if err := os.WriteFile(index, indexFixture, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	graphResponse := string(readGraphifyFixture(t, "fake-mcp", "query_graph.txt"))
+	downstream := &fixtureGraphifyMCP{content: graphResponse, index: index}
+	model := &fixtureGraphifyRuntime{responses: []llmruntime.ChatResponse{
+		{
+			Model: "fixture-offload",
+			Message: llmruntime.Message{Role: "assistant", ToolCalls: []llmruntime.ToolCall{{
+				Type: "function",
+				Function: llmruntime.ToolCallFunction{
+					Name: "query_graph",
+					Arguments: map[string]any{
+						"question": "Where does the Prism CLI root start?",
+						"depth":    2,
+					},
+				},
+			}}},
+			Usage: llmruntime.Usage{PromptTokens: 120, CompletionTokens: 16},
+		},
+		{
+			Model: "fixture-offload",
+			Message: llmruntime.Message{Role: "assistant", Content: `{
+	  "summary":"The Prism CLI root starts in cmd/prism/main.go.",
+	  "findings":["cmd/prism/main.go:1 was verified from the selected workspace source."],
+	  "confidence":"high"
+	}`},
+			Usage: llmruntime.Usage{PromptTokens: 180, CompletionTokens: 30},
+		},
+	}}
+	runner, err := app.New(app.Config{
+		BundleFS:      prismbundle.BundleFS(),
+		ModelRuntime:  model,
+		DownstreamMCP: downstream,
+		Graphify: graphify.Config{
+			Version: graphify.ConfigVersion, OperatorApproved: true,
+			Binding: &graphify.Binding{
+				Workspace: workspace, IndexPath: index, UpstreamVersion: graphify.PinnedUpstreamVersion,
+				SchemaVersion: graphify.PinnedContractID, GenerationFingerprint: "fixture-generation",
+			},
+			Endpoint: &graphify.Endpoint{Server: "graphify-fixture", Kind: graphify.EndpointSelfHosted},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "prism", Version: "test"}, nil)
+	registerTools(server, runner, Config{})
+	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, serverTransport, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer serverSession.Close()
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "fixture-parent", Version: "1"}, nil)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clientSession.Close()
+
+	call, err := clientSession.CallTool(ctx, &mcpsdk.CallToolParams{
+		Name: "run_agent",
+		Arguments: map[string]any{
+			"agent_id":    "repo-investigator",
+			"skill_names": []string{"graphify-query"},
+			"task":        "Investigate the CLI architecture.",
+			"workspace": map[string]any{
+				"root":                   workspace,
+				"generation_fingerprint": "fixture-generation",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if call.IsError || len(call.Content) != 1 {
+		t.Fatalf("run_agent result = %#v", call)
+	}
+	text, ok := call.Content[0].(*mcpsdk.TextContent)
+	if !ok {
+		t.Fatalf("run_agent content type = %T", call.Content[0])
+	}
+	var output result.RunResult
+	if err := json.Unmarshal([]byte(text.Text), &output); err != nil {
+		t.Fatal(err)
+	}
+	if output.Status != result.StatusOK || !strings.Contains(output.Summary, "cmd/prism/main.go") {
+		t.Fatalf("run_agent output = %#v", output)
+	}
+	if got := downstream.calls; len(got) != 1 || got[0] != "graphify-fixture.query_graph" {
+		t.Fatalf("Graphify calls = %#v", got)
+	}
+	if len(model.requests) != 2 || !strings.Contains(model.requests[0].Messages[0].Content, "Graphify Query Tools") {
+		t.Fatalf("offload requests did not receive Graphify capability: %#v", model.requests)
+	}
+	if strings.Contains(model.requests[0].Messages[0].Content, "Prism MCP Bridge Tools") {
+		t.Fatal("repo-investigator was routed through the generic MCP bridge")
+	}
+	assertGraphifyEvidence(t, output.Artifacts, workspace)
+}
+
+func readGraphifyFixture(t *testing.T, parts ...string) []byte {
+	t.Helper()
+	_, thisFile, _, _ := runtime.Caller(0)
+	path := append([]string{filepath.Dir(thisFile), "..", "..", "testdata", "graphify"}, parts...)
+	data, err := os.ReadFile(filepath.Join(path...))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
+func assertGraphifyEvidence(t *testing.T, artifacts []result.Artifact, workspace string) {
+	t.Helper()
+	var graphCall, sourceVerification string
+	for _, artifact := range artifacts {
+		switch artifact.Label {
+		case "graphify-tool:query_graph":
+			graphCall = artifact.Content
+		case "graphify-source:cmd/prism/main.go":
+			sourceVerification = artifact.Content
+		}
+	}
+	for _, marker := range []string{
+		`"upstream_version": "v0.9.61"`,
+		`"contract_id": "prism-graphify-mcp-v0.9.61"`,
+		workspace,
+		`"verified":true`,
+	} {
+		if !strings.Contains(graphCall+"\n"+sourceVerification, marker) {
+			t.Fatalf("missing evidence provenance %q in graph=%q source=%q", marker, graphCall, sourceVerification)
+		}
+	}
+	if !strings.Contains(sourceVerification, "func main()") {
+		t.Fatalf("source verification did not contain selected workspace source: %q", sourceVerification)
+	}
+}
+
+type fixtureGraphifyMCP struct {
+	calls   []string
+	content string
+	index   string
+}
+
+func (f *fixtureGraphifyMCP) Servers() []downstreammcp.Server {
+	return []downstreammcp.Server{{
+		Name:      "graphify-fixture",
+		Transport: downstreammcp.TransportCommand,
+		Command:   "graphify-mcp",
+		Args:      []string{f.index},
+	}}
+}
+
+func (f *fixtureGraphifyMCP) ListTools(context.Context, string, downstreammcp.ListToolsOptions) (downstreammcp.ListToolsResult, error) {
+	contracts := graphify.PinnedToolContracts()
+	tools := make([]downstreammcp.ToolSummary, 0, len(contracts))
+	for _, contract := range contracts {
+		tools = append(tools, downstreammcp.ToolSummary{Name: contract.Name, InputSchema: contract.InputSchema})
+	}
+	return downstreammcp.ListToolsResult{Tools: tools, Total: len(tools)}, nil
+}
+
+func (f *fixtureGraphifyMCP) CallTool(_ context.Context, server, tool string, _ map[string]any) (downstreammcp.CallResult, error) {
+	f.calls = append(f.calls, server+"."+tool)
+	return downstreammcp.CallResult{Server: server, Tool: tool, Content: f.content}, nil
+}
+
+type fixtureGraphifyRuntime struct {
+	requests  []llmruntime.ChatRequest
+	responses []llmruntime.ChatResponse
+}
+
+func (f *fixtureGraphifyRuntime) Engine() llmruntime.Engine { return llmruntime.EngineOllama }
+
+func (f *fixtureGraphifyRuntime) Health(context.Context) (*llmruntime.HealthStatus, error) {
+	return &llmruntime.HealthStatus{Healthy: true, Engine: llmruntime.EngineOllama}, nil
+}
+
+func (f *fixtureGraphifyRuntime) Chat(_ context.Context, request llmruntime.ChatRequest) (*llmruntime.ChatResponse, error) {
+	f.requests = append(f.requests, request)
+	if len(f.responses) == 0 {
+		return nil, os.ErrNotExist
+	}
+	response := f.responses[0]
+	f.responses = f.responses[1:]
+	return &response, nil
+}
+
+func (f *fixtureGraphifyRuntime) Stream(context.Context, llmruntime.ChatRequest) (<-chan llmruntime.StreamEvent, error) {
+	return nil, nil
+}
+
+func (f *fixtureGraphifyRuntime) GenerateStructured(context.Context, llmruntime.StructuredRequest) (*llmruntime.StructuredResponse, error) {
+	return nil, nil
 }
 
 type failingRunner struct {

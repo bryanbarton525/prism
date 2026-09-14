@@ -43,6 +43,15 @@ a local, self-hosted, or version-pinned managed endpoint. `prism graphify
 doctor` performs read-only readiness checks; `prism graphify remove --approve`
 removes only Prism's metadata and preserves user-managed resources.
 
+The bundled `repo-investigator` specialist is the only host-facing Graphify
+workflow. Its Claude and Codex wrappers delegate architecture, relationship,
+dependency-path, and change-impact work through Prism `run_agent`; a normal
+one-file lookup should stay in the parent. Internal `graphify-query`
+instructions are deliberately not exported as a host skill. The reviewed
+upstream pin is Graphify `v0.9.61`; Prism enforces
+`prism-graphify-mcp-v0.9.61`. See [usage](docs/usage.md#graphify-repository-investigation)
+for its explicit external prerequisites and non-goals.
+
 `prism instructions install` remains available as a compatibility command.
 
 ## MCP
@@ -88,6 +97,8 @@ echo "Summarize PR #42 CI status" | prism run github-cli --skills gh-pr-triage
 Direct CLI commands use the current directory when workspace access is needed. `--root` is an optional workspace fallback, not the location of Prism itself.
 
 See [usage documentation](docs/usage.md), [model runtime configuration](docs/model-runtime.md), and the [agent](agents/README.md) and [skill](skills/README.md) authoring guides.
+The shipped Graphify/release coverage is recorded in the
+[acceptance matrix](docs/acceptance-matrix.md).
 
 ## Built-in specialists
 
@@ -101,6 +112,7 @@ See [usage documentation](docs/usage.md), [model runtime configuration](docs/mod
 | `go-helper` | Small Go helpers |
 | `go-scaffold` | Package and test scaffolding |
 | `frontend-builder` | Vanilla web UI subtasks |
+| `repo-investigator` | Repository architecture and relationship investigations |
 
 ## Development
 

@@ -1,6 +1,6 @@
 ---
 name: graphify-query
-description: Run bounded Graphify query tools for repository investigation and verify findings against source files.
+description: Run bounded Graphify query tools for repository architecture, relationships, dependency paths, and impact investigations, then verify findings against source files.
 metadata:
   prism-agents: repo-investigator
 ---

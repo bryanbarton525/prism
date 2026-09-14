@@ -553,15 +553,17 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 
 	// ── 7. Collect bounded runtime evidence for declared tools ────────────
 	runtimePlugins := r.plugins
+	workspaceFS := r.cfg.workspaceFS()
 	var workspaceCleanup func()
 	if req.Workspace.Root != "" {
-		workspaceFS, cleanup, resolveErr := rootresolver.Resolve(ctx, req.Workspace.Root, r.cfg.GitHubToken)
+		resolvedWorkspaceFS, cleanup, resolveErr := rootresolver.Resolve(ctx, req.Workspace.Root, r.cfg.GitHubToken)
 		if resolveErr != nil {
 			return emit(result.Error(req.AgentID, spec.Model,
 				fmt.Sprintf("resolving workspace: %s", resolveErr), time.Since(start))), nil
 		}
 		workspaceCleanup = cleanup
-		runtimePlugins = defaultRuntimePlugins(workspaceFS, r.downmcp)
+		workspaceFS = resolvedWorkspaceFS
+		runtimePlugins = defaultRuntimePlugins(resolvedWorkspaceFS, r.downmcp)
 	}
 	if workspaceCleanup != nil {
 		defer workspaceCleanup()
@@ -637,7 +639,7 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 		chatReq.Temperature = &temperature
 	}
 
-	toolChat, err := r.chatWithTools(ctx, chatReq, spec, req.Workspace)
+	toolChat, err := r.chatWithTools(ctx, chatReq, spec, req.Workspace, workspaceFS)
 	elapsed := time.Since(start)
 	if err != nil {
 		status := result.StatusError

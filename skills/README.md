@@ -45,21 +45,23 @@ skills/
 `-- README.md
 ```
 
-Prism requirement: every skill directory must include `evals/`, `references/`,
-and `scripts/` so the runtime can pass focused documentation, helper CLIs, and
-deterministic data-collection logic to the local agent while keeping skill
-quality testable. `assets/` remains optional.
+The portable runtime requirement is only `SKILL.md`. Release-bundle authoring
+also requires `evals/`, `references/`, and `scripts/` so Prism can test its own
+skills consistently; imported standard skills may omit those directories.
+`assets/` remains optional. Preserved scripts are not executed during
+installation or skill loading.
 
 ## Required per-skill structure
 
-Every `skills/<name>/` directory must contain:
+Every Prism **release-bundle** `skills/<name>/` directory contains:
 
 - `SKILL.md`
 - `evals/*.yaml` with at least one realistic evaluation case
 - `references/REFERENCE.md` (or equivalent focused docs)
 - `scripts/` with one or more executable helpers for repeatable data gathering
 
-This is a hard project rule for Prism, not just a recommendation.
+This is a hard release-authoring rule, not a requirement imposed on portable
+imported skills.
 
 Eval files use a small deterministic YAML shape:
 
@@ -139,3 +141,8 @@ metadata:
 The orchestrator (your AI editor) chooses which skills to attach based on
 the subtask. Prism enforces the allowlist; it does not auto-attach every skill
 an agent could use.
+
+`graphify-query` is an internal attached skill for the bundled
+`repo-investigator`. It is intentionally excluded from host-skill installation:
+host wrappers delegate appropriate repository investigations to Prism
+`run_agent` rather than instructing a parent model to query Graphify directly.
