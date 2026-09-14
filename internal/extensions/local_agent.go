@@ -1,12 +1,16 @@
 package extensions
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/bryanbarton525/prism/internal/agent"
 )
 
 type LocalAgentService struct {
@@ -24,6 +28,25 @@ type InstallLocalAgentRequest struct {
 	DryRun  bool
 }
 
+var agentIDLine = regexp.MustCompile(`(?m)^id:\s*.*$`)
+
+func replaceAgentID(data []byte, identity string) ([]byte, bool) {
+	data = bytes.TrimSpace(data)
+	if !bytes.HasPrefix(data, []byte("---")) {
+		return data, false
+	}
+	end := bytes.Index(data[3:], []byte("\n---"))
+	if end < 0 {
+		return data, false
+	}
+	end += 3
+	frontmatter := data[:end]
+	if !agentIDLine.Match(frontmatter) {
+		return data, false
+	}
+	return append(agentIDLine.ReplaceAll(frontmatter, []byte("id: "+identity)), data[end:]...), true
+}
+
 func (s *LocalAgentService) InstallLocalAgent(ctx context.Context, req InstallLocalAgentRequest) (ManifestEntry, error) {
 	source := req.Source
 	info, err := os.Stat(source)
@@ -38,13 +61,42 @@ func (s *LocalAgentService) InstallLocalAgent(ctx context.Context, req InstallLo
 		return ManifestEntry{}, fmt.Errorf("reading agent source: %w", err)
 	}
 	identity := strings.TrimSuffix(filepath.Base(source), filepath.Ext(source))
+	return s.installContent(ctx, identity, data, req)
+}
+
+// InstallAgentContent stores a fully translated agent definition without
+// requiring a temporary source file. It is used by guided imports and copies.
+func (s *LocalAgentService) InstallAgentContent(ctx context.Context, name string, data []byte, req InstallLocalAgentRequest) (ManifestEntry, error) {
+	identity := strings.TrimSuffix(filepath.Base(name), filepath.Ext(name))
+	return s.installContent(ctx, identity, data, req)
+}
+
+func (s *LocalAgentService) installContent(ctx context.Context, identity string, data []byte, req InstallLocalAgentRequest) (ManifestEntry, error) {
+	spec, err := agent.Parse(data, "")
+	if err != nil {
+		return ManifestEntry{}, fmt.Errorf("validate agent source: %w", err)
+	}
+	if req.As == "" {
+		identity = spec.ID
+	}
 	if req.As != "" {
 		identity = req.As
+	}
+	if spec.ID != identity {
+		var replaced bool
+		data, replaced = replaceAgentID(data, identity)
+		if !replaced {
+			return ManifestEntry{}, fmt.Errorf("agent source does not contain an id field")
+		}
+	}
+	if _, err := agent.Parse(data, identity+".md"); err != nil {
+		return ManifestEntry{}, fmt.Errorf("validate managed agent: %w", err)
 	}
 	manifest, _, err := s.store.RecoverAndLoadManifest(ctx)
 	if err != nil {
 		return ManifestEntry{}, err
 	}
+
 	for _, entry := range manifest.Entries {
 		if strings.EqualFold(entry.Kind, "agent") && strings.EqualFold(entry.Identity, identity) && !req.Replace {
 			return ManifestEntry{}, fmt.Errorf("agent %q already exists; pass --replace", identity)

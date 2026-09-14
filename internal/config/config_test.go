@@ -266,6 +266,34 @@ PRISM_MODEL_RUNTIME_ENGINE = "sglang"
 	}
 }
 
+func TestLoadForStateDirUsesSelectedRuntimeConfig(t *testing.T) {
+	t.Setenv("PRISM_STATE_DIR", filepath.Join(t.TempDir(), "ignored-state"))
+	t.Setenv("PRISM_CONFIG_FILE", "")
+	t.Setenv("PRISM_MODEL_RUNTIME_ENGINE", "")
+	t.Setenv("PRISM_MODEL_RUNTIME_BASE_URL", "")
+	t.Setenv("PRISM_MODEL_RUNTIME_MODEL", "")
+	dir := t.TempDir()
+	chdir(t, dir)
+	selected := filepath.Join(dir, "project-state")
+	if err := os.MkdirAll(selected, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(selected, "config.env"), []byte("PRISM_MODEL_RUNTIME_ENGINE=ollama\nPRISM_MODEL_RUNTIME_BASE_URL=http://runtime.example:11434\nPRISM_MODEL_RUNTIME_MODEL=selected\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadForStateDir(selected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.StateDir != selected {
+		t.Fatalf("state dir = %q, want %q", cfg.StateDir, selected)
+	}
+	if cfg.ModelRuntime.Primary.Model != "selected" || cfg.ModelRuntime.Primary.BaseURL != "http://runtime.example:11434" {
+		t.Fatalf("selected config was not loaded: %#v", cfg.ModelRuntime.Primary)
+	}
+}
+
 func chdir(t *testing.T, dir string) {
 	t.Helper()
 	old, err := os.Getwd()

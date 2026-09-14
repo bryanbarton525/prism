@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -31,6 +33,52 @@ type DiscoverSkillsOptions struct {
 type DiscoveredSkill struct {
 	Name string
 	Path string
+}
+
+// DiscoverSkillsFS discovers Agent Skills from a filesystem returned by a
+// bounded source resolver. Paths are slash-separated and relative to fsys.
+func DiscoverSkillsFS(fsys fs.FS, rootName string, opts DiscoverSkillsOptions) ([]DiscoveredSkill, error) {
+	if rootName == "" {
+		rootName = "imported-skill"
+	}
+	skills := []DiscoveredSkill{}
+	if _, err := fs.Stat(fsys, "SKILL.md"); err == nil {
+		skills = append(skills, DiscoveredSkill{Name: rootName, Path: "."})
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return nil, err
+	} else {
+		entries, err := fs.ReadDir(fsys, ".")
+		if err != nil {
+			return nil, err
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			candidate := entry.Name()
+			if _, err := fs.Stat(fsys, path.Join(candidate, "SKILL.md")); err == nil {
+				skills = append(skills, DiscoveredSkill{Name: entry.Name(), Path: candidate})
+			}
+		}
+		// Repository sources commonly place skills below a top-level skills/
+		// directory. Treat that directory as a container, not as a skill.
+		if len(skills) == 0 {
+			if entries, err := fs.ReadDir(fsys, "skills"); err == nil {
+				for _, entry := range entries {
+					if !entry.IsDir() {
+						continue
+					}
+					candidate := path.Join("skills", entry.Name())
+					if _, err := fs.Stat(fsys, path.Join(candidate, "SKILL.md")); err == nil {
+						skills = append(skills, DiscoveredSkill{Name: entry.Name(), Path: candidate})
+					}
+				}
+			} else if !errors.Is(err, fs.ErrNotExist) {
+				return nil, err
+			}
+		}
+	}
+	return selectDiscoveredSkills(skills, opts, rootName)
 }
 
 func DiscoverLocalSkills(source string, opts DiscoverSkillsOptions) ([]DiscoveredSkill, error) {
@@ -61,6 +109,10 @@ func DiscoverLocalSkills(source string, opts DiscoverSkillsOptions) ([]Discovere
 			}
 		}
 	}
+	return selectDiscoveredSkills(skills, opts, source)
+}
+
+func selectDiscoveredSkills(skills []DiscoveredSkill, opts DiscoverSkillsOptions, source string) ([]DiscoveredSkill, error) {
 	sort.Slice(skills, func(i, j int) bool { return skills[i].Name < skills[j].Name })
 	if len(opts.Names) == 0 && !opts.All {
 		if len(skills) == 1 {
@@ -100,6 +152,7 @@ func (s *LocalSkillService) InstallLocalSkills(ctx context.Context, req InstallL
 	if err != nil {
 		return nil, err
 	}
+
 	if req.As != "" {
 		if len(skills) != 1 {
 			return nil, fmt.Errorf("--as requires exactly one selected skill")
@@ -134,6 +187,52 @@ func (s *LocalSkillService) InstallLocalSkills(ctx context.Context, req InstallL
 		})
 	}
 	if req.DryRun {
+		return planned, nil
+	}
+	tx, err := s.store.BeginTransaction(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, entry := range planned {
+		tx.UpsertEntry(entry)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return planned, nil
+}
+
+// InstallResolvedSkills materializes selected skills from a resolver-owned
+// filesystem into the content-addressed store before the resolver is cleaned
+// up. It supports local and remote resolvers without exposing source paths in
+// runtime object references.
+func (s *LocalSkillService) InstallResolvedSkills(ctx context.Context, fsys fs.FS, rootName, source string, opts DiscoverSkillsOptions, replace, dryRun bool) ([]ManifestEntry, error) {
+	skills, err := DiscoverSkillsFS(fsys, rootName, opts)
+	if err != nil {
+		return nil, err
+	}
+	manifest, _, err := s.store.RecoverAndLoadManifest(ctx)
+	if err != nil {
+		return nil, err
+	}
+	existing := map[string]ManifestEntry{}
+	for _, entry := range manifest.Entries {
+		if strings.EqualFold(entry.Kind, "skill") {
+			existing[strings.ToLower(entry.Identity)] = entry
+		}
+	}
+	planned := make([]ManifestEntry, 0, len(skills))
+	for _, skill := range skills {
+		if _, ok := existing[strings.ToLower(skill.Name)]; ok && !replace {
+			return nil, fmt.Errorf("skill %q already exists; pass --replace", skill.Name)
+		}
+		digest, objectPath, err := s.store.putFSDirectory(fsys, skill.Path)
+		if err != nil {
+			return nil, err
+		}
+		planned = append(planned, ManifestEntry{Identity: skill.Name, Kind: "skill", Source: source, Digest: digest, ObjectPath: objectPath})
+	}
+	if dryRun {
 		return planned, nil
 	}
 	tx, err := s.store.BeginTransaction(ctx)
@@ -224,6 +323,7 @@ func (s *Store) putDirectoryObject(sourceDir string) (string, string, error) {
 		if err != nil {
 			return err
 		}
+
 		if d.IsDir() {
 			return nil
 		}
@@ -295,6 +395,69 @@ func (s *Store) putDirectoryObject(sourceDir string) (string, string, error) {
 		if verifyErr != nil || existingDigest != digest {
 			return "", "", fmt.Errorf("concurrent skill object %q is incomplete or corrupt", objectPath)
 		}
+	}
+	return digest, objectPath, nil
+}
+
+func (s *Store) putFSDirectory(fsys fs.FS, root string) (string, string, error) {
+	sub, err := fs.Sub(fsys, root)
+	if err != nil {
+		return "", "", err
+	}
+	paths := []string{}
+	if err := fs.WalkDir(sub, ".", func(name string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !entry.IsDir() {
+			paths = append(paths, filepath.ToSlash(name))
+		}
+		return nil
+	}); err != nil {
+		return "", "", err
+	}
+	sort.Strings(paths)
+	hash := sha256.New()
+	for _, name := range paths {
+		data, err := fs.ReadFile(sub, name)
+		if err != nil {
+			return "", "", err
+		}
+		_, _ = io.WriteString(hash, name)
+		_, _ = io.WriteString(hash, "\x00")
+		_, _ = hash.Write(data)
+		_, _ = io.WriteString(hash, "\x00")
+	}
+	digest := hex.EncodeToString(hash.Sum(nil))
+	objectPath := filepath.Join(s.ObjectsDir(), digest)
+	if _, err := os.Stat(objectPath); err == nil {
+		return digest, objectPath, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", "", err
+	}
+	if err := os.MkdirAll(s.ObjectsDir(), 0o755); err != nil {
+		return "", "", err
+	}
+	staged, err := os.MkdirTemp(s.ObjectsDir(), ".staged-skill-*")
+	if err != nil {
+		return "", "", err
+	}
+	defer os.RemoveAll(staged)
+	for _, name := range paths {
+		data, err := fs.ReadFile(sub, name)
+		if err != nil {
+			return "", "", err
+		}
+		dest := filepath.Join(staged, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+			return "", "", err
+		}
+		if err := writeFileAtomically(dest, data); err != nil {
+			return "", "", err
+		}
+	}
+	if err := os.Rename(staged, objectPath); err != nil && !os.IsExist(err) {
+		return "", "", err
 	}
 	return digest, objectPath, nil
 }

@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/bryanbarton525/prism/internal/agent"
 )
 
 func TestLocalAgentServiceInstallListCopyRenameRemove(t *testing.T) {
@@ -20,6 +22,13 @@ func TestLocalAgentServiceInstallListCopyRenameRemove(t *testing.T) {
 	}
 	if entry.Identity != "custom-agent" {
 		t.Fatalf("entry %#v", entry)
+	}
+	data, err := os.ReadFile(entry.ObjectPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := agent.Parse(data, "custom-agent.md"); err != nil {
+		t.Fatalf("renamed managed agent is not runnable: %v", err)
 	}
 	list, err := svc.ListManagedAgents(context.Background())
 	if err != nil {

@@ -67,6 +67,12 @@ func (tx *Transaction) UpsertEntry(entry ManifestEntry) {
 	tx.working.Entries = append(tx.working.Entries, entry)
 }
 
+// ReplaceManifest stages a complete, previously validated manifest. It is
+// intended for compensating a multi-step activation after a later step fails.
+func (tx *Transaction) ReplaceManifest(manifest Manifest) {
+	tx.working = manifest.Clone()
+}
+
 func (tx *Transaction) Commit() error {
 	if tx.closed {
 		return fmt.Errorf("transaction already closed")

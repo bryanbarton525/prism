@@ -128,6 +128,13 @@ func BuildPlan(opts Options) (Plan, error) {
 }
 
 func Install(opts Options) (Plan, error) {
+	if strings.TrimSpace(opts.RuntimeStateDir) != "" {
+		absolute, err := filepath.Abs(opts.RuntimeStateDir)
+		if err != nil {
+			return Plan{}, fmt.Errorf("canonicalizing runtime state directory: %w", err)
+		}
+		opts.RuntimeStateDir = absolute
+	}
 	plan, err := BuildPlan(opts)
 	if err != nil || opts.DryRun {
 		return plan, err
@@ -371,7 +378,11 @@ func installMCP(tx *transaction, target, path, binary, runtimeStateDir string, m
 	}
 	args := []string{"mcp", "serve"}
 	if strings.TrimSpace(runtimeStateDir) != "" {
-		args = append(args, "--state-dir", runtimeStateDir)
+		absolute, err := filepath.Abs(runtimeStateDir)
+		if err != nil {
+			return fmt.Errorf("canonicalizing runtime state directory: %w", err)
+		}
+		args = append(args, "--state-dir", absolute)
 	}
 	if target == "codex" {
 		const begin, end = "# BEGIN PRISM MCP", "# END PRISM MCP"

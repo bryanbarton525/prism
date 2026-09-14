@@ -5,7 +5,39 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 )
+
+func TestInstallResolvedSkillsMaterializesSourceFilesystem(t *testing.T) {
+	state := t.TempDir()
+	source := fstest.MapFS{
+		"SKILL.md": &fstest.MapFile{Data: []byte("# Remote skill")},
+		"guide.md": &fstest.MapFile{Data: []byte("guidance")},
+	}
+	entries, err := NewLocalSkillService(state).InstallResolvedSkills(context.Background(), source, "remote-skill", "github://owner/repo", DiscoverSkillsOptions{}, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Identity != "remote-skill" || entries[0].Source != "github://owner/repo" {
+		t.Fatalf("entries = %#v", entries)
+	}
+	if _, err := os.Stat(filepath.Join(entries[0].ObjectPath, "guide.md")); err != nil {
+		t.Fatalf("resolved skill was not materialized: %v", err)
+	}
+}
+
+func TestDiscoverSkillsFSFindsRepositorySkillsDirectory(t *testing.T) {
+	source := fstest.MapFS{
+		"skills/demo/SKILL.md": &fstest.MapFile{Data: []byte("# Demo")},
+	}
+	skills, err := DiscoverSkillsFS(source, "ignored", DiscoverSkillsOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skills) != 1 || skills[0].Name != "demo" || skills[0].Path != "skills/demo" {
+		t.Fatalf("skills = %#v", skills)
+	}
+}
 
 func TestDiscoverLocalSkills(t *testing.T) {
 	root := t.TempDir()

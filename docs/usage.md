@@ -33,7 +33,7 @@ If a client advertises multiple roots, the call must select one explicitly. Loca
 
 ## Host installation
 
-Run `prism install` for the guided flow. It displays the release and digest, prompts for bundled skills and specialists, detects hosts, selects project/global scope and link/copy mode, previews changes, and asks for confirmation.
+Run `prism install` for the guided flow. It displays the release and digest, prompts for bundled skills and specialists, detects hosts, selects project/global scope and link/copy mode, then separately selects user/project runtime scope, optional skill sources, and optional agent import/copy. It previews both transactions and asks for confirmation.
 
 ```bash
 prism install --project --all --yes
@@ -62,6 +62,24 @@ The scope manifest is `.prism/install.json`. Upgrades touch only its recorded pa
 not download Graphify, create an index, register an endpoint, or alter an
 existing `graphify.yaml` binding. The same is true of unattended installation
 paths (`--yes`, `--all`) and install previews (`--dry-run`).
+
+`--runtime-skill-source` accepts an explicitly selected local directory or a
+GitHub source supported by the bounded resolver. Multiple discovered skills
+require `--runtime-skill-all` or one or more `--runtime-skill-name` values.
+`--runtime-agent-source` requires an explicit `--runtime-agent-model`; source
+model settings are never adopted as an execution target. A bundled agent can
+be made independent with `--runtime-agent-copy ID --runtime-agent-as NEW-ID`.
+`--runtime-replace` replaces only matching managed runtime entries. These
+runtime actions are never selected by `--yes` or `--all`.
+Per-agent MCP access is intentionally unchanged by import and copy; configure
+it explicitly with `prism --state-dir STATE mcp access agent set AGENT ...` so
+unattended setup never grants a capability.
+
+Hosts receive an absolute `--state-dir` in their generated MCP command. On
+startup Prism loads that selected state directory's `config.env`, after
+explicit environment variables, so a host launched elsewhere observes the
+same runtime configuration as setup. Global host installation cannot target a
+project runtime.
 
 ## Graphify repository investigation
 
