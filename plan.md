@@ -1,8 +1,8 @@
 # Plan: CLI management of MCP servers, skills, and agents
 
-Status: Sol correctness work complete and locally verified on 2026-09-14. The
-Spark fixture/contract/CI/documentation queue and PR reconciliation remain
-before the plan can be declared complete.
+Status: Sol correctness work published to draft PR #32 on 2026-09-15 and locally
+verified. The Spark fixture/contract/CI/documentation queue and remaining PR
+review reconciliation remain before the plan can be declared complete.
 
 Phase 2 collision/recovery and phase 5 guided-install checkboxes were reconciled
 with implemented Sol behavior on 2026-09-15. The recovery regression verifies
@@ -10,8 +10,12 @@ that management does not require a runnable catalog and rename/remove preserve
 an old immutable object. `go test ./...`, `go vet ./...`,
 `scripts/ci-check.sh`, `git diff --check`, the pinned Graphify
 `uv lock --check`, a Windows binary cross-build, and Windows CLI/app/extensions
-test-binary compilation pass on the current worktree. Spark acceptance coverage
-and PR #32 publication/review reconciliation remain open.
+test-binary compilation pass on the current worktree. Commit `9504f84` was
+published to PR #32; its Linux CI and CodeQL checks passed. Five focused review
+threads were replied to with test evidence and resolved. Spark acceptance
+coverage and the remaining review threads are still open. A read-only Codex CLI
+probe of `gpt-5.3-codex-spark` on 2026-09-15 still returned HTTP 400 with the
+current ChatGPT login; no Spark-assigned task was run under a substitute model.
 
 ## Implementation status and remaining work
 
@@ -55,9 +59,10 @@ Remaining before completion:
 
 1. Run the Spark fixture, output/help, import/resource matrix, Windows/release,
    and documentation tasks listed below.
-2. Reconcile the open PR stack after committing this working tree: update PR
-   #32 and resolve addressed review threads with evidence. Obsolete empty-diff
-   draft PR #34 was closed on 2026-09-15. PR #31 remains the foundation PR.
+2. Finish reviewing and resolving addressed comments on draft PR #32 with
+   evidence, request fresh review, and confirm final-head Linux/Windows checks.
+   Obsolete empty-diff draft PR #34 was closed on 2026-09-15. PR #31 remains
+   the foundation PR.
 
 ## Remaining-work assignment by model
 
