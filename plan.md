@@ -57,7 +57,9 @@ Sol work completed:
    manifest-only managed repair commands remain available.
 4. A documented outer runtime-configuration lock serializes access policy,
    downstream server mutation/removal, and Graphify reference/binding changes.
-   Repeated concurrent-operation tests verify no updates are lost.
+   Repeated concurrent-operation tests verify no updates are lost. A shared
+   advisory-lock regression proves an active owner is never reclaimed merely
+   because the lock-file mtime is old.
 5. Guided Graphify setup discovers executable and self-hosted candidates without
    invoking or contacting them, retains explicit ownership selection, removes a
    newly created managed environment after install failure, and refuses drifted
