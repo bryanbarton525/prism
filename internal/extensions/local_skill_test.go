@@ -5,6 +5,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
 )
@@ -181,6 +183,90 @@ func TestInstallLocalSkillsReplaceGuard(t *testing.T) {
 	}
 	if _, err := svc.InstallLocalSkills(context.Background(), InstallLocalSkillsRequest{Source: sourceB, Discover: DiscoverSkillsOptions{All: true}}); err == nil {
 		t.Fatal("expected replace guard error")
+	}
+}
+
+func TestConcurrentManagedSkillMutationsDoNotBypassConflictOrLoseEntries(t *testing.T) {
+	makeSource := func(name, body string) string {
+		source := filepath.Join(t.TempDir(), name)
+		if err := os.MkdirAll(source, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(source, "SKILL.md"), []byte("---\nname: "+name+"\ndescription: fixture\n---\n"+body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return source
+	}
+	for trial := 0; trial < 12; trial++ {
+		state := t.TempDir()
+		service := NewLocalSkillService(state)
+		sourceA, sourceB := makeSource("shared", "A"), makeSource("shared", "B")
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		outcomes := make(chan error, 2)
+		for _, source := range []string{sourceA, sourceB} {
+			wg.Add(1)
+			go func(source string) {
+				defer wg.Done()
+				<-start
+				_, err := service.InstallLocalSkills(context.Background(), InstallLocalSkillsRequest{Source: source})
+				outcomes <- err
+			}(source)
+		}
+		close(start)
+		wg.Wait()
+		close(outcomes)
+		successes, conflicts := 0, 0
+		for err := range outcomes {
+			if err == nil {
+				successes++
+			} else if strings.Contains(err.Error(), "--replace") {
+				conflicts++
+			} else {
+				t.Fatalf("trial %d unexpected concurrent install error: %v", trial, err)
+			}
+		}
+		manifest, _, err := NewStore(state).RecoverAndLoadManifest(context.Background())
+		if err != nil || successes != 1 || conflicts != 1 || len(manifest.Entries) != 1 {
+			t.Fatalf("trial %d install state: success=%d conflicts=%d manifest=%#v err=%v", trial, successes, conflicts, manifest, err)
+		}
+	}
+
+	for trial := 0; trial < 12; trial++ {
+		state := t.TempDir()
+		service := NewLocalSkillService(state)
+		if _, err := service.InstallLocalSkills(context.Background(), InstallLocalSkillsRequest{Source: makeSource("old", "old")}); err != nil {
+			t.Fatal(err)
+		}
+		newSource := makeSource("new", "new")
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		outcomes := make(chan error, 2)
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, err := service.RemoveManagedSkill(context.Background(), "old", false)
+			outcomes <- err
+		}()
+		go func() {
+			defer wg.Done()
+			<-start
+			_, err := service.InstallLocalSkills(context.Background(), InstallLocalSkillsRequest{Source: newSource})
+			outcomes <- err
+		}()
+		close(start)
+		wg.Wait()
+		close(outcomes)
+		for err := range outcomes {
+			if err != nil {
+				t.Fatalf("trial %d remove/install error: %v", trial, err)
+			}
+		}
+		manifest, _, err := NewStore(state).RecoverAndLoadManifest(context.Background())
+		if err != nil || len(manifest.Entries) != 1 || manifest.Entries[0].Identity != "new" {
+			t.Fatalf("trial %d lost concurrent skill install: manifest=%#v err=%v", trial, manifest, err)
+		}
 	}
 }
 
