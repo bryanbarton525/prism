@@ -27,6 +27,34 @@ func TestPutObjectStoresByDigest(t *testing.T) {
 	}
 }
 
+func TestRecoverAndLoadManifestDoesNotExposeUncommittedCandidate(t *testing.T) {
+	store := NewStore(t.TempDir())
+	old := Manifest{Version: ManifestVersion, Entries: []ManifestEntry{{Kind: "skill", Identity: "old", Digest: "old"}}}
+	if err := store.SaveManifest(old); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := store.BeginTransaction(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tx.Rollback() })
+	if err := store.SaveManifest(Manifest{Version: ManifestVersion, Entries: []ManifestEntry{{Kind: "skill", Identity: "candidate", Digest: "new"}}}); err != nil {
+		t.Fatal(err)
+	}
+	readCtx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	if manifest, _, err := store.RecoverAndLoadManifest(readCtx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("reader observed in-flight candidate: manifest=%#v err=%v", manifest, err)
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	manifest, recovered, err := store.RecoverAndLoadManifest(context.Background())
+	if err != nil || recovered || len(manifest.Entries) != 1 || manifest.Entries[0].Identity != "old" {
+		t.Fatalf("rollback snapshot: manifest=%#v recovered=%v err=%v", manifest, recovered, err)
+	}
+}
+
 func TestTransactionCommitAndRollbackOnFailure(t *testing.T) {
 	store := NewStore(t.TempDir())
 	store.now = func() time.Time { return time.Unix(1700000000, 0).UTC() }
