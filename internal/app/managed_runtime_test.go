@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 
+	prismbundle "github.com/bryanbarton525/prism"
 	"github.com/bryanbarton525/prism/internal/extensions"
 )
 
@@ -92,5 +94,43 @@ description: Managed extension skill.
 	}
 	if !strings.Contains(spec.Description, "Managed extension") {
 		t.Fatalf("unexpected managed spec: %#v", spec)
+	}
+}
+
+func TestManagedStartupPreservesImplicitRootWorkspace(t *testing.T) {
+	root := makeTestRoot(t, map[string]string{"github-cli.md": githubCLISpec()}, map[string]string{"gh-pr-triage": ghPRTriageSkill()})
+	if err := os.WriteFile(filepath.Join(root, "workspace-marker.txt"), []byte("workspace evidence"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	managedAgentPath := filepath.Join(t.TempDir(), "managed-agent.md")
+	content := []byte(`---
+id: managed-agent
+name: Managed Agent
+description: Managed extension agent.
+model: llama3.1:8b
+context_budget: 1000
+allowed_skills: []
+latency_budget_ms: 1000
+---
+Managed body.`)
+	if err := os.WriteFile(managedAgentPath, content, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(content)
+	snapshot := extensions.CatalogSnapshot{Agents: []extensions.CatalogItem{{ID: "managed-agent", Origin: "managed", Active: true, ObjectPath: managedAgentPath, Digest: hex.EncodeToString(digest[:])}}}
+	runner, err := New(Config{RootDir: root, ExtensionSnapshot: &snapshot})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := prismbundle.DigestFS(os.DirFS(root)); runner.cfg.BundleDigest != want {
+		t.Fatalf("release/base bundle provenance changed by managed overlay: got=%q want=%q", runner.cfg.BundleDigest, want)
+	}
+	workspace := runner.cfg.workspaceFS()
+	if workspace == nil {
+		t.Fatal("implicit RootDir workspace was lost during managed materialization")
+	}
+	data, err := fs.ReadFile(workspace, "workspace-marker.txt")
+	if err != nil || string(data) != "workspace evidence" {
+		t.Fatalf("workspace evidence unavailable: data=%q err=%v", data, err)
 	}
 }
