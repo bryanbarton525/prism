@@ -74,8 +74,12 @@ func newReportSkillsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "skills",
 		Short: "Generate skill health report",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			items := reportSkillHealthFS(configuredSkillsFS(), "skills")
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			fsys, err := configuredSkillsFSChecked(cmd.Context())
+			if err != nil {
+				return err
+			}
+			items := reportSkillHealthFS(fsys, "skills")
 			switch format {
 			case "json":
 				enc := json.NewEncoder(os.Stdout)

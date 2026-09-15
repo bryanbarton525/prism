@@ -47,6 +47,9 @@ Sol work completed:
 3. Catalog, top-level list/show, MCP inspection, and doctor now preserve and
    render inactive collision/dependency states with exact recovery diagnostics;
    persisted dependency origin prevents accidental rebinding to bundled items.
+   Catalog-backed skill CLI inspection now fails with the underlying recovery
+   or object-integrity error instead of silently showing embedded-only content;
+   manifest-only managed repair commands remain available.
 4. A documented outer runtime-configuration lock serializes access policy,
    downstream server mutation/removal, and Graphify reference/binding changes.
    Repeated concurrent-operation tests verify no updates are lost.

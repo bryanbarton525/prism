@@ -573,7 +573,11 @@ func newAgentSkillMutationCmd(add bool) *cobra.Command {
 	cmd := &cobra.Command{Use: verb + " <agent-id> <skill-name>", Short: label + " a managed-agent skill binding", Args: cobra.ExactArgs(2), RunE: func(cmd *cobra.Command, args []string) error {
 		origin := ""
 		if add {
-			if _, err := skill.LoadDir(configuredSkillsFSContext(cmd.Context()), args[1]); err != nil {
+			fsys, err := configuredSkillsFSChecked(cmd.Context())
+			if err != nil {
+				return err
+			}
+			if _, err := skill.LoadDir(fsys, args[1]); err != nil {
 				return fmt.Errorf("skill %q is not active: %w", args[1], err)
 			}
 			bindings, err := resolveSkillBindingOrigins(cmd.Context(), []string{args[1]}, nil)

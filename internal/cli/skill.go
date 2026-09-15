@@ -192,7 +192,11 @@ func normalizeSkillSource(source, ref string) (string, string, error) {
 
 func newSkillListCmd() *cobra.Command {
 	return &cobra.Command{Use: "list", Short: "List active bundled and managed skills", RunE: func(cmd *cobra.Command, _ []string) error {
-		skills, err := skill.DiscoverAll(configuredSkillsFSContext(cmd.Context()))
+		fsys, err := configuredSkillsFSChecked(cmd.Context())
+		if err != nil {
+			return err
+		}
+		skills, err := skill.DiscoverAll(fsys)
 		if err != nil {
 			return err
 		}
@@ -256,7 +260,11 @@ func newSkillShowCmd() *cobra.Command {
 		if snapshotErr != nil {
 			return snapshotErr
 		}
-		sk, err := skill.LoadDir(configuredSkillsFSContext(cmd.Context()), args[0])
+		fsys, err := configuredSkillsFSChecked(cmd.Context())
+		if err != nil {
+			return err
+		}
+		sk, err := skill.LoadDir(fsys, args[0])
 		if err != nil {
 			for _, item := range snapshot.Skills {
 				if strings.EqualFold(item.ID, args[0]) && !item.Active {
@@ -425,8 +433,12 @@ func newSkillResourcesListCmd() *cobra.Command {
 		Use:   "list <skill-name>",
 		Short: "List bounded resources for a skill",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			entries, err := skill.ListResources(configuredSkillsFS(), args[0])
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fsys, err := configuredSkillsFSChecked(cmd.Context())
+			if err != nil {
+				return err
+			}
+			entries, err := skill.ListResources(fsys, args[0])
 			if err != nil {
 				return err
 			}
@@ -455,8 +467,12 @@ func newSkillResourcesReadCmd() *cobra.Command {
 		Use:   "read <skill-name> <resource-path>",
 		Short: "Read bounded UTF-8 resource content",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			result, err := skill.ReadResource(configuredSkillsFS(), args[0], args[1], skill.ReadResourceOptions{
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fsys, err := configuredSkillsFSChecked(cmd.Context())
+			if err != nil {
+				return err
+			}
+			result, err := skill.ReadResource(fsys, args[0], args[1], skill.ReadResourceOptions{
 				Offset:       offset,
 				Limit:        limit,
 				MaxReadBytes: maxBytes,
@@ -490,8 +506,8 @@ func newSkillLintCmd() *cobra.Command {
 		Use:   "lint [skill-name]",
 		Short: "Validate skill structure and metadata",
 		Args:  cobra.MaximumNArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			results := lintSkills(args, strictSkillAuthoringMode())
+		RunE: func(cmd *cobra.Command, args []string) error {
+			results := lintSkills(cmd.Context(), args, strictSkillAuthoringMode())
 			return printSkillResults(results)
 		},
 	}
@@ -502,14 +518,17 @@ func newSkillTestCmd() *cobra.Command {
 		Use:   "test [skill-name]",
 		Short: "Run structural skill tests",
 		Args:  cobra.MaximumNArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			strict := strictSkillAuthoringMode()
-			results := lintSkills(args, strict)
+			results := lintSkills(cmd.Context(), args, strict)
+			fsys, err := configuredSkillsFSChecked(cmd.Context())
+			if err != nil {
+				return err
+			}
 			for i := range results {
 				if !results[i].OK {
 					continue
 				}
-				fsys := configuredSkillsFS()
 				results[i].Warnings = append(results[i].Warnings, skill.ExecutionLimitations(fsys, results[i].Name)...)
 				count, err := skill.ValidateEvals(fsys, results[i].Name)
 				if err != nil {
@@ -534,8 +553,8 @@ func newSkillBenchmarkCmd() *cobra.Command {
 		Use:   "benchmark [skill-name]",
 		Short: "Check skill context size budgets",
 		Args:  cobra.MaximumNArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			results := lintSkills(args, strictSkillAuthoringMode())
+		RunE: func(cmd *cobra.Command, args []string) error {
+			results := lintSkills(cmd.Context(), args, strictSkillAuthoringMode())
 			for i := range results {
 				if results[i].Chars > maxChars {
 					results[i].OK = false
@@ -558,8 +577,11 @@ type skillResult struct {
 	Evals    int      `json:"evals,omitempty"`
 }
 
-func lintSkills(args []string, strict bool) []skillResult {
-	fsys := configuredSkillsFS()
+func lintSkills(ctx context.Context, args []string, strict bool) []skillResult {
+	fsys, err := configuredSkillsFSChecked(ctx)
+	if err != nil {
+		return []skillResult{{Name: "skills", OK: false, Errors: []string{err.Error()}}}
+	}
 	var names []string
 	if len(args) == 1 {
 		names = []string{args[0]}
@@ -638,31 +660,33 @@ func printSkillResults(results []skillResult) error {
 	return nil
 }
 
-func configuredSkillsFS() fs.FS {
-	return configuredSkillsFSContext(context.Background())
-}
-
-func configuredSkillsFSContext(ctx context.Context) fs.FS {
+func configuredSkillsFSChecked(ctx context.Context) (fs.FS, error) {
 	if gf.skillsDir != "" {
-		return os.DirFS(gf.skillsDir)
+		return os.DirFS(gf.skillsDir), nil
 	}
 	base := prismbundle.BundleFS()
 	store := extensions.NewStore(gf.stateDir)
 	manifest, _, err := store.RecoverAndLoadManifest(ctx)
-	if err == nil {
-		snapshot, composeErr := extensions.ComposeCatalog(extensions.ComposeInput{
-			BundleFS:        base,
-			Manifest:        manifest,
-			ObjectStoreRoot: store.ObjectRoot(),
-		})
-		if composeErr == nil {
-			if runtimeFS, materializeErr := extensions.MaterializeRuntimeBundle(base, snapshot); materializeErr == nil {
-				base = runtimeFS
-			}
-		}
+	if err != nil {
+		return nil, fmt.Errorf("load runtime extension state: %w", err)
 	}
-	skillsFS, _ := fs.Sub(base, "skills")
-	return skillsFS
+	snapshot, err := extensions.ComposeCatalog(extensions.ComposeInput{
+		BundleFS:        base,
+		Manifest:        manifest,
+		ObjectStoreRoot: store.ObjectRoot(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("compose runtime extension catalog: %w", err)
+	}
+	base, err = extensions.MaterializeRuntimeBundle(base, snapshot)
+	if err != nil {
+		return nil, fmt.Errorf("materialize runtime extension catalog: %w", err)
+	}
+	skillsFS, err := fs.Sub(base, "skills")
+	if err != nil {
+		return nil, fmt.Errorf("open effective skills catalog: %w", err)
+	}
+	return skillsFS, nil
 }
 
 func strictSkillAuthoringMode() bool {

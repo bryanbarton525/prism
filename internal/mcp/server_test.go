@@ -191,6 +191,37 @@ Managed body.`), 0o644); err != nil {
 	}
 }
 
+func TestSkillHealthHandlerUsesManagedRunnerSkills(t *testing.T) {
+	state := t.TempDir()
+	source := filepath.Join(t.TempDir(), "managed-health-skill")
+	if err := os.MkdirAll(source, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, "SKILL.md"), []byte("---\nname: managed-health-skill\ndescription: Managed health fixture\n---\n# Skill"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := extensions.NewLocalSkillService(state).InstallLocalSkills(context.Background(), extensions.InstallLocalSkillsRequest{Source: source}); err != nil {
+		t.Fatal(err)
+	}
+	store := extensions.NewStore(state)
+	manifest, _, err := store.RecoverAndLoadManifest(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := extensions.ComposeCatalog(extensions.ComposeInput{BundleFS: prismbundle.BundleFS(), Manifest: manifest, ObjectStoreRoot: store.ObjectRoot()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runner, err := app.New(app.Config{BundleFS: prismbundle.BundleFS(), ExtensionSnapshot: &snapshot})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, out, err := skillHealthHandler(Config{SkillsFS: runner.SkillsFS()})(context.Background(), nil, SkillHealthInput{SkillName: "managed-health-skill"})
+	if err != nil || out.Count != 1 || out.Skills[0].Name != "managed-health-skill" || !out.Skills[0].OK {
+		t.Fatalf("managed skill health: output=%#v err=%v", out, err)
+	}
+}
+
 func TestRegisteredToolsUseReleaseContract(t *testing.T) {
 	ctx := context.Background()
 	old := buildinfo.Version
