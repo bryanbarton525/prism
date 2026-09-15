@@ -11,8 +11,8 @@ an old immutable object. `go test ./...`, `go vet ./...`,
 `scripts/ci-check.sh`, `git diff --check`, the pinned Graphify
 `uv lock --check`, a Windows binary cross-build, and Windows CLI/app/extensions
 test-binary compilation pass on the current worktree. Commit `9504f84` was
-published to PR #32; its Linux CI and CodeQL checks passed. Twelve focused review
-threads were replied to with test evidence and resolved. Spark acceptance
+published to PR #32; its Linux CI and CodeQL checks passed. At least fourteen
+focused review threads were replied to with test evidence and resolved. Spark acceptance
 coverage and the remaining review threads are still open. A read-only Codex CLI
 probe of `gpt-5.3-codex-spark` on 2026-09-15 still returned HTTP 400 with the
 current ChatGPT login; no Spark-assigned task was run under a substitute model.

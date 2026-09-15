@@ -18,3 +18,31 @@ func TestReviewImporterUsesSelectedModelAndAvoidsSkillMisclassification(t *testi
 		t.Fatal("Agent Skill frontmatter was treated as a Prism agent")
 	}
 }
+
+func TestReviewImporterRequiresExplicitTargetForEveryFormat(t *testing.T) {
+	cases := []struct {
+		name, format, filename string
+		source                 []byte
+	}{
+		{"Prism", "prism", "agent.md", []byte("---\nid: agent\nname: Agent\ndescription: d\nmodel: source-model\ncontext_budget: 100\nlatency_budget_ms: 100\nallowed_skills: []\n---\nbody")},
+		{"Codex", "codex", "agent.toml", []byte("name = \"Agent\"\nmodel = \"source-model\"")},
+		{"Claude", "claude", "agent.md", []byte("---\nname: Agent\nmodel: source-model\ntools: Bash\n---\nbody")},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, _, err := TranslateWithFormat(tc.format, tc.filename, tc.source, Config{}); err == nil {
+				t.Fatal("source model was accepted without an explicit Prism target")
+			}
+			out, report, err := TranslateWithFormat(tc.format, tc.filename, tc.source, Config{DefaultModel: "selected-model"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Contains(out, []byte("model: selected-model")) && !bytes.Contains(out, []byte(`model: "selected-model"`)) {
+				t.Fatalf("selected target missing: %s", out)
+			}
+			if report.SourceModel != "source-model" {
+				t.Fatalf("source provenance lost: %#v", report)
+			}
+		})
+	}
+}
