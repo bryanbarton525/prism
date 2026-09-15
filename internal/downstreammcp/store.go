@@ -5,18 +5,16 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/bryanbarton525/prism/internal/filelock"
 	"gopkg.in/yaml.v3"
 )
 
 const (
-	lockRetryInterval = 25 * time.Millisecond
-	lockMaxWait       = 5 * time.Second
-	staleLockAge      = 30 * time.Second
+	lockMaxWait = 5 * time.Second
 )
 
 var ErrExternalEdit = errors.New("downstream MCP state changed on disk")
@@ -118,42 +116,19 @@ func writeStateAtomically(path string, state State) error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	return os.Rename(tmpPath, path)
+	return replaceStateFile(tmpPath, path)
+}
+
+func replaceStateFile(source, destination string) error {
+	if err := os.Rename(source, destination); err == nil {
+		return nil
+	}
+	if err := os.Remove(destination); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return os.Rename(source, destination)
 }
 
 func acquireLock(ctx context.Context, path string) (func(), error) {
-	started := time.Now()
-	for {
-		file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
-		if err == nil {
-			_ = file.Close()
-			return func() { _ = os.Remove(path) }, nil
-		}
-		if !errors.Is(err, os.ErrExist) {
-			return nil, fmt.Errorf("creating lock file: %w", err)
-		}
-		if stale, staleErr := staleLockDetected(path); staleErr == nil && stale {
-			_ = os.Remove(path)
-			continue
-		}
-		if time.Since(started) >= lockMaxWait {
-			return nil, fmt.Errorf("waiting for lock %s exceeded %s; remove stale lock if no Prism process is running", path, lockMaxWait)
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(lockRetryInterval):
-		}
-	}
-}
-
-func staleLockDetected(path string) (bool, error) {
-	info, err := os.Stat(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return false, nil
-		}
-		return false, err
-	}
-	return time.Since(info.ModTime()) > staleLockAge, nil
+	return filelock.Acquire(ctx, path, lockMaxWait)
 }

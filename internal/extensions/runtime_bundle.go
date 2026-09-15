@@ -1,12 +1,19 @@
 package extensions
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing/fstest"
+
+	"github.com/bryanbarton525/prism/internal/agent"
 )
 
 // MaterializeRuntimeBundle overlays active managed extension content onto the
@@ -65,9 +72,9 @@ func MaterializeRuntimeBundle(base fs.FS, snapshot CatalogSnapshot) (fs.FS, erro
 }
 
 func overlayManagedAgent(overlay fstest.MapFS, item CatalogItem) error {
-	info, err := os.Stat(item.ObjectPath)
+	info, err := verifyManagedObject(item)
 	if err != nil {
-		return fmt.Errorf("managed agent %s object path: %w", item.ID, err)
+		return fmt.Errorf("managed agent %s object: %w", item.ID, err)
 	}
 	targetPath := filepath.ToSlash(filepath.Join("agents", item.ID+".md"))
 	if !info.IsDir() {
@@ -79,45 +86,31 @@ func overlayManagedAgent(overlay fstest.MapFS, item CatalogItem) error {
 		return nil
 	}
 	agentFile := filepath.Join(item.ObjectPath, item.ID+".md")
-	if _, err := os.Stat(agentFile); err == nil {
-		data, readErr := os.ReadFile(agentFile)
-		if readErr != nil {
-			return fmt.Errorf("reading managed agent %s: %w", item.ID, readErr)
-		}
-		overlay[targetPath] = &fstest.MapFile{Data: data, Mode: 0o644}
-	} else {
+	data, readErr := os.ReadFile(agentFile)
+	if readErr != nil {
 		return fmt.Errorf("managed agent %s directory missing %s", item.ID, filepath.Base(agentFile))
 	}
-	constitutionsRoot := filepath.Join(item.ObjectPath, "constitutions")
-	if _, err := os.Stat(constitutionsRoot); err == nil {
-		if err := filepath.WalkDir(constitutionsRoot, func(path string, d os.DirEntry, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			if d.IsDir() {
-				return nil
-			}
-			data, readErr := os.ReadFile(path)
-			if readErr != nil {
-				return readErr
-			}
-			rel, relErr := filepath.Rel(constitutionsRoot, path)
-			if relErr != nil {
-				return relErr
-			}
-			overlay[filepath.ToSlash(filepath.Join("constitutions", rel))] = &fstest.MapFile{Data: data, Mode: 0o644}
-			return nil
-		}); err != nil {
-			return fmt.Errorf("reading managed constitutions for %s: %w", item.ID, err)
+	spec, err := agent.ParseManaged(data, item.ID+".md")
+	if err != nil {
+		return fmt.Errorf("parse managed agent %s: %w", item.ID, err)
+	}
+	if spec.ConstitutionPath != "" {
+		if !safeObjectRelativePath(spec.ConstitutionPath) {
+			return fmt.Errorf("managed agent %s has unsafe constitution path %q", item.ID, spec.ConstitutionPath)
 		}
+		data = replaceConstitutionPath(data, path.Join("managed", item.ID, filepath.ToSlash(spec.ConstitutionPath)))
+	}
+	overlay[targetPath] = &fstest.MapFile{Data: data, Mode: 0o644}
+	if err := copyManagedDirectory(overlay, item.ObjectPath, path.Join("managed", item.ID), item.ID+".md"); err != nil {
+		return fmt.Errorf("reading managed agent support files for %s: %w", item.ID, err)
 	}
 	return nil
 }
 
 func overlayManagedSkill(overlay fstest.MapFS, item CatalogItem) error {
-	info, err := os.Stat(item.ObjectPath)
+	info, err := verifyManagedObject(item)
 	if err != nil {
-		return fmt.Errorf("managed skill %s object path: %w", item.ID, err)
+		return fmt.Errorf("managed skill %s object: %w", item.ID, err)
 	}
 	skillRoot := filepath.Join("skills", item.ID)
 	if !info.IsDir() {
@@ -128,26 +121,132 @@ func overlayManagedSkill(overlay fstest.MapFS, item CatalogItem) error {
 		overlay[filepath.ToSlash(filepath.Join(skillRoot, "SKILL.md"))] = &fstest.MapFile{Data: data, Mode: 0o644}
 		return nil
 	}
-	return filepath.WalkDir(item.ObjectPath, func(path string, d os.DirEntry, walkErr error) error {
+	return copyManagedDirectory(overlay, item.ObjectPath, filepath.ToSlash(skillRoot), "")
+}
+
+func verifyManagedObject(item CatalogItem) (os.FileInfo, error) {
+	if err := ValidateIdentity(item.ID); err != nil {
+		return nil, err
+	}
+	if len(item.Digest) != sha256.Size*2 {
+		return nil, fmt.Errorf("invalid digest %q", item.Digest)
+	}
+	if _, err := hex.DecodeString(item.Digest); err != nil {
+		return nil, fmt.Errorf("invalid digest %q: %w", item.Digest, err)
+	}
+	if strings.TrimSpace(item.ObjectPath) == "" {
+		return nil, fmt.Errorf("object path is required")
+	}
+	info, err := os.Lstat(item.ObjectPath)
+	if err != nil {
+		return nil, err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return nil, fmt.Errorf("object path must not be a symlink")
+	}
+	if item.ObjectRoot != "" {
+		root, err := filepath.Abs(item.ObjectRoot)
+		if err != nil {
+			return nil, err
+		}
+		objectPath, err := filepath.Abs(item.ObjectPath)
+		if err != nil {
+			return nil, err
+		}
+		if filepath.Clean(objectPath) != filepath.Join(filepath.Clean(root), item.Digest) {
+			return nil, fmt.Errorf("object path is outside the content-addressed object store")
+		}
+		realRoot, err := filepath.EvalSymlinks(root)
+		if err != nil {
+			return nil, err
+		}
+		realObject, err := filepath.EvalSymlinks(objectPath)
+		if err != nil {
+			return nil, err
+		}
+		rel, err := filepath.Rel(realRoot, realObject)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return nil, fmt.Errorf("object path escapes the content-addressed object store")
+		}
+	}
+	if info.IsDir() {
+		digest, err := directoryDigest(item.ObjectPath)
+		if err != nil {
+			return nil, err
+		}
+		if !strings.EqualFold(digest, item.Digest) {
+			return nil, fmt.Errorf("directory digest %s does not match manifest digest %s", digest, item.Digest)
+		}
+		return info, nil
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("object path is not a regular file")
+	}
+	data, err := os.ReadFile(item.ObjectPath)
+	if err != nil {
+		return nil, err
+	}
+	sum := sha256.Sum256(data)
+	if !strings.EqualFold(hex.EncodeToString(sum[:]), item.Digest) {
+		return nil, fmt.Errorf("object digest does not match manifest digest")
+	}
+	return info, nil
+}
+
+func copyManagedDirectory(overlay fstest.MapFS, source, targetRoot, skip string) error {
+	return filepath.WalkDir(source, func(filePath string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		if d.IsDir() {
+		if filePath == source || entry.IsDir() {
 			return nil
 		}
-		rel, err := filepath.Rel(item.ObjectPath, path)
+		if entry.Type()&os.ModeSymlink != 0 {
+			return fmt.Errorf("symlink %q is not supported", filePath)
+		}
+		info, err := entry.Info()
 		if err != nil {
 			return err
 		}
-		clean := filepath.ToSlash(filepath.Join(skillRoot, rel))
-		if strings.Contains(clean, "..") {
-			return fmt.Errorf("managed skill %s has invalid path %s", item.ID, rel)
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("object entry %q is not a regular file", filePath)
 		}
-		data, err := os.ReadFile(path)
+		rel, err := filepath.Rel(source, filePath)
 		if err != nil {
 			return err
 		}
-		overlay[clean] = &fstest.MapFile{Data: data, Mode: 0o644}
+		rel = filepath.ToSlash(rel)
+		if rel == skip {
+			return nil
+		}
+		if !safeObjectRelativePath(rel) {
+			return fmt.Errorf("object entry %q escapes its package", rel)
+		}
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			return err
+		}
+		overlay[path.Join(targetRoot, rel)] = &fstest.MapFile{Data: data, Mode: 0o644}
 		return nil
 	})
+}
+
+func safeObjectRelativePath(value string) bool {
+	value = filepath.ToSlash(strings.TrimSpace(value))
+	clean := path.Clean(value)
+	return value != "" && !path.IsAbs(value) && clean != "." && clean != ".." && !strings.HasPrefix(clean, "../")
+}
+
+var constitutionPathLine = regexp.MustCompile(`(?m)^constitution_path:\s*.*$`)
+
+func replaceConstitutionPath(data []byte, value string) []byte {
+	trimmed := bytes.TrimSpace(data)
+	end := bytes.Index(trimmed[3:], []byte("\n---"))
+	if end < 0 {
+		return data
+	}
+	end += 3
+	frontmatter := trimmed[:end]
+	replacement := []byte("constitution_path: " + value)
+	return append(constitutionPathLine.ReplaceAll(frontmatter, replacement), trimmed[end:]...)
 }

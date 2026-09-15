@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"regexp"
 	"strings"
 
 	"github.com/bryanbarton525/prism/internal/agent"
 	"github.com/bryanbarton525/prism/internal/plugins"
 	"github.com/bryanbarton525/prism/internal/result"
+	"github.com/bryanbarton525/prism/internal/skill"
 	"github.com/bryanbarton525/prism/internal/textutil"
 )
 
@@ -93,6 +95,43 @@ func collectRuntimeEvidence(ctx context.Context, registry *plugins.Registry, spe
 		}
 	}
 	return out
+}
+
+func collectSkillResourceAttachments(fsys fs.FS, attachedSkills, requested []string) (runtimeEvidence, error) {
+	var out runtimeEvidence
+	for _, value := range requested {
+		skillName, resourcePath, ok := strings.Cut(value, ":")
+		if !ok || strings.TrimSpace(skillName) == "" || strings.TrimSpace(resourcePath) == "" {
+			return runtimeEvidence{}, fmt.Errorf("skill resource %q must use <skill>:<path>", value)
+		}
+		attached := false
+		for _, name := range attachedSkills {
+			if strings.EqualFold(name, skillName) {
+				attached, skillName = true, name
+				break
+			}
+		}
+		if !attached {
+			return runtimeEvidence{}, fmt.Errorf("skill %q is not attached to this run", skillName)
+		}
+		remaining := 128*1024 - out.byteSize
+		if remaining <= 0 {
+			return runtimeEvidence{}, fmt.Errorf("per-run skill resource budget of 131072 bytes is exhausted")
+		}
+		maxRead := int64(32 * 1024)
+		if int64(remaining) < maxRead {
+			maxRead = int64(remaining)
+		}
+		resource, err := skill.ReadResource(fsys, skillName, resourcePath, skill.ReadResourceOptions{MaxReadBytes: maxRead})
+		if err != nil {
+			return runtimeEvidence{}, err
+		}
+		artifact := result.Artifact{Type: "skill_resource", Label: "skill-resource:" + skillName + "/" + resource.Path, Content: resource.Content}
+		out.artifacts = append(out.artifacts, artifact)
+		out.byteSize += len(resource.Content)
+		out.promptBlock += "\n\n# Explicit Skill Resource: " + skillName + "/" + resource.Path + "\n\n```text\n" + resource.Content + "\n```"
+	}
+	return out, nil
 }
 
 func runtimeToolArgs(task string) map[string]string {

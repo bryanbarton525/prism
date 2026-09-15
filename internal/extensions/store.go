@@ -62,6 +62,9 @@ func (s *Store) LoadManifest() (Manifest, error) {
 	if manifest.Version == 0 {
 		manifest.Version = ManifestVersion
 	}
+	if manifest.Version != ManifestVersion {
+		return Manifest{}, fmt.Errorf("unsupported extension manifest version %d (want %d)", manifest.Version, ManifestVersion)
+	}
 	if manifest.Entries == nil {
 		manifest.Entries = []ManifestEntry{}
 	}
@@ -71,6 +74,9 @@ func (s *Store) LoadManifest() (Manifest, error) {
 func (s *Store) SaveManifest(manifest Manifest) error {
 	if manifest.Version == 0 {
 		manifest.Version = ManifestVersion
+	}
+	if manifest.Version != ManifestVersion {
+		return fmt.Errorf("refusing to write unsupported extension manifest version %d (want %d)", manifest.Version, ManifestVersion)
 	}
 	data, err := yaml.Marshal(manifest)
 	if err != nil {
@@ -96,6 +102,13 @@ func (s *Store) PutObject(content []byte) (digest string, objectPath string, err
 	if err := os.MkdirAll(s.ObjectsDir(), 0o755); err != nil {
 		return "", "", err
 	}
+	info, statErr := os.Lstat(objectPath)
+	if statErr == nil && info.Mode()&os.ModeSymlink != 0 {
+		return "", "", fmt.Errorf("object path %q must not be a symlink", objectPath)
+	}
+	if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
+		return "", "", statErr
+	}
 	existing, readErr := os.ReadFile(objectPath)
 	if readErr == nil {
 		other := sha256.Sum256(existing)
@@ -113,8 +126,18 @@ func (s *Store) PutObject(content []byte) (digest string, objectPath string, err
 	return digest, objectPath, nil
 }
 
+// ObjectRoot returns the canonical root expected to contain content-addressed
+// extension objects.
+func (s *Store) ObjectRoot() string {
+	return s.ObjectsDir()
+}
+
 type journal struct {
 	PreviousManifest Manifest `yaml:"previous_manifest"`
+	PreviousAccess   []byte   `yaml:"previous_access,omitempty"`
+	AccessTracked    bool     `yaml:"access_tracked,omitempty"`
+	AccessExisted    bool     `yaml:"access_existed,omitempty"`
+	Committed        bool     `yaml:"committed,omitempty"`
 }
 
 func (s *Store) writeJournal(previous Manifest) error {
@@ -136,6 +159,66 @@ func (s *Store) clearJournal() error {
 	return nil
 }
 
+func (s *Store) addJournalAccess(previous []byte, existed bool) error {
+	data, err := os.ReadFile(s.journalPath())
+	if err != nil {
+		return err
+	}
+	var j journal
+	if err := yaml.Unmarshal(data, &j); err != nil {
+		return err
+	}
+	j.AccessTracked = true
+	j.AccessExisted = existed
+	j.PreviousAccess = append([]byte(nil), previous...)
+	data, err = yaml.Marshal(j)
+	if err != nil {
+		return err
+	}
+	return writeFileAtomically(s.journalPath(), data)
+}
+
+func (s *Store) restoreJournalState() error {
+	data, err := os.ReadFile(s.journalPath())
+	if err != nil {
+		return err
+	}
+	var j journal
+	if err := yaml.Unmarshal(data, &j); err != nil {
+		return err
+	}
+	if err := s.SaveManifest(j.PreviousManifest); err != nil {
+		return err
+	}
+	if j.AccessTracked {
+		if j.AccessExisted {
+			if err := writeFileAtomically(mcpAccessPath(s.stateDir), j.PreviousAccess); err != nil {
+				return err
+			}
+		} else if err := os.Remove(mcpAccessPath(s.stateDir)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Store) markJournalCommitted() error {
+	data, err := os.ReadFile(s.journalPath())
+	if err != nil {
+		return err
+	}
+	var j journal
+	if err := yaml.Unmarshal(data, &j); err != nil {
+		return err
+	}
+	j.Committed = true
+	data, err = yaml.Marshal(j)
+	if err != nil {
+		return err
+	}
+	return writeFileAtomically(s.journalPath(), data)
+}
+
 func (s *Store) recoverInterrupted() (bool, error) {
 	data, err := os.ReadFile(s.journalPath())
 	if err != nil {
@@ -148,7 +231,13 @@ func (s *Store) recoverInterrupted() (bool, error) {
 	if err := yaml.Unmarshal(data, &j); err != nil {
 		return false, fmt.Errorf("read extension recovery journal: %w", err)
 	}
-	if err := s.SaveManifest(j.PreviousManifest); err != nil {
+	if j.Committed {
+		if err := s.clearJournal(); err != nil {
+			return false, err
+		}
+		return false, nil
+	}
+	if err := s.restoreJournalState(); err != nil {
 		return false, err
 	}
 	if err := s.clearJournal(); err != nil {
@@ -210,5 +299,18 @@ func writeFileAtomically(path string, data []byte) error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	return os.Rename(tmpPath, path)
+	return replaceFile(tmpPath, path)
+}
+
+func replaceFile(source, destination string) error {
+	if err := os.Rename(source, destination); err == nil {
+		return nil
+	}
+	// Windows does not permit Rename to replace an existing destination. The
+	// destination is private state and is immediately replaced by this staged
+	// file, so this fallback preserves update behavior on that platform.
+	if err := os.Remove(destination); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return os.Rename(source, destination)
 }

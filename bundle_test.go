@@ -1,6 +1,8 @@
 package prism
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"io/fs"
 	"testing"
 	"testing/fstest"
@@ -21,6 +23,8 @@ func TestEmbeddedBundle(t *testing.T) {
 		"skills/graphify-query/SKILL.md",
 		"skills/graphify-query/references/REFERENCE.md",
 		"skills/graphify-query/references/GRAPHIFY-RELEASE.json",
+		"skills/graphify-query/references/managed-environment/pyproject.toml",
+		"skills/graphify-query/references/managed-environment/uv.lock",
 		"skills/graphify-query/scripts/collect.sh",
 		"skills/graphify-query/evals/smoke.yaml",
 	} {
@@ -51,6 +55,17 @@ func TestGraphifyReleaseMetadataIsEmbeddedAndPinned(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("embedded Graphify metadata %q is missing from manifest: %#v", path, manifest.Files)
+	}
+}
+
+func TestGraphifyManagedEnvironmentLockIsEmbeddedAndPinned(t *testing.T) {
+	data, err := fs.ReadFile(BundleFS(), "skills/graphify-query/references/managed-environment/uv.lock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(data)
+	if got := hex.EncodeToString(sum[:]); got != "15bb19dab6b284ccd0b0941c3096bf405873882f48bf9a5d20bb2ee64fd2997b" {
+		t.Fatalf("managed lock digest = %s", got)
 	}
 }
 

@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -41,13 +43,22 @@ description: Managed extension skill.
 	_, thisFile, _, _ := runtime.Caller(0)
 	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(thisFile), "..", ".."))
 	base := os.DirFS(repoRoot)
+	agentData, err := os.ReadFile(managedAgentPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agentDigest := sha256.Sum256(agentData)
+	skillDigest, err := extensions.DigestDirectory(managedSkillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
 	snapshot, err := extensions.ComposeCatalog(extensions.ComposeInput{
 		BundleFS: base,
 		Manifest: extensions.Manifest{
 			Version: extensions.ManifestVersion,
 			Entries: []extensions.ManifestEntry{
-				{Identity: "managed-agent", Kind: "agent", ObjectPath: managedAgentPath, Digest: "a", Source: "test"},
-				{Identity: "managed-skill", Kind: "skill", ObjectPath: managedSkillDir, Digest: "b", Source: "test"},
+				{Identity: "managed-agent", Kind: "agent", ObjectPath: managedAgentPath, Digest: hex.EncodeToString(agentDigest[:]), Source: "test"},
+				{Identity: "managed-skill", Kind: "skill", ObjectPath: managedSkillDir, Digest: skillDigest, Source: "test"},
 			},
 		},
 	})

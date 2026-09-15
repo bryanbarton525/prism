@@ -104,7 +104,11 @@ func (r *Runner) Doctor(ctx context.Context) (result.DoctorResult, error) {
 			if item.Active {
 				managedAgents++
 			} else {
-				inactive = append(inactive, fmt.Sprintf("agent %q: %s", item.ID, item.Reason))
+				message := item.Reason
+				if len(item.Diagnostics) > 0 {
+					message = item.Diagnostics[0].Message
+				}
+				inactive = append(inactive, fmt.Sprintf("agent %q: %s", item.ID, message))
 			}
 		} else if item.Origin == "bundled" {
 			bundledAgents++
@@ -115,7 +119,11 @@ func (r *Runner) Doctor(ctx context.Context) (result.DoctorResult, error) {
 			if item.Active {
 				managedSkills++
 			} else {
-				inactive = append(inactive, fmt.Sprintf("skill %q: %s", item.ID, item.Reason))
+				message := item.Reason
+				if len(item.Diagnostics) > 0 {
+					message = item.Diagnostics[0].Message
+				}
+				inactive = append(inactive, fmt.Sprintf("skill %q: %s", item.ID, message))
 			}
 		} else if item.Origin == "bundled" {
 			bundledSkills++

@@ -59,12 +59,12 @@ func ServeWithConfig(ctx context.Context, runner app.AgentRunner, cfg Config) er
 func registerTools(srv *mcpsdk.Server, runner app.AgentRunner, cfg Config) {
 	mcpsdk.AddTool(srv, &mcpsdk.Tool{
 		Name:        "list_agents",
-		Description: "List registered Prism agents with model hints and allowed skills.",
+		Description: "List active Prism agents and the complete active/inactive extension catalog with recovery diagnostics.",
 	}, listAgentsHandler(runner))
 
 	mcpsdk.AddTool(srv, &mcpsdk.Tool{
 		Name:        "run_agent",
-		Description: "Invoke a specialist agent with required skill_names and a bounded task.",
+		Description: "Invoke a specialist agent with a bounded task; skill_names may be empty for managed agents.",
 	}, runAgentHandler(runner, cfg))
 
 	mcpsdk.AddTool(srv, &mcpsdk.Tool{
@@ -108,6 +108,16 @@ func registerTools(srv *mcpsdk.Server, runner app.AgentRunner, cfg Config) {
 	}, skillHealthHandler(cfg))
 
 	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "list_skill_resources",
+		Description: "List bounded resources packaged with one active Prism skill.",
+	}, listSkillResourcesHandler(cfg))
+
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "read_skill_resource",
+		Description: "Read a bounded UTF-8 resource packaged with one active Prism skill.",
+	}, readSkillResourceHandler(cfg))
+
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
 		Name:        "list_mcp_servers",
 		Description: "List downstream MCP servers configured for Prism to call.",
 	}, listMCPServersHandler(cfg.DownstreamMCP))
@@ -144,11 +154,48 @@ func registerTools(srv *mcpsdk.Server, runner app.AgentRunner, cfg Config) {
 	}, getResourceHandler(runner))
 }
 
+type ListSkillResourcesInput struct {
+	SkillName string `json:"skill_name"`
+}
+
+type ListSkillResourcesOutput struct {
+	SkillName string                `json:"skill_name"`
+	Resources []skill.ResourceEntry `json:"resources"`
+}
+
+func listSkillResourcesHandler(cfg Config) func(context.Context, *mcpsdk.CallToolRequest, ListSkillResourcesInput) (*mcpsdk.CallToolResult, ListSkillResourcesOutput, error) {
+	return func(_ context.Context, _ *mcpsdk.CallToolRequest, input ListSkillResourcesInput) (*mcpsdk.CallToolResult, ListSkillResourcesOutput, error) {
+		if cfg.SkillsFS == nil {
+			return nil, ListSkillResourcesOutput{}, fmt.Errorf("skills filesystem is unavailable")
+		}
+		entries, err := skill.ListResources(cfg.SkillsFS, input.SkillName)
+		return nil, ListSkillResourcesOutput{SkillName: input.SkillName, Resources: entries}, err
+	}
+}
+
+type ReadSkillResourceInput struct {
+	SkillName string `json:"skill_name"`
+	Path      string `json:"path"`
+	Offset    int64  `json:"offset,omitempty"`
+	Limit     int64  `json:"limit,omitempty"`
+}
+
+func readSkillResourceHandler(cfg Config) func(context.Context, *mcpsdk.CallToolRequest, ReadSkillResourceInput) (*mcpsdk.CallToolResult, skill.ReadResourceResult, error) {
+	return func(_ context.Context, _ *mcpsdk.CallToolRequest, input ReadSkillResourceInput) (*mcpsdk.CallToolResult, skill.ReadResourceResult, error) {
+		if cfg.SkillsFS == nil {
+			return nil, skill.ReadResourceResult{}, fmt.Errorf("skills filesystem is unavailable")
+		}
+		out, err := skill.ReadResource(cfg.SkillsFS, input.SkillName, input.Path, skill.ReadResourceOptions{Offset: input.Offset, Limit: input.Limit, MaxReadBytes: 32 * 1024})
+		return nil, out, err
+	}
+}
+
 type ListAgentsInput struct{}
 
 type ListAgentsOutput struct {
-	Agents []agent.Summary `json:"agents"`
-	Count  int             `json:"count"`
+	Agents  []agent.Summary          `json:"agents"`
+	Catalog []extensions.CatalogItem `json:"extension_catalog,omitempty"`
+	Count   int                      `json:"count"`
 }
 
 func listAgentsHandler(runner app.AgentRunner) func(context.Context, *mcpsdk.CallToolRequest, ListAgentsInput) (*mcpsdk.CallToolResult, ListAgentsOutput, error) {
@@ -158,16 +205,22 @@ func listAgentsHandler(runner app.AgentRunner) func(context.Context, *mcpsdk.Cal
 			return nil, ListAgentsOutput{}, err
 		}
 		out := ListAgentsOutput{Agents: agents, Count: len(agents)}
+		if concrete, ok := runner.(interface {
+			CatalogSnapshot() extensions.CatalogSnapshot
+		}); ok {
+			out.Catalog = append([]extensions.CatalogItem{}, concrete.CatalogSnapshot().Agents...)
+		}
 		return textResult(marshalJSON(out)), out, nil
 	}
 }
 
 type RunAgentInput struct {
-	AgentID    string          `json:"agent_id"`
-	Task       string          `json:"task"`
-	SkillNames []string        `json:"skill_names"`
-	Format     string          `json:"format,omitempty"`
-	Workspace  *WorkspaceInput `json:"workspace,omitempty"`
+	AgentID        string          `json:"agent_id"`
+	Task           string          `json:"task"`
+	SkillNames     []string        `json:"skill_names,omitempty"`
+	SkillResources []string        `json:"skill_resources,omitempty"`
+	Format         string          `json:"format,omitempty"`
+	Workspace      *WorkspaceInput `json:"workspace,omitempty"`
 }
 
 type WorkspaceInput struct {
@@ -182,9 +235,6 @@ func runAgentHandler(runner app.AgentRunner, cfg Config) func(context.Context, *
 		}
 		if input.Task == "" {
 			return nil, result.RunResult{}, fmt.Errorf("run_agent: task is required")
-		}
-		if len(input.SkillNames) == 0 {
-			return nil, result.RunResult{}, fmt.Errorf("run_agent: skill_names is required")
 		}
 		format := input.Format
 		if format == "" {
@@ -203,11 +253,12 @@ func runAgentHandler(runner app.AgentRunner, cfg Config) func(context.Context, *
 			generationFingerprint = input.Workspace.GenerationFingerprint
 		}
 		res, err := runner.Run(ctx, app.RunRequest{
-			AgentID:    input.AgentID,
-			Task:       input.Task,
-			SkillNames: input.SkillNames,
-			Format:     format,
-			Metadata:   observe.Metadata{Source: "mcp"},
+			AgentID:        input.AgentID,
+			Task:           input.Task,
+			SkillNames:     input.SkillNames,
+			SkillResources: input.SkillResources,
+			Format:         format,
+			Metadata:       observe.Metadata{Source: "mcp"},
 			Workspace: app.Workspace{
 				Root:                  workspaceRoot,
 				GenerationFingerprint: generationFingerprint,
@@ -253,14 +304,33 @@ func resolveWorkspace(ctx context.Context, request *mcpsdk.CallToolRequest, expl
 				if parseErr != nil || parsed.Scheme != "file" {
 					return "", fmt.Errorf("run_agent: MCP root must be a local file URI")
 				}
-				return canonicalWorkspace(filepath.FromSlash(parsed.Path))
+				path, err := fileURIPath(parsed)
+				if err != nil {
+					return "", err
+				}
+				return canonicalWorkspace(path)
 			case 0:
 			default:
 				return "", fmt.Errorf("run_agent: MCP host advertised multiple roots; select one with workspace.root")
 			}
 		}
 	}
+
 	return fallback, nil
+}
+
+func fileURIPath(parsed *url.URL) (string, error) {
+	if parsed == nil || parsed.Scheme != "file" {
+		return "", fmt.Errorf("run_agent: MCP root must be a local file URI")
+	}
+	if parsed.Host != "" && !strings.EqualFold(parsed.Host, "localhost") {
+		return "", fmt.Errorf("run_agent: MCP root file URI must not name a remote host")
+	}
+	path := filepath.FromSlash(parsed.Path)
+	if path == "" || !filepath.IsAbs(path) {
+		return "", fmt.Errorf("run_agent: MCP root file URI must contain an absolute path")
+	}
+	return path, nil
 }
 
 func canonicalWorkspace(root string) (string, error) {
@@ -616,10 +686,12 @@ func StatusSummary(runner app.AgentRunner) string {
 		ids[i] = a.ID
 	}
 	managed := 0
-	if concrete, ok := runner.(interface{ CatalogSnapshot() extensions.CatalogSnapshot }); ok {
+	if concrete, ok := runner.(interface {
+		CatalogSnapshot() extensions.CatalogSnapshot
+	}); ok {
 		snapshot := concrete.CatalogSnapshot()
 		for _, item := range snapshot.Agents {
-			if item.Origin == "managed" {
+			if item.Origin == "managed" && item.Active {
 				managed++
 			}
 		}

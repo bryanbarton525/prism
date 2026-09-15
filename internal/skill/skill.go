@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"gopkg.in/yaml.v3"
 )
@@ -31,6 +32,24 @@ type Skill struct {
 	Dir string `yaml:"-"`
 }
 
+// Render returns a normalized portable SKILL.md document. It is used when a
+// managed skill is renamed so package frontmatter and manifest identity agree.
+func Render(sk *Skill) ([]byte, error) {
+	if sk == nil {
+		return nil, fmt.Errorf("skill is nil")
+	}
+	frontmatter, err := yaml.Marshal(struct {
+		Name          string            `yaml:"name"`
+		Description   string            `yaml:"description"`
+		Compatibility string            `yaml:"compatibility,omitempty"`
+		Metadata      map[string]string `yaml:"metadata,omitempty"`
+	}{sk.Name, sk.Description, sk.Compatibility, sk.Metadata})
+	if err != nil {
+		return nil, err
+	}
+	return []byte("---\n" + string(frontmatter) + "---\n\n" + strings.TrimSpace(sk.Body) + "\n"), nil
+}
+
 // LoadDir resolves a skill by name from the given skills FS.
 // It expects <name>/SKILL.md to exist within fsys.
 func LoadDir(fsys fs.FS, name string) (*Skill, error) {
@@ -45,6 +64,18 @@ func LoadDir(fsys fs.FS, name string) (*Skill, error) {
 	}
 	sk.Dir = name
 	return sk, nil
+}
+
+// ValidateDocument checks portable Agent Skills frontmatter without requiring
+// the document to be mounted below a named skills root.
+func ValidateDocument(data []byte, sourcePath string) error {
+	_, err := parse(data, sourcePath)
+	return err
+}
+
+// ParseDocument parses a standalone portable SKILL.md document.
+func ParseDocument(data []byte, sourcePath string) (*Skill, error) {
+	return parse(data, sourcePath)
 }
 
 // LoadMany loads all named skills from fsys and returns a map keyed by skill name.
@@ -149,9 +180,9 @@ func parse(data []byte, sourcePath string) (*Skill, error) {
 		return nil, fmt.Errorf("%s: missing required frontmatter fields: %s",
 			sourcePath, strings.Join(missing, ", "))
 	}
-	if len(sk.Description) > 1024 {
+	if utf8.RuneCountInString(sk.Description) > 1024 {
 		return nil, fmt.Errorf("%s: description exceeds 1024 characters (%d)",
-			sourcePath, len(sk.Description))
+			sourcePath, utf8.RuneCountInString(sk.Description))
 	}
 	if !standardSkillNamePattern.MatchString(sk.Name) {
 		return nil, fmt.Errorf("%s: name %q must match %s", sourcePath, sk.Name, standardSkillNamePattern.String())

@@ -125,3 +125,25 @@ func TestComposeCatalogInactivatesDuplicateManagedIdentities(t *testing.T) {
 		t.Fatalf("duplicate items = %#v", snapshot.Skills)
 	}
 }
+
+func TestComposeCatalogDoesNotRebindManagedSkillDependencyToBundle(t *testing.T) {
+	snapshot, err := ComposeCatalog(ComposeInput{
+		BundleFS: fstest.MapFS{"skills/shared/SKILL.md": {Data: []byte("x")}},
+		Manifest: Manifest{Version: ManifestVersion, Entries: []ManifestEntry{
+			{Identity: "shared", Kind: "skill", Digest: "managed"},
+			{Identity: "worker", Kind: "agent", Digest: "agent", SkillBindings: []SkillBinding{{Name: "shared", Origin: "managed"}}},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range snapshot.Agents {
+		if item.ID == "worker" {
+			if item.Active || item.Reason != "skill_dependency_unavailable" || len(item.Diagnostics) == 0 || !strings.Contains(item.Diagnostics[0].Message, "prism agent skill remove") {
+				t.Fatalf("dependent agent = %#v", item)
+			}
+			return
+		}
+	}
+	t.Fatal("managed agent missing")
+}

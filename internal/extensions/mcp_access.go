@@ -1,7 +1,9 @@
 package extensions
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -31,6 +33,14 @@ func mcpAccessPath(stateDir string) string {
 }
 
 func LoadMCPAccess(stateDir string) (MCPAccessState, bool, error) {
+	manifest, err := NewStore(stateDir).LoadManifest()
+	if err != nil {
+		return MCPAccessState{}, false, err
+	}
+	if manifest.MCPAccess != nil {
+		state, normalizeErr := normalizeMCPAccess(*manifest.MCPAccess)
+		return state, true, normalizeErr
+	}
 	path := mcpAccessPath(stateDir)
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -43,43 +53,83 @@ func LoadMCPAccess(stateDir string) (MCPAccessState, bool, error) {
 	if err := yaml.Unmarshal(data, &state); err != nil {
 		return MCPAccessState{}, false, err
 	}
-	if state.Agents == nil {
-		state.Agents = map[string]MCPAccessRule{}
-	}
-	state.DefaultServers = dedupeServers(state.DefaultServers)
-	for key, rule := range state.Agents {
-		rule.Mode = normalizeMode(rule.Mode)
-		rule.Servers = dedupeServers(rule.Servers)
-		state.Agents[strings.ToLower(strings.TrimSpace(key))] = rule
+	state, err = normalizeMCPAccess(state)
+	if err != nil {
+		return MCPAccessState{}, false, err
 	}
 	return state, true, nil
 }
 
 func SaveMCPAccess(stateDir string, state MCPAccessState) error {
+	_, err := UpdateMCPAccess(context.Background(), stateDir, func(candidate *MCPAccessState) error { *candidate = state; return nil })
+	return err
+}
+
+// UpdateMCPAccess serializes the full read-modify-write operation with the
+// extension manifest lock and recovery journal so batch activation can include
+// access policy without exposing partial state.
+func UpdateMCPAccess(ctx context.Context, stateDir string, update func(*MCPAccessState) error) (MCPAccessState, error) {
+	store := NewStore(stateDir)
+	tx, err := store.BeginTransaction(ctx)
+	if err != nil {
+		return MCPAccessState{}, err
+	}
+	defer tx.Rollback()
+	state, _, err := LoadMCPAccess(stateDir)
+	if err != nil {
+		return MCPAccessState{}, err
+	}
+	if err := update(&state); err != nil {
+		return MCPAccessState{}, err
+	}
+	if err := tx.StageMCPAccess(state); err != nil {
+		return MCPAccessState{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return MCPAccessState{}, err
+	}
+	return state, nil
+}
+
+func normalizeMCPAccess(state MCPAccessState) (MCPAccessState, error) {
 	if state.Agents == nil {
 		state.Agents = map[string]MCPAccessRule{}
 	}
 	state.DefaultServers = dedupeServers(state.DefaultServers)
+	normalized := make(map[string]MCPAccessRule, len(state.Agents))
 	for key, rule := range state.Agents {
-		rule.Mode = normalizeMode(rule.Mode)
+		mode, err := normalizeMode(rule.Mode)
+		if err != nil {
+			return MCPAccessState{}, fmt.Errorf("MCP access rule for agent %q: %w", key, err)
+		}
+		rule.Mode = mode
 		rule.Servers = dedupeServers(rule.Servers)
-		state.Agents[strings.ToLower(strings.TrimSpace(key))] = rule
+		normalized[strings.ToLower(strings.TrimSpace(key))] = rule
 	}
-	data, err := yaml.Marshal(state)
-	if err != nil {
-		return err
-	}
-	return writeFileAtomically(mcpAccessPath(stateDir), data)
+	state.Agents = normalized
+	return state, nil
 }
 
-func normalizeMode(mode string) string {
+func normalizeMode(mode string) (string, error) {
 	mode = strings.ToLower(strings.TrimSpace(mode))
 	switch mode {
 	case MCPAccessModeDefault, MCPAccessModeCustom, MCPAccessModeNone:
-		return mode
+		return mode, nil
 	default:
-		return MCPAccessModeDefault
+		return "", fmt.Errorf("mode %q must be default, custom, or none", mode)
 	}
+}
+
+// ValidateMCPAccessRule verifies a rule before a CLI preview or update.
+func ValidateMCPAccessRule(rule MCPAccessRule) error {
+	mode, err := normalizeMode(rule.Mode)
+	if err != nil {
+		return err
+	}
+	if mode != MCPAccessModeCustom && len(dedupeServers(rule.Servers)) > 0 {
+		return fmt.Errorf("mode %s cannot include explicit servers", mode)
+	}
+	return nil
 }
 
 func (s MCPAccessState) AllowedServers(agentID string, all []string, hasConfig bool) []string {
@@ -91,7 +141,11 @@ func (s MCPAccessState) AllowedServers(agentID string, all []string, hasConfig b
 	if !ok {
 		rule = MCPAccessRule{Mode: MCPAccessModeDefault}
 	}
-	switch normalizeMode(rule.Mode) {
+	mode, err := normalizeMode(rule.Mode)
+	if err != nil {
+		return []string{}
+	}
+	switch mode {
 	case MCPAccessModeNone:
 		return []string{}
 	case MCPAccessModeCustom:

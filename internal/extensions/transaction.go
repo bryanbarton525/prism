@@ -73,6 +73,17 @@ func (tx *Transaction) ReplaceManifest(manifest Manifest) {
 	tx.working = manifest.Clone()
 }
 
+// StageMCPAccess includes the access policy in the same recovery journal and
+// publication boundary as the extension manifest.
+func (tx *Transaction) StageMCPAccess(state MCPAccessState) error {
+	state, err := normalizeMCPAccess(state)
+	if err != nil {
+		return err
+	}
+	tx.working.MCPAccess = &state
+	return nil
+}
+
 func (tx *Transaction) Commit() error {
 	if tx.closed {
 		return fmt.Errorf("transaction already closed")
@@ -84,9 +95,18 @@ func (tx *Transaction) Commit() error {
 		return err
 	}
 	if err := tx.store.clearJournal(); err != nil {
+		// The manifest has already been durably committed. Mark the journal as
+		// committed before returning so recovery never restores its before-image.
+		if markErr := tx.store.markJournalCommitted(); markErr != nil {
+			tx.unlock()
+			tx.closed = true
+			return fmt.Errorf("commit succeeded but finalizing recovery journal failed: %v (mark failed: %w)", err, markErr)
+		}
 		tx.unlock()
 		tx.closed = true
-		return err
+		// The committed marker makes the remaining cleanup idempotent and
+		// prevents callers from compensating a state that was already published.
+		return nil
 	}
 	tx.unlock()
 	tx.closed = true
@@ -97,7 +117,7 @@ func (tx *Transaction) Rollback() error {
 	if tx.closed {
 		return nil
 	}
-	err := tx.store.SaveManifest(tx.previous)
+	err := tx.store.restoreJournalState()
 	if err == nil {
 		if clearErr := tx.store.clearJournal(); clearErr != nil {
 			err = clearErr

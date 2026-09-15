@@ -37,6 +37,12 @@ type ReleaseMetadata struct {
 	Contract struct {
 		ID string `json:"id"`
 	} `json:"contract"`
+	DependencyHashes struct {
+		PythonWheelSHA256     string `json:"python_wheel_sha256"`
+		PythonSDistSHA256     string `json:"python_sdist_sha256"`
+		UniversalUVLock       string `json:"universal_uv_lock"`
+		UniversalUVLockSHA256 string `json:"universal_uv_lock_sha256"`
+	} `json:"dependency_hashes"`
 	DeliberatelyUnsupported []string `json:"deliberately_unsupported"`
 }
 
@@ -81,6 +87,12 @@ func ValidateReleaseMetadata(data []byte) error {
 	}
 	if metadata.Contract.ID != PinnedContractID {
 		return fmt.Errorf("Graphify release metadata must identify contract %q", PinnedContractID)
+	}
+	if metadata.DependencyHashes.PythonWheelSHA256 != "7e11f2fd61b61552a17f8db1d4dadf8318b295436e61d997b5d85318cceccc6e" ||
+		metadata.DependencyHashes.PythonSDistSHA256 != "8058174c5f2a9bcdbb3a90d19f67ef32ca0504f7814b699322a48a785b91eafd" ||
+		metadata.DependencyHashes.UniversalUVLock != "managed-environment/uv.lock" ||
+		metadata.DependencyHashes.UniversalUVLockSHA256 != "15bb19dab6b284ccd0b0941c3096bf405873882f48bf9a5d20bb2ee64fd2997b" {
+		return fmt.Errorf("Graphify release metadata has unexpected managed-environment dependency hashes")
 	}
 	if len(metadata.DeliberatelyUnsupported) == 0 {
 		return fmt.Errorf("Graphify release metadata must disclose unsupported dependency operations")

@@ -129,9 +129,9 @@ metadata:
 
 1. **Discovery** - Prism loads `name` and `description` from every skill under
    `skills/` (or configured skill roots) for orchestrator selection.
-2. **Invocation** - Each `prism run` or MCP `run_agent` call must include one
-   or more skill IDs. Prism validates them against the target agent's
-   `allowed_skills` list in the agent spec.
+2. **Invocation** - Bundled-agent calls include one or more skill IDs.
+   User-managed agents may run with an explicitly empty allowlist. Prism
+   validates every supplied skill against the target agent's `allowed_skills`.
 3. **Progressive disclosure** - Prism injects skill metadata first, then the
    full `SKILL.md` body only for skills attached to that run (not the entire
    skill library).
@@ -141,6 +141,14 @@ metadata:
 The orchestrator (your AI editor) chooses which skills to attach based on
 the subtask. Prism enforces the allowlist; it does not auto-attach every skill
 an agent could use.
+
+Managed skills can be added from a local package, GitHub repository/tree, or a
+GitHub-backed skills.sh page with `prism skill add`. `prism skill resources`
+lists preserved support files and `prism skill read` reads UTF-8 text in bounded
+chunks. Each read is capped at 32 KiB and each run at 128 KiB; binary resources
+remain listable but are not interpreted as text. Script files are preserved and
+reported as unsupported execution capability—installation and loading never run
+them. See [runtime extension management](../docs/usage.md#runtime-extension-management).
 
 `graphify-query` is an internal attached skill for the bundled
 `repo-investigator`. It is intentionally excluded from host-skill installation:

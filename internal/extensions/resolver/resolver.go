@@ -31,14 +31,27 @@ type Result struct {
 }
 
 func Resolve(ctx context.Context, source, token string, bounds Bounds) (Result, error) {
-	fsys, cleanup, err := rootresolver.Resolve(ctx, source, token)
+	canonical, requestedRef, resolvedRevision := describeSource(source)
+	resolvedSource := source
+	if internalgithub.IsURL(source) {
+		owner, repo, _, parseErr := internalgithub.ParseURL(source)
+		if parseErr != nil {
+			return Result{}, parseErr
+		}
+		var err error
+		resolvedRevision, err = internalgithub.ResolveRevision(ctx, owner, repo, requestedRef, token)
+		if err != nil {
+			return Result{}, err
+		}
+		resolvedSource = fmt.Sprintf("https://github.com/%s/%s/tree/%s", owner, repo, resolvedRevision)
+	}
+	fsys, cleanup, err := rootresolver.Resolve(ctx, resolvedSource, token)
 	if err != nil {
 		return Result{}, err
 	}
 	if cleanup == nil {
 		cleanup = func() {}
 	}
-	canonical, requestedRef, resolvedRevision := describeSource(source)
 	digest, files, total, err := digestFS(fsys, bounds)
 	if err != nil {
 		cleanup()
@@ -63,7 +76,10 @@ func describeSource(source string) (canonical string, requestedRef string, resol
 			if ref == "" {
 				ref = "HEAD"
 			}
-			return fmt.Sprintf("github://%s/%s", owner, repo), ref, ref
+			// A branch or tag is a requested ref, not an immutable revision.
+			// Leave ResolvedRevision empty until a resolver has verified a commit
+			// SHA rather than recording misleading provenance.
+			return fmt.Sprintf("github://%s/%s", owner, repo), ref, ""
 		}
 	}
 	abs, err := filepath.Abs(source)

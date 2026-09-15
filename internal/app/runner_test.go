@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -434,12 +436,17 @@ allowed_skills: [gh-pr-triage]
 latency_budget_ms: 10000
 ---
 Managed body.`)
+	managedData, err := os.ReadFile(managedAgentPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	managedDigest := sha256.Sum256(managedData)
 	srv := mockOllama(t, `{"summary":"ok","findings":[],"artifacts":[],"confidence":"high"}`)
 	defer srv.Close()
 	snapshot := extensions.CatalogSnapshot{
 		Agents: []extensions.CatalogItem{
 			{ID: "github-cli", Origin: "bundled", Active: true},
-			{ID: "managed-agent", Origin: "managed", Active: true, ObjectPath: managedAgentPath},
+			{ID: "managed-agent", Origin: "managed", Active: true, ObjectPath: managedAgentPath, Digest: hex.EncodeToString(managedDigest[:])},
 		},
 		Skills: []extensions.CatalogItem{
 			{ID: "gh-pr-triage", Origin: "bundled", Active: true},

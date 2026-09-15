@@ -60,8 +60,8 @@ func ValidateStructure(fsys fs.FS, name string) error {
 // ExecutionLimitations reports runtime limitations separately from format validity.
 func ExecutionLimitations(fsys fs.FS, name string) []string {
 	var warnings []string
-	if _, err := fs.Stat(fsys, filepath.ToSlash(filepath.Join(name, "scripts", "collect.sh"))); err == nil {
-		warnings = append(warnings, "scripts/collect.sh present; script execution is not performed during installation")
+	if entries, err := fs.ReadDir(fsys, filepath.ToSlash(filepath.Join(name, "scripts"))); err == nil && len(entries) > 0 {
+		warnings = append(warnings, "scripts/ present; script execution is not performed during installation")
 	}
 	if _, err := fs.Stat(fsys, filepath.ToSlash(filepath.Join(name, "evals"))); err != nil && errors.Is(err, fs.ErrNotExist) {
 		warnings = append(warnings, "no evals/ directory; format valid but evaluation coverage unavailable")

@@ -115,14 +115,32 @@ func (c *Client) CallTool(ctx context.Context, serverName, toolName string, args
 	}
 	content := contentText(res.Content)
 	content, truncated := trimWithFlag(content, server.MaxBytes)
+	structured, structuredTruncated := boundedStructuredContent(res.StructuredContent, server.MaxBytes)
 	return CallResult{
 		Server:            serverName,
 		Tool:              toolName,
 		IsError:           res.IsError,
 		Content:           content,
-		StructuredContent: res.StructuredContent,
-		Truncated:         truncated,
+		StructuredContent: structured,
+		Truncated:         truncated || structuredTruncated,
 	}, nil
+}
+
+func boundedStructuredContent(value any, maxBytes int) (any, bool) {
+	if value == nil {
+		return nil, false
+	}
+	data, err := json.Marshal(value)
+	if err != nil {
+		return map[string]any{"truncated": true, "error": "structured content could not be serialized"}, true
+	}
+	if maxBytes <= 0 || len(data) <= maxBytes {
+		return value, false
+	}
+	// Keep the value valid JSON while bounding the bytes that can reach the
+	// bridge/model. Returning only the truncation marker avoids creating an
+	// invalid partial JSON document.
+	return map[string]any{"truncated": true}, true
 }
 
 // operationContext applies the server's timeout_ms to one ListTools/CallTool

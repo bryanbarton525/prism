@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/bryanbarton525/prism/internal/github"
 )
@@ -52,7 +53,7 @@ func Resolve(ctx context.Context, root, token string) (fsys fs.FS, cleanup func(
 		if !info.IsDir() {
 			return nil, func() {}, fmt.Errorf("rootresolver: local root is not a directory: %s", absolute)
 		}
-		return os.DirFS(absolute), func() {}, nil
+		return newConfinedDirFS(absolute), func() {}, nil
 	}
 
 	// --- GitHub URL ---
@@ -78,6 +79,37 @@ func Resolve(ctx context.Context, root, token string) (fsys fs.FS, cleanup func(
 	return cloneRepo(ctx, root)
 }
 
+// confinedDirFS deliberately rejects symlinks at every component. Repository
+// plugins consume arbitrary walked paths via fs.ReadFile; os.DirFS otherwise
+// follows a link inside the workspace and can expose files outside the root.
+type confinedDirFS struct {
+	root string
+}
+
+func newConfinedDirFS(root string) fs.FS {
+	return confinedDirFS{root: root}
+}
+
+func (f confinedDirFS) Open(name string) (fs.File, error) {
+	if name != "." && !fs.ValidPath(name) {
+		return nil, fs.ErrInvalid
+	}
+	current := f.root
+	if name != "." {
+		for _, component := range strings.Split(name, "/") {
+			current = filepath.Join(current, component)
+			info, err := os.Lstat(current)
+			if err != nil {
+				return nil, err
+			}
+			if info.Mode()&os.ModeSymlink != 0 {
+				return nil, fmt.Errorf("rootresolver: path %q contains a symlink", name)
+			}
+		}
+	}
+	return os.Open(current)
+}
+
 // probe verifies that the FS is accessible by attempting to read the root directory.
 func probe(ctx context.Context, fsys fs.FS) error {
 	_, err := fs.ReadDir(fsys, ".")
@@ -94,7 +126,15 @@ func cloneFallback(ctx context.Context, url string) (fs.FS, func(), error) {
 	rmCleanup := func() { os.RemoveAll(tmpDir) }
 
 	//nolint:gosec // url comes from the operator-controlled --root flag
-	cmd := exec.CommandContext(ctx, "git", cloneArgs(url, tmpDir)...)
+	cloneURL := url
+	ref := ""
+	if owner, repo, parsedRef, parseErr := github.ParseURL(url); parseErr == nil {
+		cloneURL = "https://github.com/" + owner + "/" + repo + ".git"
+		if parsedRef != "" && parsedRef != "HEAD" {
+			ref = parsedRef
+		}
+	}
+	cmd := exec.CommandContext(ctx, "git", cloneArgsWithRef(cloneURL, ref, tmpDir)...)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -107,4 +147,11 @@ func cloneFallback(ctx context.Context, url string) (fs.FS, func(), error) {
 
 func cloneArgs(url, dest string) []string {
 	return []string{"clone", "--depth", "1", "--", url, dest}
+}
+
+func cloneArgsWithRef(url, ref, dest string) []string {
+	if ref == "" {
+		return cloneArgs(url, dest)
+	}
+	return []string{"clone", "--depth", "1", "--branch", ref, "--single-branch", "--", url, dest}
 }

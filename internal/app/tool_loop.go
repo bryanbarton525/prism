@@ -13,6 +13,7 @@ import (
 	"github.com/bryanbarton525/prism/internal/graphify"
 	llmruntime "github.com/bryanbarton525/prism/internal/llm/runtime"
 	"github.com/bryanbarton525/prism/internal/result"
+	"github.com/bryanbarton525/prism/internal/skill"
 )
 
 const maxMCPToolRounds = 4
@@ -24,18 +25,20 @@ type chatToolResult struct {
 	completionTokens int
 }
 
-func (r *Runner) chatWithTools(ctx context.Context, req llmruntime.ChatRequest, spec *agent.Spec, workspace Workspace, workspaceFS fs.FS) (*chatToolResult, error) {
+func (r *Runner) chatWithTools(ctx context.Context, req llmruntime.ChatRequest, spec *agent.Spec, skillNames []string, workspace Workspace, workspaceFS fs.FS) (*chatToolResult, error) {
 	if r.usesGraphifyCapability(spec) {
 		return r.chatWithGraphifyToolLoop(ctx, req, r.graphifyAccess(ctx, workspace), workspaceFS)
 	}
-	if !agentUsesMCP(spec) || r.downmcp == nil {
+	managedResources := !r.isBundledAgent(spec.ID)
+	usesMCP := agentUsesMCP(spec) && r.downmcp != nil
+	if !usesMCP && !managedResources {
 		resp, err := r.llm.Chat(ctx, req)
 		if err != nil {
 			return nil, err
 		}
 		return &chatToolResult{response: resp, promptTokens: resp.Usage.PromptTokens, completionTokens: resp.Usage.CompletionTokens}, nil
 	}
-	return r.chatWithMCPToolLoop(ctx, req, spec.ID)
+	return r.chatWithMCPToolLoop(ctx, req, spec.ID, skillNames, usesMCP, managedResources)
 }
 
 func (r *Runner) usesGraphifyCapability(spec *agent.Spec) bool {
@@ -282,18 +285,27 @@ func (r *Runner) dispatchGraphifyToolCall(ctx context.Context, access graphifyAc
 	if err != nil {
 		return "", nil, err
 	}
-	if err := graphify.ValidateTool(name, round, []byte(res.Content)); err != nil {
+	verificationInput := res.Content
+	if res.StructuredContent != nil {
+		structured, marshalErr := json.Marshal(res.StructuredContent)
+		if marshalErr != nil {
+			return "", nil, fmt.Errorf("encode Graphify structured result: %w", marshalErr)
+		}
+		verificationInput += "\n" + string(structured)
+	}
+	if err := graphify.ValidateTool(name, round, []byte(verificationInput)); err != nil {
 		return "", nil, err
 	}
-	if len(res.Content) > graphify.MaxGraphResponseBytes {
+	if len(verificationInput) > graphify.MaxGraphResponseBytes {
 		return "", nil, fmt.Errorf("Graphify tool response exceeds %d byte limit", graphify.MaxGraphResponseBytes)
 	}
-	verifications := graphify.VerifyGraphSources(workspace, res.Content)
+	verifications := graphify.VerifyGraphSources(workspace, verificationInput)
 	content := marshalToolResult(map[string]any{
 		"server":              access.server.Name,
 		"tool":                name,
 		"is_error":            res.IsError,
 		"content":             res.Content,
+		"structured_content":  res.StructuredContent,
 		"truncated":           res.Truncated,
 		"source_verification": verifications,
 		"provenance": map[string]string{
@@ -310,8 +322,8 @@ func (r *Runner) dispatchGraphifyToolCall(ctx context.Context, access graphifyAc
 	return content, verifications, nil
 }
 
-func (r *Runner) chatWithMCPToolLoop(ctx context.Context, req llmruntime.ChatRequest, agentID string) (*chatToolResult, error) {
-	req.Tools = prismMCPTools()
+func (r *Runner) chatWithMCPToolLoop(ctx context.Context, req llmruntime.ChatRequest, agentID string, skillNames []string, includeMCP, includeResources bool) (*chatToolResult, error) {
+	req.Tools = prismMCPTools(includeMCP, includeResources)
 	offered := make(map[string]bool, len(req.Tools))
 	for _, tool := range req.Tools {
 		offered[tool.Function.Name] = true
@@ -319,6 +331,7 @@ func (r *Runner) chatWithMCPToolLoop(ctx context.Context, req llmruntime.ChatReq
 	var artifacts []result.Artifact
 	var promptTokens int
 	var completionTokens int
+	resourceBytes := 0
 	for round := 0; round < maxMCPToolRounds; round++ {
 		resp, err := r.llm.Chat(ctx, req)
 		if err != nil {
@@ -347,7 +360,7 @@ func (r *Runner) chatWithMCPToolLoop(ctx context.Context, req llmruntime.ChatReq
 		normalizeToolCallIDs(resp.Message.ToolCalls, round)
 		req.Messages = append(req.Messages, resp.Message)
 		for _, call := range resp.Message.ToolCalls {
-			content, artifact := r.executeMCPToolCall(ctx, agentID, call.Function.Name, call.Function.Arguments)
+			content, artifact := r.executeMCPToolCall(ctx, agentID, skillNames, &resourceBytes, call.Function.Name, call.Function.Arguments)
 			artifacts = append(artifacts, artifact)
 			req.Messages = append(req.Messages, llmruntime.Message{
 				Role:       "tool",
@@ -403,31 +416,57 @@ Do not claim a downstream mutation succeeded unless a call_mcp_tool result prove
 `
 }
 
-func prismMCPTools() []llmruntime.Tool {
-	return []llmruntime.Tool{
-		functionTool("list_mcp_servers", "List downstream MCP servers configured for Prism.", map[string]any{
-			"type":       "object",
-			"properties": map[string]any{},
-		}),
-		functionTool("list_mcp_server_tools", "List compact tool inventory for one downstream MCP server.", map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"server":         map[string]any{"type": "string", "description": "Configured downstream MCP server name."},
-				"include_schema": map[string]any{"type": "boolean", "description": "Whether to include input schemas."},
-				"max_tools":      map[string]any{"type": "integer", "description": "Maximum tools to return."},
-			},
-			"required": []string{"server"},
-		}),
-		functionTool("call_mcp_tool", "Call one tool on a configured downstream MCP server and return a bounded result.", map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"server":    map[string]any{"type": "string", "description": "Configured downstream MCP server name."},
-				"tool":      map[string]any{"type": "string", "description": "Downstream MCP tool name."},
-				"arguments": map[string]any{"type": "object", "description": "Arguments for the downstream MCP tool."},
-			},
-			"required": []string{"server", "tool"},
-		}),
+func skillResourceToolInstructions(skillNames []string) string {
+	return fmt.Sprintf(`
+
+# Attached Skill Resources
+
+This managed-agent run may inspect resources only from these attached skills: %s.
+Use list_skill_resources before read_skill_resource. Each read is capped at 32 KiB and the run is capped at 128 KiB total. Binary resources cannot be read as text.
+`, strings.Join(skillNames, ", "))
+}
+
+func prismMCPTools(includeMCP, includeResources bool) []llmruntime.Tool {
+	tools := []llmruntime.Tool{}
+	if includeMCP {
+		tools = append(tools,
+			functionTool("list_mcp_servers", "List downstream MCP servers configured for Prism.", map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+			}),
+			functionTool("list_mcp_server_tools", "List compact tool inventory for one downstream MCP server.", map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"server":         map[string]any{"type": "string", "description": "Configured downstream MCP server name."},
+					"include_schema": map[string]any{"type": "boolean", "description": "Whether to include input schemas."},
+					"max_tools":      map[string]any{"type": "integer", "description": "Maximum tools to return."},
+				},
+				"required": []string{"server"},
+			}),
+			functionTool("call_mcp_tool", "Call one tool on a configured downstream MCP server and return a bounded result.", map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"server":    map[string]any{"type": "string", "description": "Configured downstream MCP server name."},
+					"tool":      map[string]any{"type": "string", "description": "Downstream MCP tool name."},
+					"arguments": map[string]any{"type": "object", "description": "Arguments for the downstream MCP tool."},
+				},
+				"required": []string{"server", "tool"},
+			}))
 	}
+	if includeResources {
+		tools = append(tools,
+			functionTool("list_skill_resources", "List resources only for a skill attached to this run.", map[string]any{
+				"type": "object", "properties": map[string]any{"skill_name": map[string]any{"type": "string"}}, "required": []string{"skill_name"},
+			}),
+			functionTool("read_skill_resource", "Read bounded UTF-8 content only from a skill attached to this run.", map[string]any{
+				"type": "object", "properties": map[string]any{
+					"skill_name": map[string]any{"type": "string"}, "path": map[string]any{"type": "string"},
+					"offset": map[string]any{"type": "integer"}, "limit": map[string]any{"type": "integer"},
+				}, "required": []string{"skill_name", "path"},
+			}),
+		)
+	}
+	return tools
 }
 
 var toolCallFenceRE = regexp.MustCompile("(?s)```(?:json)?\\s*([\\s\\S]*?)```")
@@ -501,11 +540,11 @@ func functionTool(name, description string, parameters map[string]any) llmruntim
 	}
 }
 
-func (r *Runner) executeMCPToolCall(ctx context.Context, agentID string, name string, args map[string]any) (string, result.Artifact) {
+func (r *Runner) executeMCPToolCall(ctx context.Context, agentID string, skillNames []string, resourceBytes *int, name string, args map[string]any) (string, result.Artifact) {
 	if args == nil {
 		args = map[string]any{}
 	}
-	content, label, err := r.dispatchMCPToolCall(ctx, agentID, name, args)
+	content, label, err := r.dispatchMCPToolCall(ctx, agentID, skillNames, resourceBytes, name, args)
 	if err != nil {
 		content = marshalToolResult(map[string]any{"error": err.Error()})
 		label = "mcp-tool:" + name
@@ -517,7 +556,54 @@ func (r *Runner) executeMCPToolCall(ctx context.Context, agentID string, name st
 	}
 }
 
-func (r *Runner) dispatchMCPToolCall(ctx context.Context, agentID string, name string, args map[string]any) (string, string, error) {
+func (r *Runner) dispatchMCPToolCall(ctx context.Context, agentID string, skillNames []string, resourceBytes *int, name string, args map[string]any) (string, string, error) {
+	if name == "list_skill_resources" || name == "read_skill_resource" {
+		skillName, err := stringArg(args, "skill_name")
+		if err != nil {
+			return "", "", err
+		}
+		attached := false
+		for _, candidate := range skillNames {
+			if strings.EqualFold(candidate, skillName) {
+				attached = true
+				skillName = candidate
+				break
+			}
+		}
+		if !attached {
+			return "", "", fmt.Errorf("skill %q is not attached to this run", skillName)
+		}
+		if name == "list_skill_resources" {
+			entries, err := skill.ListResources(r.skillsFS, skillName)
+			if err != nil {
+				return "", "", err
+			}
+			return marshalToolResult(map[string]any{"skill_name": skillName, "resources": entries}), "skill-resource:" + skillName + ".list", nil
+		}
+		resourcePath, err := stringArg(args, "path")
+		if err != nil {
+			return "", "", err
+		}
+		offset, _ := intArg(args, "offset")
+		limit, _ := intArg(args, "limit")
+		remaining := 128*1024 - *resourceBytes
+		if remaining <= 0 {
+			return "", "", fmt.Errorf("per-run skill resource budget of 131072 bytes is exhausted")
+		}
+		maxRead := 32 * 1024
+		if remaining < maxRead {
+			maxRead = remaining
+		}
+		out, err := skill.ReadResource(r.skillsFS, skillName, resourcePath, skill.ReadResourceOptions{Offset: int64(offset), Limit: int64(limit), MaxReadBytes: int64(maxRead)})
+		if err != nil {
+			return "", "", err
+		}
+		*resourceBytes += len(out.Content)
+		return marshalToolResult(out), "skill-resource:" + skillName + "/" + out.Path, nil
+	}
+	if r.downmcp == nil {
+		return "", "", fmt.Errorf("downstream MCP client is unavailable")
+	}
 	serverNames := []string{}
 	for _, s := range r.downmcp.Servers() {
 		serverNames = append(serverNames, s.Name)

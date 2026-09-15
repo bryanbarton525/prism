@@ -38,11 +38,32 @@ func Load(path string) (State, error) {
 	if err != nil {
 		return State{}, err
 	}
+	if err := snapshot.State.Validate(); err != nil {
+		return State{}, err
+	}
 	return snapshot.State, nil
 }
 
 func Save(path string, state State) error {
+	if err := state.Validate(); err != nil {
+		return err
+	}
 	return writeStateAtomically(path, state)
+}
+
+func (s State) Validate() error {
+	seen := map[string]struct{}{}
+	for _, server := range s.Servers {
+		if err := server.Validate(); err != nil {
+			return fmt.Errorf("server %q: %w", server.Name, err)
+		}
+		key := strings.ToLower(strings.TrimSpace(server.Name))
+		if _, exists := seen[key]; exists {
+			return fmt.Errorf("duplicate server name %q", server.Name)
+		}
+		seen[key] = struct{}{}
+	}
+	return nil
 }
 
 func (s State) Get(name string) (Server, bool) {
@@ -88,17 +109,44 @@ func (s Server) Validate() error {
 	if strings.TrimSpace(s.Name) == "" {
 		return errors.New("server name is required")
 	}
+	if s.TimeoutMS < 0 {
+		return errors.New("timeout_ms must be > 0 when specified")
+	}
+	if s.MaxBytes < 0 {
+		return errors.New("max_bytes must be > 0 when specified")
+	}
+	if err := validateReferences(s.EnvRefs, "environment"); err != nil {
+		return err
+	}
+	if err := validateReferences(s.HeaderRefs, "header"); err != nil {
+		return err
+	}
 	switch s.Transport {
 	case TransportCommand:
 		if strings.TrimSpace(s.Command) == "" {
 			return errors.New("command transport requires command")
 		}
+		if strings.TrimSpace(s.URL) != "" || len(s.HeaderRefs) > 0 {
+			return errors.New("command transport cannot include URL or header references")
+		}
 	case TransportSSE, TransportStreamableHTTP:
 		if err := validateHTTPURL(s.URL); err != nil {
 			return err
 		}
+		if strings.TrimSpace(s.Command) != "" || len(s.Args) > 0 || len(s.EnvRefs) > 0 {
+			return errors.New("URL-based transport cannot include command, args, or environment references")
+		}
 	default:
 		return errors.New("transport must be command, sse, or streamable-http")
+	}
+	return nil
+}
+
+func validateReferences(refs map[string]string, kind string) error {
+	for key, ref := range refs {
+		if strings.TrimSpace(key) == "" || strings.TrimSpace(ref) == "" {
+			return fmt.Errorf("%s reference assignments require non-empty key and environment variable", kind)
+		}
 	}
 	return nil
 }

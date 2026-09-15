@@ -2,6 +2,8 @@ package mcp
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -153,12 +155,17 @@ Managed body.`), 0o644); err != nil {
 	_, thisFile, _, _ := runtime.Caller(0)
 	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(thisFile), "..", ".."))
 	base := os.DirFS(repoRoot)
+	agentData, err := os.ReadFile(agentPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agentDigest := sha256.Sum256(agentData)
 	snapshot, err := extensions.ComposeCatalog(extensions.ComposeInput{
 		BundleFS: base,
 		Manifest: extensions.Manifest{
 			Version: extensions.ManifestVersion,
 			Entries: []extensions.ManifestEntry{
-				{Identity: "managed-agent", Kind: "agent", ObjectPath: agentPath, Digest: "a", Source: "test"},
+				{Identity: "managed-agent", Kind: "agent", ObjectPath: agentPath, Digest: hex.EncodeToString(agentDigest[:]), Source: "test"},
 			},
 		},
 	})

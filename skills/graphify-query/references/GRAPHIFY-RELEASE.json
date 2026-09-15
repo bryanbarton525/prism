@@ -46,17 +46,19 @@
     ]
   },
   "platform_support": {
-    "status": "not asserted by Prism",
-    "reason": "The pinned upstream pyproject requires Python >=3.10 but does not provide Prism a platform compatibility contract. Operators validate their own platform."
+    "status": "validated at install time",
+    "reason": "The universal uv lock covers Python >=3.10. uv validates the selected system interpreter and platform wheels before changing the Prism-owned environment; Prism does not download Python itself."
   },
   "dependency_hashes": {
     "release_asset": "Recorded above from the upstream release.",
-    "python_distribution": "No Python wheel or source-distribution hashes are embedded because Prism does not download, install, or manage Python dependencies."
+    "python_wheel_sha256": "7e11f2fd61b61552a17f8db1d4dadf8318b295436e61d997b5d85318cceccc6e",
+    "python_sdist_sha256": "8058174c5f2a9bcdbb3a90d19f67ef32ca0504f7814b699322a48a785b91eafd",
+    "universal_uv_lock": "managed-environment/uv.lock",
+    "universal_uv_lock_sha256": "15bb19dab6b284ccd0b0941c3096bf405873882f48bf9a5d20bb2ee64fd2997b"
   },
   "deliberately_unsupported": [
-    "Prism does not create or own a Python environment.",
-    "Prism does not download or install Graphify or its MCP extra.",
     "Prism does not automatically build, refresh, or infer a repository index.",
-    "Prism does not certify a platform beyond recording the upstream Python requirement."
+    "Prism does not download Python or modify system Python.",
+    "Prism does not claim compatibility until uv resolves the locked artifacts for the selected system interpreter and platform."
   ]
 }

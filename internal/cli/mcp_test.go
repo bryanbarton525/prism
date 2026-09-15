@@ -1,17 +1,49 @@
 package cli
 
 import (
+	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
 	"github.com/bryanbarton525/prism/internal/extensions"
+	"github.com/bryanbarton525/prism/internal/graphify"
 )
 
 func TestPrintDownstreamMCPMutationConflict(t *testing.T) {
 	err := printDownstreamMCPMutation("linear", downstreammcp.OutcomeConflict)
 	if err == nil {
 		t.Fatal("expected conflict error")
+	}
+}
+
+func TestMCPRemoveRejectsAtomicAccessAndGraphifyReferences(t *testing.T) {
+	orig := gf.stateDir
+	gf.stateDir = t.TempDir()
+	t.Cleanup(func() { gf.stateDir = orig })
+	server := downstreammcp.Server{Name: "graphify", Transport: downstreammcp.TransportStreamableHTTP, URL: "https://graphify.example/mcp"}
+	if err := downstreammcp.Save(mcpServersPath(), downstreammcp.State{Servers: []downstreammcp.Server{server}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := extensions.UpdateMCPAccess(context.Background(), gf.stateDir, func(state *extensions.MCPAccessState) error { state.DefaultServers = []string{"graphify"}; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	cfg := graphify.Config{OperatorApproved: true, Endpoint: &graphify.Endpoint{Server: "graphify", Kind: graphify.EndpointSelfHosted}, Binding: &graphify.Binding{Workspace: t.TempDir(), IndexPath: filepath.Join(t.TempDir(), "graph.json"), UpstreamVersion: graphify.PinnedUpstreamVersion, SchemaVersion: graphify.PinnedContractID, GenerationFingerprint: "sha"}}
+	if err := graphify.Save(filepath.Join(gf.stateDir, "graphify.yaml"), cfg); err != nil {
+		t.Fatal(err)
+	}
+	cmd := newMCPRemoveCmd()
+	cmd.SetArgs([]string{"graphify"})
+	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "default access set") || !strings.Contains(err.Error(), "Graphify endpoint") {
+		t.Fatalf("reference error = %v", err)
+	}
+	state, err := downstreammcp.Load(mcpServersPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := state.Get("graphify"); !ok {
+		t.Fatal("referenced server was removed")
 	}
 }
 
@@ -178,6 +210,12 @@ func TestMCPAccessCommandsPersistState(t *testing.T) {
 	orig := gf.stateDir
 	gf.stateDir = t.TempDir()
 	defer func() { gf.stateDir = orig }()
+	if err := downstreammcp.Save(mcpServersPath(), downstreammcp.State{Servers: []downstreammcp.Server{
+		{Name: "linear", Transport: downstreammcp.TransportCommand, Command: "linear"},
+		{Name: "docs", Transport: downstreammcp.TransportCommand, Command: "docs"},
+	}}); err != nil {
+		t.Fatal(err)
+	}
 
 	cmd := newMCPAccessDefaultSetCmd()
 	cmd.SetArgs([]string{"--server", "linear", "--server", "docs"})

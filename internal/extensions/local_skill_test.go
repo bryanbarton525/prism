@@ -11,7 +11,7 @@ import (
 func TestInstallResolvedSkillsMaterializesSourceFilesystem(t *testing.T) {
 	state := t.TempDir()
 	source := fstest.MapFS{
-		"SKILL.md": &fstest.MapFile{Data: []byte("# Remote skill")},
+		"SKILL.md": &fstest.MapFile{Data: []byte("---\nname: remote-skill\ndescription: Remote skill\n---\n# Remote skill")},
 		"guide.md": &fstest.MapFile{Data: []byte("guidance")},
 	}
 	entries, err := NewLocalSkillService(state).InstallResolvedSkills(context.Background(), source, "remote-skill", "github://owner/repo", DiscoverSkillsOptions{}, false, false)
@@ -26,9 +26,38 @@ func TestInstallResolvedSkillsMaterializesSourceFilesystem(t *testing.T) {
 	}
 }
 
+func TestManagedSkillRecoveryDoesNotNeedRunnableCatalogOrDeleteOldObject(t *testing.T) {
+	state := t.TempDir()
+	svc := NewLocalSkillService(state)
+	source := fstest.MapFS{
+		"SKILL.md": &fstest.MapFile{Data: []byte("---\nname: recovery-skill\ndescription: Recovery fixture\n---\n# Original")},
+	}
+	entries, err := svc.InstallResolvedSkills(context.Background(), source, "recovery-skill", "fixture", DiscoverSkillsOptions{}, false, false)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("install: entries=%#v err=%v", entries, err)
+	}
+	oldObject := filepath.Join(entries[0].ObjectPath, "SKILL.md")
+	oldContent, err := os.ReadFile(oldObject)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if listed, err := svc.ListManagedSkills(context.Background()); err != nil || len(listed) != 1 {
+		t.Fatalf("list without catalog: entries=%#v err=%v", listed, err)
+	}
+	if ok, err := svc.RenameManagedSkill(context.Background(), "recovery-skill", "restored-skill", false); err != nil || !ok {
+		t.Fatalf("rename without catalog: ok=%v err=%v", ok, err)
+	}
+	if ok, err := svc.RemoveManagedSkill(context.Background(), "restored-skill", false); err != nil || !ok {
+		t.Fatalf("remove without catalog: ok=%v err=%v", ok, err)
+	}
+	if data, err := os.ReadFile(oldObject); err != nil || string(data) != string(oldContent) {
+		t.Fatalf("old snapshot object lost: data=%q err=%v", data, err)
+	}
+}
+
 func TestDiscoverSkillsFSFindsRepositorySkillsDirectory(t *testing.T) {
 	source := fstest.MapFS{
-		"skills/demo/SKILL.md": &fstest.MapFile{Data: []byte("# Demo")},
+		"skills/demo/SKILL.md": &fstest.MapFile{Data: []byte("---\nname: demo\ndescription: Demo\n---\n# Demo")},
 	}
 	skills, err := DiscoverSkillsFS(source, "ignored", DiscoverSkillsOptions{})
 	if err != nil {

@@ -58,10 +58,12 @@ Generated specialist files are adapters, not copies of Prism frontmatter. They p
 
 The scope manifest is `.prism/install.json`. Upgrades touch only its recorded paths. Prism refuses unmanaged collisions unless `--force` is used, backs up changed host configuration, removes stale managed paths, and rolls back touched paths on failure.
 
-`prism install --runtime-only` initializes only runtime-extension state. It does
-not download Graphify, create an index, register an endpoint, or alter an
-existing `graphify.yaml` binding. The same is true of unattended installation
-paths (`--yes`, `--all`) and install previews (`--dry-run`).
+`prism install --runtime-only` initializes only runtime-extension state unless
+the caller also makes the specific `--graphify-managed` selection. `--all` and
+`--yes` alone never install Python dependencies. `--dry-run` may resolve
+sources and prints the exact managed `uv sync` operation, but never activates
+content, writes configuration, contacts an endpoint, or changes an environment.
+Prism never creates or refreshes a Graphify index.
 
 `--runtime-skill-source` accepts an explicitly selected local directory or a
 GitHub source supported by the bounded resolver. Multiple discovered skills
@@ -75,6 +77,60 @@ Per-agent MCP access is intentionally unchanged by import and copy; configure
 it explicitly with `prism --state-dir STATE mcp access agent set AGENT ...` so
 unattended setup never grants a capability.
 
+### Runtime extension management
+
+Direct additions accept local files/directories, GitHub `owner/repo`, repository
+URLs, and unambiguous tree URLs. Use explicit `--ref` and `--path` when a tree
+URL could split a slash-containing branch from a repository subpath. A resolved
+GitHub branch or tag is persisted as its immutable commit SHA. A
+`https://skills.sh/owner/repo/skill` input is normalized only to that verified
+GitHub repository and named skill; Prism does not depend on a skills.sh catalog
+API.
+
+```bash
+prism skill add ./skill-package
+prism skill add owner/repo --skill one --skill two
+prism skill add owner/repo --list
+prism skill rename old-name new-name
+prism skill resources new-name
+prism skill read new-name references/guide.md --offset 0 --limit 4096
+
+prism agent add agents/reviewer.md --model local-review-model
+prism agent add owner/repo --agent reviewer --model local-review-model
+prism agent add owner/repo --all --import-config decisions.yaml
+prism agent copy github-cli my-github-agent
+prism agent skill add my-github-agent new-name
+prism agent model set my-github-agent --use-configured-model
+prism agent rename my-github-agent renamed-agent
+prism mcp access agent set renamed-agent --mode custom --server docs
+```
+
+Skills use the portable Agent Skills `SKILL.md` format. Optional references,
+assets, scripts, and other regular support files are retained; installation
+does not execute scripts. Resources are listed with media type, size, and binary
+status. UTF-8 reads are limited to 32 KiB each and 128 KiB per specialist run.
+Managed tool-capable agents may read only resources belonging to skills attached
+to that run. A non-tool model receives only resources explicitly selected with
+repeatable `--skill-resource <skill>:<path>` (or the matching MCP/graph field).
+Absolute paths, traversal, escaping links, and binary-as-text reads are rejected.
+
+Agent imports support native Prism Markdown, Claude Code Markdown under
+`.claude/agents`, and Codex TOML under `.codex/agents`; `AGENTS.md` is never
+auto-imported. Every import requires `--model`, `--use-configured-model`, or a
+versioned `--import-config`. Source cloud-model names remain provenance, not
+execution targets. Unknown source fields are reported as translation losses and
+must each be mapped to a supported Prism field or omitted with a reason. The
+configuration binds its decisions to source and adapter digests, so stale
+decisions fail. `--dry-run --json` emits the report and a decision skeleton and
+still exits nonzero when review is required.
+
+Rename rewrites the managed identity and tracked managed-agent skill bindings
+atomically while retaining original source/provenance. It cannot rewrite prose
+or external callers. Removal refuses referenced skills and MCP servers. Changes
+are visible to the next direct CLI process; reconnect or restart a running Prism
+MCP server. Tasks already running retain their loaded snapshot, and immutable
+objects are kept so their content remains readable.
+
 Hosts receive an absolute `--state-dir` in their generated MCP command. On
 startup Prism loads that selected state directory's `config.env`, after
 explicit environment variables, so a host launched elsewhere observes the
@@ -84,8 +140,9 @@ project runtime.
 ## Graphify repository investigation
 
 Graphify is optional and disabled until an operator records an exact binding.
-Prism never downloads its executable, starts a service during setup or doctor,
-or builds an index. The bundled `repo-investigator` is intended only for
+Prism can create a separately owned pinned environment only after an explicit
+managed-install selection; it never builds an index. The bundled
+`repo-investigator` is intended only for
 repository architecture, cross-component relationship, dependency-path, and
 change-impact investigations. Hosts delegate it through Prism `run_agent`;
 they do not receive its internal Graphify tool instructions. Keep ordinary
@@ -102,10 +159,14 @@ at commit `fe66389083369c3159aa391117185c8f58b4d07c`. Its package is
 asset digest, Apache-2.0 notice, exact source basis, and intentionally
 unsupported dependency operations.
 
-Prism does **not** create a Python environment, fetch a Python distribution,
-or certify a platform: upstream declares the Python floor but gives Prism no
-platform contract. Operators provision a compatible environment and index
-outside Prism. The reviewed, deterministic code-only indexing command is:
+Prism embeds a reviewed `pyproject.toml` and universal `uv.lock` with hashes for
+the pinned dependency graph. `graphify setup
+--install-managed-environment` copies them beneath the selected state directory
+and runs `uv sync --frozen --no-dev --no-managed-python`; it never changes
+system Python or downloads a Python interpreter. Upstream declares Python
+`>=3.10`; Prism verifies Linux and Windows builds but does not claim an upstream
+platform guarantee. Operators still create the repository index separately.
+The reviewed deterministic code-only indexing command is:
 
 ```bash
 python -m pip install "graphifyy[mcp]==0.9.61"
@@ -113,7 +174,7 @@ graphify extract "$PWD" --code-only --no-viz
 graphify-mcp --graph "$PWD/graphify-out/graph.json"
 ```
 
-The commands above are not run by Prism or by CI. `--code-only` is the pinned
+The indexing and server commands above are not run by Prism or by CI. `--code-only` is the pinned
 upstream's local AST-only mode and does not use an LLM or API key;
 `--no-viz` omits the unneeded visual output. `graphify-mcp --graph` receives
 the absolute `graph.json` path when Prism launches it as a local downstream
@@ -127,12 +188,12 @@ prism graphify setup --approve \
   --fingerprint "$SOURCE_FINGERPRINT" \
   --server graphify --endpoint-kind self-hosted
 
-# A named managed endpoint requires both environment identity and version.
+# Explicitly install Prism's pinned managed environment and register its exact command.
 prism graphify setup --approve \
   --workspace "$PWD" --index "$PWD/graphify-out/graph.json" \
   --fingerprint "$SOURCE_FINGERPRINT" \
-  --server graphify-prod --endpoint-kind managed \
-  --environment production --environment-version 2026.09.1
+  --server graphify --endpoint-kind managed \
+  --install-managed-environment
 
 prism graphify doctor --workspace "$PWD" --fingerprint "$SOURCE_FINGERPRINT"
 ```
@@ -155,13 +216,16 @@ user-managed local executable. `self-hosted` identifies an endpoint you
 operate; `managed` requires a named environment and immutable version pin.
 Doctor checks recorded approval, schema support, upstream version metadata,
 workspace/fingerprint binding, index presence, local executable availability,
-and registration/transport of the named MCP server. It deliberately does not
-contact or launch an endpoint, so it cannot trigger a dependency download or
-index build. `graphify setup --dry-run` is configuration preview only.
+and registration/transport of the named MCP server. It does not contact or
+launch an endpoint unless `--probe` is selected; that explicit probe lists live
+tools and rejects schema drift. Neither mode downloads dependencies or builds an
+index. `graphify setup --dry-run` is configuration preview only.
 
-`prism graphify remove --approve` deletes only Prism's configuration file. It
-preserves all user-managed executables, indexes, endpoints, and MCP server
-registrations.
+`prism graphify remove --approve` deletes Prism's configuration. For an exactly
+matching Prism-owned managed endpoint it also removes that downstream
+registration and managed environment. Drift is refused for manual recovery.
+User-managed executables, environments, indexes, endpoints, and MCP
+registrations are preserved.
 
 At invocation Prism checks the pinned MCP schemas before offering the
 specialist any tools, allows only `query_graph`, `get_node`, `get_neighbors`,

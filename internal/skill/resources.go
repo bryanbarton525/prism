@@ -3,6 +3,7 @@ package skill
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"mime"
 	"path"
@@ -38,6 +39,9 @@ type ReadResourceResult struct {
 
 // ListResources lists files under a skill directory, excluding SKILL.md.
 func ListResources(fsys fs.FS, skillName string) ([]ResourceEntry, error) {
+	if err := validateSkillIdentity(skillName); err != nil {
+		return nil, err
+	}
 	root := filepath.ToSlash(path.Join(skillName))
 	entries := []ResourceEntry{}
 	err := fs.WalkDir(fsys, root, func(p string, d fs.DirEntry, err error) error {
@@ -47,12 +51,18 @@ func ListResources(fsys fs.FS, skillName string) ([]ResourceEntry, error) {
 		if d.IsDir() {
 			return nil
 		}
-		if strings.EqualFold(path.Base(p), "SKILL.md") {
+		if d.Type()&fs.ModeSymlink != 0 {
+			return fmt.Errorf("resource %q is a symlink", p)
+		}
+		if p == path.Join(root, "SKILL.md") {
 			return nil
 		}
 		info, err := d.Info()
 		if err != nil {
 			return err
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("resource %q is not a regular file", p)
 		}
 		rel, err := filepath.Rel(root, p)
 		if err != nil {
@@ -89,45 +99,142 @@ func ReadResource(fsys fs.FS, skillName, resourcePath string, opts ReadResourceO
 	if opts.Limit < 0 {
 		return ReadResourceResult{}, fmt.Errorf("limit must be >= 0")
 	}
+	if err := validateSkillIdentity(skillName); err != nil {
+		return ReadResourceResult{}, err
+	}
 	rel, err := normalizeResourcePath(resourcePath)
 	if err != nil {
 		return ReadResourceResult{}, err
 	}
+	mediaType := resourceMediaType(rel)
+	if !isTextMediaType(mediaType) {
+		return ReadResourceResult{}, fmt.Errorf("reading resource %q: %w", rel, ErrUnsupportedTextResource)
+	}
 	fullPath := filepath.ToSlash(path.Join(skillName, rel))
-	data, err := fs.ReadFile(fsys, fullPath)
+	if err := rejectSymlinkComponents(fsys, fullPath); err != nil {
+		return ReadResourceResult{}, err
+	}
+	file, err := fsys.Open(fullPath)
 	if err != nil {
 		return ReadResourceResult{}, fmt.Errorf("reading resource %q: %w", rel, err)
 	}
-	if !utf8.Valid(data) {
-		return ReadResourceResult{}, fmt.Errorf("reading resource %q: %w", rel, ErrUnsupportedTextResource)
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return ReadResourceResult{}, fmt.Errorf("stat resource %q: %w", rel, err)
 	}
-	size := int64(len(data))
+	if !info.Mode().IsRegular() {
+		return ReadResourceResult{}, fmt.Errorf("reading resource %q: not a regular file", rel)
+	}
+	size := info.Size()
 	if opts.Offset >= size {
 		return ReadResourceResult{
-			Path:      rel,
-			MediaType: resourceMediaType(rel),
-			Size:      size,
-			Offset:    opts.Offset,
-			Truncated: false,
-			Content:   "",
+			Path: rel, MediaType: mediaType, Size: size, Offset: opts.Offset,
 		}, nil
 	}
 	max := opts.MaxReadBytes
 	if opts.Limit > 0 && opts.Limit < max {
 		max = opts.Limit
 	}
-	end := opts.Offset + max
-	if end > size {
-		end = size
+	start := opts.Offset
+	if start > 3 {
+		start -= 3
+	} else {
+		start = 0
 	}
+	if seeker, ok := file.(io.Seeker); ok {
+		if _, err := seeker.Seek(start, io.SeekStart); err != nil {
+			return ReadResourceResult{}, fmt.Errorf("seek resource %q: %w", rel, err)
+		}
+	} else if _, err := io.CopyN(io.Discard, file, start); err != nil {
+		return ReadResourceResult{}, fmt.Errorf("seek resource %q: %w", rel, err)
+	}
+	prefix := opts.Offset - start
+	remaining := size - start
+	want := boundedReadLength(remaining, prefix, max)
+	data, err := io.ReadAll(io.LimitReader(file, want))
+	if err != nil {
+		return ReadResourceResult{}, fmt.Errorf("reading resource %q: %w", rel, err)
+	}
+	if !utf8.Valid(data) {
+		return ReadResourceResult{}, fmt.Errorf("reading resource %q: %w", rel, ErrUnsupportedTextResource)
+	}
+	begin := int(prefix)
+	for begin > 0 && begin < len(data) && isUTF8Continuation(data[begin]) {
+		begin--
+	}
+	if begin == len(data) {
+		return ReadResourceResult{Path: rel, MediaType: mediaType, Size: size, Offset: opts.Offset}, nil
+	}
+	end := begin + int(minInt64(max, int64(len(data)-begin)))
+	for end > begin && end < len(data) && isUTF8Continuation(data[end]) {
+		end--
+	}
+	actualOffset := start + int64(begin)
+	actualEnd := start + int64(end)
 	return ReadResourceResult{
 		Path:      rel,
-		MediaType: resourceMediaType(rel),
+		MediaType: mediaType,
 		Size:      size,
-		Offset:    opts.Offset,
-		Truncated: end < size,
-		Content:   string(data[opts.Offset:end]),
+		Offset:    actualOffset,
+		Truncated: actualEnd < size,
+		Content:   string(data[begin:end]),
 	}, nil
+}
+
+func validateSkillIdentity(name string) error {
+	if !standardSkillNamePattern.MatchString(strings.TrimSpace(name)) {
+		return fmt.Errorf("skill name %q must match %s", name, standardSkillNamePattern.String())
+	}
+	return nil
+}
+
+func rejectSymlinkComponents(fsys fs.FS, name string) error {
+	current := "."
+	for _, component := range strings.Split(name, "/") {
+		entries, err := fs.ReadDir(fsys, current)
+		if err != nil {
+			return fmt.Errorf("reading resource path %q: %w", name, err)
+		}
+		found := false
+		for _, entry := range entries {
+			if entry.Name() != component {
+				continue
+			}
+			found = true
+			if entry.Type()&fs.ModeSymlink != 0 {
+				return fmt.Errorf("resource path %q contains symlink %q", name, component)
+			}
+			break
+		}
+		if !found {
+			return fs.ErrNotExist
+		}
+		current = path.Join(current, component)
+	}
+	return nil
+}
+
+func boundedReadLength(remaining, prefix, limit int64) int64 {
+	if remaining <= 0 {
+		return 0
+	}
+	const runeLookahead = int64(3)
+	if limit > remaining-prefix-runeLookahead {
+		return remaining
+	}
+	return prefix + limit + runeLookahead
+}
+
+func minInt64(left, right int64) int64 {
+	if left < right {
+		return left
+	}
+	return right
+}
+
+func isUTF8Continuation(value byte) bool {
+	return value&0xc0 == 0x80
 }
 
 func normalizeResourcePath(p string) (string, error) {

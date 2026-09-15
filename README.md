@@ -24,7 +24,7 @@ Prism uses Ollama by default at `http://127.0.0.1:11434`; SGLang, vLLM, and othe
 ```bash
 prism install                         # interactive selection and preview
 prism install --project --all --yes  # all bundled content in this project
-prism install --global --target codex --all --yes
+prism install --global --all --yes
 prism install --target copilot --skill gh-pr-triage --specialist github-cli
 prism install --dry-run --all
 prism install status
@@ -35,13 +35,16 @@ Supported targets are Codex, VS Code/GitHub Copilot, Antigravity, Claude Code, a
 
 Each scope has `.prism/install.json`. Reinstall replaces only Prism-managed paths, removes stale managed files, preserves unrelated files, and refuses unmanaged collisions unless `--force` is supplied. Configuration files receive `.prism-backup` backups, and an adapter failure rolls back the transaction.
 
-Graphify repository investigation is optional. `prism install`, including
-`--runtime-only`, `--all`, `--yes`, and `--dry-run`, never downloads Graphify
-or builds an index. An operator must separately provision it and use
-`prism graphify setup --approve ...` to record a workspace binding and either
-a local, self-hosted, or version-pinned managed endpoint. `prism graphify
-doctor` performs read-only readiness checks; `prism graphify remove --approve`
-removes only Prism's metadata and preserves user-managed resources.
+Graphify repository investigation is optional. The interactive installer offers
+the pinned managed environment and shows its exact destination and `uv sync`
+command before asking for that specific selection. Unattended `--all` or
+`--yes` never selects it; scripts must also pass `--graphify-managed`, an
+existing index, and its fingerprint. Prism never builds or refreshes an index.
+`prism graphify setup --approve ...` also supports local and self-hosted
+endpoints. `prism graphify doctor` is offline unless `--probe` is explicitly
+used; `prism graphify remove --approve` removes a Prism-owned managed
+environment only when its registration still matches, and always preserves
+user-managed installations and indexes.
 
 The bundled `repo-investigator` specialist is the only host-facing Graphify
 workflow. Its Claude and Codex wrappers delegate architecture, relationship,
@@ -84,7 +87,7 @@ selects that state separately from the host installation scope.
 
 Workspace resolution order is explicit `workspace.root`, one root advertised by the MCP host, then server-level `--root`. Multiple advertised roots require an explicit selection. Operations that do not need repository access work without a workspace. Local roots are canonicalized and repository plugins receive only a filesystem rooted at the selected directory.
 
-Core MCP tools include `list_agents`, `run_agent`, `get_constitution`, `doctor`, `suggest_route`, `run_graph`, `explain_policy`, `list_policies`, `get_usage_summary`, and `get_skill_health`. Bundle provenance is stamped automatically; clients do not send bundle IDs or versions.
+Core MCP tools include `list_agents`, `run_agent`, `get_constitution`, `doctor`, `suggest_route`, `run_graph`, `list_skill_resources`, `read_skill_resource`, and the policy, usage, and downstream-MCP inspection tools. Bundle and runtime-extension provenance is stamped automatically; clients do not send bundle IDs or versions.
 
 ## Direct CLI use
 
@@ -92,7 +95,17 @@ Core MCP tools include `list_agents`, `run_agent`, `get_constitution`, `doctor`,
 prism config doctor
 prism route suggest --task "Investigate deployment checkout-api in namespace staging"
 echo "Summarize PR #42 CI status" | prism run github-cli --skills gh-pr-triage
+
+# Runtime extensions (local paths, GitHub owner/repo, or GitHub URLs)
+prism skill add owner/repo --skill release-review
+prism agent add .claude/agents/reviewer.md --model local-review-model
+prism agent skill add reviewer release-review
+prism skill resources release-review
 ```
+
+Managed mutations affect new CLI processes immediately and a running
+`prism mcp serve` after reconnect/restart. Active tasks retain their startup
+snapshot.
 
 Direct CLI commands use the current directory when workspace access is needed. `--root` is an optional workspace fallback, not the location of Prism itself.
 

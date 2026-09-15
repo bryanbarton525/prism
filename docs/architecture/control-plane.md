@@ -34,4 +34,4 @@ The first full product proof is the Kubernetes incident offload path:
 
 ## Agreed extension direction (not yet implemented)
 
-Separately tracked runtime extensions will add uniquely named agents and skills alongside the immutable release bundle. They extend Prism execution; exporting them into editor hosts and replacing bundled content are deferred. The finalized implementation scope is recorded in [plan.md](../../plan.md).
+Separately tracked runtime extensions add uniquely named agents and skills alongside the immutable release bundle. They extend Prism execution; exporting them into editor hosts and replacing bundled content are deferred. The finalized implementation scope is recorded in [plan.md](../../plan.md).

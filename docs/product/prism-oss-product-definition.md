@@ -23,7 +23,7 @@ The former signed runtime registry and independently versioned bundle distributi
 
 ## Agreed extension direction (not yet implemented)
 
-User-added agents and skills will extend Prism's runtime as separately tracked runtime extensions. The release bundle remains immutable. Extensions must use names unique within their resource kind; replacing bundled agents or skills is deferred. Exporting runtime extensions into editor hosts is separate follow-on work. See [the implementation plan](../../plan.md) for the finalized implementation scope.
+User-added agents and skills extend Prism's runtime as separately tracked runtime extensions. The release bundle remains immutable. Extensions must use names unique within their resource kind; replacing bundled agents or skills is deferred. Exporting runtime extensions into editor hosts is separate follow-on work. See [the implementation plan](../../plan.md) for the finalized implementation scope.
 
 User-managed skill bindings apply only to user-added agents; bundled allowlists remain unchanged. The `prism install` walkthrough will assist with runtime-extension setup and skill binding in addition to its existing host-installation flow.
 
@@ -47,6 +47,6 @@ The initial release supports bounded reading of skill resources and preserves pa
 
 The walkthrough reports host installation and runtime-extension setup as separate transactions. A failed runtime stage restores its previous state and leaves any successfully completed host installation intact with explicit retry instructions. Upgrade name conflicts preserve affected user extensions, disable them and dependent user agents with diagnostics, and offer rename/removal recovery.
 
-The release bundle will include a Graphify-backed repository-investigation specialist, constitution, query skill, and host delegation instructions. Host instructions route suitable work through Prism; the specialist queries a workspace-bound Graphify service and verifies graph leads against current sources. The upstream executable and repository indexes remain explicit runtime prerequisites, with version-pinned setup assistance and readiness diagnostics. Listing capabilities and starting Prism do not require Graphify. Initial integration excludes automatic graph construction and semantic extraction; installation makes no inference calls.
+The release bundle includes a Graphify-backed repository-investigation specialist, constitution, query skill, and host delegation instructions. Host instructions route suitable work through Prism; the specialist queries a workspace-bound Graphify service and verifies graph leads against current sources. The upstream executable and repository indexes remain explicit runtime prerequisites, with version-pinned managed-environment setup and readiness diagnostics. Listing capabilities and starting Prism do not require Graphify. Initial integration excludes automatic graph construction and semantic extraction; installation makes no inference calls.
 
 See [the main README](../../README.md) and [usage guide](../usage.md) for currently supported commands, and [plan.md](../../plan.md) for the planned extension feature.

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -80,6 +81,105 @@ func TestGraphifySetupRequiresApprovalAndDryRunDoesNotWrite(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(gf.stateDir, "graphify.yaml")); !os.IsNotExist(err) {
 		t.Fatalf("dry run wrote config: %v", err)
+	}
+}
+
+func TestGraphifyManagedEnvironmentRequiresExplicitSelectionAndRegistersOwnedCommand(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fixture uses a POSIX fake uv executable")
+	}
+	originalStateDir := gf.stateDir
+	gf.stateDir = t.TempDir()
+	t.Cleanup(func() { gf.stateDir = originalStateDir })
+	workspace := t.TempDir()
+	index := filepath.Join(workspace, "graph.json")
+	if err := os.WriteFile(index, []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fakeUV := filepath.Join(t.TempDir(), "uv")
+	script := "#!/bin/sh\nfor last; do :; done\nmkdir -p \"$last/.venv/bin\"\nprintf '#!/bin/sh\\n' > \"$last/.venv/bin/graphify-mcp\"\nchmod +x \"$last/.venv/bin/graphify-mcp\"\n"
+	if err := os.WriteFile(fakeUV, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cmd := newGraphifySetupCmd()
+	cmd.SetArgs([]string{"--workspace", workspace, "--index", index, "--fingerprint", "source", "--server", "graphify", "--endpoint-kind", "managed", "--install-managed-environment", "--uv", fakeUV, "--approve"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := graphify.Load(filepath.Join(gf.stateDir, "graphify.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Endpoint == nil || cfg.Endpoint.Kind != graphify.EndpointManaged || cfg.Endpoint.Executable == "" {
+		t.Fatalf("endpoint = %#v", cfg.Endpoint)
+	}
+	state, err := downstreammcp.Load(mcpServersPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	server, ok := state.Get("graphify")
+	if !ok || server.Transport != downstreammcp.TransportCommand || server.Command != cfg.Endpoint.Executable {
+		t.Fatalf("server = %#v", server)
+	}
+}
+
+func TestGraphifyManagedInstallFailureRemovesNewOwnedEnvironment(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fixture uses a POSIX fake uv executable")
+	}
+	old := gf.stateDir
+	gf.stateDir = t.TempDir()
+	t.Cleanup(func() { gf.stateDir = old })
+	workspace := t.TempDir()
+	index := filepath.Join(workspace, "graph.json")
+	if err := os.WriteFile(index, []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fakeUV := filepath.Join(t.TempDir(), "uv")
+	if err := os.WriteFile(fakeUV, []byte("#!/bin/sh\nexit 7\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	environment := filepath.Join(gf.stateDir, "graphify", "environments", "v0.9.61")
+	cmd := newGraphifySetupCmd()
+	cmd.SetArgs([]string{"--workspace", workspace, "--index", index, "--fingerprint", "source", "--server", "graphify", "--endpoint-kind", "managed", "--install-managed-environment", "--uv", fakeUV, "--approve"})
+	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "newly created environment was removed") {
+		t.Fatalf("failure diagnostic = %v", err)
+	}
+	if _, err := os.Stat(environment); !os.IsNotExist(err) {
+		t.Fatalf("failed managed environment survived: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(gf.stateDir, "graphify.yaml")); !os.IsNotExist(err) {
+		t.Fatalf("failure wrote binding: %v", err)
+	}
+}
+
+func TestGraphifyRemoveRefusesDriftedManagedOwnership(t *testing.T) {
+	old := gf.stateDir
+	gf.stateDir = t.TempDir()
+	t.Cleanup(func() { gf.stateDir = old })
+	environment := filepath.Join(gf.stateDir, "graphify", "environments", "v0.9.61")
+	if err := os.MkdirAll(environment, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	executable := managedGraphifyExecutable(environment)
+	index := filepath.Join(t.TempDir(), "graph.json")
+	cfg := graphify.Config{OperatorApproved: true, Endpoint: &graphify.Endpoint{Server: "graphify", Kind: graphify.EndpointManaged, Executable: executable, Environment: environment, EnvironmentVersion: graphify.PinnedUpstreamVersion}, Binding: &graphify.Binding{Workspace: t.TempDir(), IndexPath: index, UpstreamVersion: graphify.PinnedUpstreamVersion, SchemaVersion: graphify.PinnedContractID, GenerationFingerprint: "sha"}}
+	if err := graphify.Save(filepath.Join(gf.stateDir, "graphify.yaml"), cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := downstreammcp.Save(mcpServersPath(), downstreammcp.State{Servers: []downstreammcp.Server{{Name: "graphify", Transport: downstreammcp.TransportCommand, Command: "operator-replaced"}}}); err != nil {
+		t.Fatal(err)
+	}
+	cmd := newGraphifyRemoveCmd()
+	cmd.SetArgs([]string{"--approve"})
+	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "no longer matches") {
+		t.Fatalf("drift error = %v", err)
+	}
+	if _, err := os.Stat(environment); err != nil {
+		t.Fatalf("drifted environment was removed: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(gf.stateDir, "graphify.yaml")); err != nil {
+		t.Fatalf("drifted config was removed: %v", err)
 	}
 }
 

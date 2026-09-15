@@ -14,6 +14,7 @@ import (
 
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
 	"github.com/bryanbarton525/prism/internal/extensions"
+	"github.com/bryanbarton525/prism/internal/graphify"
 	"github.com/bryanbarton525/prism/internal/mcp"
 )
 
@@ -49,17 +50,24 @@ func newMCPAccessDefaultSetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "default set",
 		Short: "Set shared default downstream server allowlist",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			state, _, err := extensions.LoadMCPAccess(gf.stateDir)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			unlock, err := acquireRuntimeConfigLock(cmd.Context())
 			if err != nil {
 				return err
 			}
-			state.DefaultServers = servers
+			defer unlock()
+			if err := validateConfiguredMCPServers(servers); err != nil {
+				return err
+			}
 			if dryRun {
-				fmt.Printf("would set default MCP access servers: %v\n", state.DefaultServers)
+				fmt.Printf("would set default MCP access servers: %v\n", servers)
 				return nil
 			}
-			if err := extensions.SaveMCPAccess(gf.stateDir, state); err != nil {
+			state, err := extensions.UpdateMCPAccess(cmd.Context(), gf.stateDir, func(state *extensions.MCPAccessState) error {
+				state.DefaultServers = append([]string{}, servers...)
+				return nil
+			})
+			if err != nil {
 				return err
 			}
 			fmt.Printf("set default MCP access servers: %v\n", state.DefaultServers)
@@ -101,22 +109,32 @@ func newMCPAccessAgentSetCmd() *cobra.Command {
 		Use:   "agent set <agent-id>",
 		Short: "Set per-agent downstream MCP access mode",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			agentID := strings.ToLower(strings.TrimSpace(args[0]))
-			state, _, err := extensions.LoadMCPAccess(gf.stateDir)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			unlock, err := acquireRuntimeConfigLock(cmd.Context())
 			if err != nil {
 				return err
 			}
-			if state.Agents == nil {
-				state.Agents = map[string]extensions.MCPAccessRule{}
-			}
+			defer unlock()
+			agentID := strings.ToLower(strings.TrimSpace(args[0]))
 			rule := extensions.MCPAccessRule{Mode: mode, Servers: servers}
+			if err := extensions.ValidateMCPAccessRule(rule); err != nil {
+				return err
+			}
+			if err := validateConfiguredMCPServers(rule.Servers); err != nil {
+				return err
+			}
 			if dryRun {
 				fmt.Printf("would set agent %s MCP access: mode=%s servers=%v\n", agentID, rule.Mode, rule.Servers)
 				return nil
 			}
-			state.Agents[agentID] = rule
-			if err := extensions.SaveMCPAccess(gf.stateDir, state); err != nil {
+			_, err = extensions.UpdateMCPAccess(cmd.Context(), gf.stateDir, func(state *extensions.MCPAccessState) error {
+				if state.Agents == nil {
+					state.Agents = map[string]extensions.MCPAccessRule{}
+				}
+				state.Agents[agentID] = rule
+				return nil
+			})
+			if err != nil {
 				return err
 			}
 			fmt.Printf("set agent %s MCP access: mode=%s servers=%v\n", agentID, rule.Mode, rule.Servers)
@@ -127,6 +145,26 @@ func newMCPAccessAgentSetCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&servers, "server", nil, "Allowed server for mode=custom (repeatable)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without mutation")
 	return cmd
+}
+
+func validateConfiguredMCPServers(names []string) error {
+	if len(names) == 0 {
+		return nil
+	}
+	state, err := configuredDownstreamMCPState()
+	if err != nil {
+		return err
+	}
+	missing := []string{}
+	for _, name := range names {
+		if _, ok := state.Get(name); !ok {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("downstream MCP servers are not configured: %s", strings.Join(missing, ", "))
+	}
+	return nil
 }
 
 func newMCPAccessAgentShowCmd() *cobra.Command {
@@ -214,6 +252,7 @@ Example Cursor mcp.json:
 				EventStorePath: eventStorePath(),
 				RootDir:        gf.rootDir,
 				SkillsDir:      gf.skillsDir,
+				SkillsFS:       runner.SkillsFS(),
 			}); err != nil {
 				return fmt.Errorf("mcp server: %w", err)
 			}
@@ -339,7 +378,17 @@ func newMCPRemoveCmd() *cobra.Command {
 		Short: "Remove one configured downstream MCP server",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			unlock, err := acquireRuntimeConfigLock(cmd.Context())
+			if err != nil {
+				return err
+			}
+			defer unlock()
 			name := args[0]
+			if references, err := mcpServerReferences(name); err != nil {
+				return err
+			} else if len(references) > 0 {
+				return fmt.Errorf("downstream MCP server %q is still referenced by %s", name, strings.Join(references, ", "))
+			}
 			if dryRun {
 				state, err := downstreammcp.Load(mcpServersPath())
 				if err != nil {
@@ -371,6 +420,38 @@ func newMCPRemoveCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show outcome without writing state")
 	return cmd
+}
+
+func mcpServerReferences(name string) ([]string, error) {
+	state, configured, err := extensions.LoadMCPAccess(gf.stateDir)
+	if err != nil {
+		return nil, fmt.Errorf("load MCP access policy: %w", err)
+	}
+	refs := []string{}
+	if configured {
+		for _, current := range state.DefaultServers {
+			if strings.EqualFold(current, name) {
+				refs = append(refs, "the default access set")
+				break
+			}
+		}
+		for agentID, rule := range state.Agents {
+			for _, current := range rule.Servers {
+				if strings.EqualFold(current, name) {
+					refs = append(refs, fmt.Sprintf("agent %q access", agentID))
+					break
+				}
+			}
+		}
+	}
+	graphifyState, err := graphify.Load(filepath.Join(gf.stateDir, "graphify.yaml"))
+	if err != nil {
+		return nil, fmt.Errorf("load Graphify configuration: %w", err)
+	}
+	if graphifyState.Endpoint != nil && strings.EqualFold(graphifyState.Endpoint.Server, name) {
+		refs = append(refs, "the Graphify endpoint")
+	}
+	return refs, nil
 }
 
 func newMCPToolsCmd() *cobra.Command {
@@ -515,6 +596,11 @@ func printDownstreamMCPMutation(name, outcome string) error {
 }
 
 func mutateDownstreamMCPServer(ctx context.Context, server downstreammcp.Server, replace, dryRun bool) error {
+	unlock, err := acquireRuntimeConfigLock(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	if dryRun {
 		state, err := downstreammcp.Load(mcpServersPath())
 		if err != nil {
@@ -621,7 +707,7 @@ func validateAbsoluteHTTPURL(raw string) error {
 	if parsed.Host == "" {
 		return fmt.Errorf("--url must be absolute")
 	}
-	if filepath.IsAbs(raw) {
+	if strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, `\`) {
 		return fmt.Errorf("--url must be an absolute URL, not a path")
 	}
 	return nil

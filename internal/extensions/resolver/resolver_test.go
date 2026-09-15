@@ -38,7 +38,7 @@ func TestResolveBoundsExceeded(t *testing.T) {
 
 func TestDescribeGitHubSource(t *testing.T) {
 	canonical, ref, resolved := describeSource("https://github.com/owner/repo/tree/main")
-	if canonical != "github://owner/repo" || ref != "main" || resolved != "main" {
+	if canonical != "github://owner/repo" || ref != "main" || resolved != "" {
 		t.Fatalf("got canonical=%q ref=%q resolved=%q", canonical, ref, resolved)
 	}
 }

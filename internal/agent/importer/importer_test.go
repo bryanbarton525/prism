@@ -5,17 +5,20 @@ import (
 	"testing"
 )
 
-func TestTranslateNativePrismPassThrough(t *testing.T) {
-	source := []byte("---\nid: a\nname: \"A\"\ndescription: \"d\"\nmodel: \"m\"\ncontext_budget: 100\nallowed_skills: [x]\n---\nbody")
-	out, report, err := Translate("agent.md", source, Config{})
+func TestTranslateNativePrismNormalizes(t *testing.T) {
+	source := []byte("---\nid: a\nname: \"A\"\ndescription: \"d\"\nmodel: \"m\"\ncontext_budget: 100\nallowed_skills: [x]\nlatency_budget_ms: 30000\n---\nbody")
+	out, report, err := Translate("a.md", source, Config{DefaultModel: "m"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if report.Adapter != "prism-native" {
 		t.Fatalf("adapter = %s", report.Adapter)
 	}
-	if !bytes.Equal(out, source) {
-		t.Fatal("expected passthrough output")
+	if !bytes.Contains(out, []byte("latency_budget_ms: 30000")) || !bytes.Contains(out, []byte("model: m")) {
+		t.Fatalf("expected normalized output, got:\n%s", out)
+	}
+	if bytes.Equal(out, source) {
+		t.Fatal("expected canonical rendering rather than byte-for-byte passthrough")
 	}
 }
 
@@ -42,7 +45,7 @@ allowed_skills = ["gh-pr-triage","go-helper-fn"]`)
 
 func TestTranslateCodexTOMLUsesDeclaredIdentityAndInstructions(t *testing.T) {
 	source := []byte("name = \"Release Triage\"\nmodel = \"local-model\"\nallowed_skills = [\n  \"gh-pr-triage\",\n]\ndeveloper_instructions = \"Review release changes.\"\n")
-	out, _, err := Translate("unrelated.toml", source, Config{})
+	out, _, err := Translate("unrelated.toml", source, Config{DefaultModel: "local-model"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -14,7 +14,7 @@ constitution (behavior contract) unless `constitution_path` points elsewhere.
 | `id` | Stable identifier (matches file stem). |
 | `name` | Display name. |
 | `description` | When the orchestrator should delegate here. |
-| `model` | Default Ollama model. |
+| `model` | Selected execution model for the configured local or self-hosted runtime. |
 | `context_budget` | Max input size for the local model. |
 | `allowed_skills` | Skill `name` values this agent may attach at run time. |
 | `latency_budget_ms` | Benchmark and runtime latency budget. |
@@ -27,12 +27,21 @@ constitution (behavior contract) unless `constitution_path` points elsewhere.
 
 ## Run-time skill attachment
 
-Invocations must pass one or more skills from `allowed_skills`. Skills follow
+Bundled-agent invocations must pass one or more skills from `allowed_skills`.
+User-managed agents may explicitly declare an empty allowlist and run with no
+skills; any supplied skill must still appear in the allowlist. Skills follow
 the [Agent Skills specification](https://agentskills.io/specification#frontmatter)
 under `skills/<name>/SKILL.md`.
 
 Prism does not load the full skill library into every prompt; it loads only
 skills named on that run.
+
+Managed imports require an explicit execution target via `--model`,
+`--use-configured-model`, or a digest-bound import configuration. Claude Code
+Markdown and Codex TOML inputs are translated into this format; unsupported
+source fields must be mapped or explicitly omitted. A referenced constitution
+is copied into the immutable managed package so it never resolves against the
+release bundle accidentally. See [runtime extension management](../docs/usage.md#runtime-extension-management).
 
 ## Runtime plugin evidence
 

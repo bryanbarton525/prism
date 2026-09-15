@@ -48,7 +48,7 @@ Body`), 0o644); err != nil {
 	}
 
 	add := newAgentAddCmd()
-	add.SetArgs([]string{source})
+	add.SetArgs([]string{source, "--model", "llama3.1:8b"})
 	if err := add.Execute(); err != nil {
 		t.Fatal(err)
 	}

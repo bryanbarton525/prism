@@ -18,19 +18,23 @@ type CatalogSnapshot struct {
 
 type CatalogItem struct {
 	ID          string                 `json:"id"`
+	Kind        string                 `json:"kind"`
 	Origin      string                 `json:"origin"` // bundled | managed
 	Active      bool                   `json:"active"`
 	Digest      string                 `json:"digest,omitempty"`
 	Source      string                 `json:"source,omitempty"`
 	ObjectPath  string                 `json:"object_path,omitempty"`
+	ObjectRoot  string                 `json:"-"`
 	Reason      string                 `json:"reason,omitempty"`
 	Metadata    map[string]string      `json:"metadata,omitempty"`
 	Diagnostics []ActivationDiagnostic `json:"diagnostics,omitempty"`
+	Runtime     *RuntimeTarget         `json:"runtime_target,omitempty"`
 }
 
 type ComposeInput struct {
 	BundleFS         fs.FS
 	Manifest         Manifest
+	ObjectStoreRoot  string
 	AgentOverride    bool
 	SkillOverride    bool
 	RejectCollisions bool
@@ -57,12 +61,19 @@ func ComposeCatalog(input ComposeInput) (CatalogSnapshot, error) {
 		return CatalogSnapshot{}, err
 	}
 	for _, id := range bundledAgents {
-		snapshot.Agents = append(snapshot.Agents, CatalogItem{ID: id, Origin: "bundled", Active: true})
+		item := CatalogItem{ID: id, Kind: "agent", Origin: "bundled", Active: !input.AgentOverride}
+		if input.AgentOverride {
+			item.Reason = "agent_override_active"
+		}
+		snapshot.Agents = append(snapshot.Agents, item)
 	}
 	for _, id := range bundledSkills {
-		snapshot.Skills = append(snapshot.Skills, CatalogItem{ID: id, Origin: "bundled", Active: true})
+		item := CatalogItem{ID: id, Kind: "skill", Origin: "bundled", Active: !input.SkillOverride}
+		if input.SkillOverride {
+			item.Reason = "skill_override_active"
+		}
+		snapshot.Skills = append(snapshot.Skills, item)
 	}
-
 	agentSet := foldedSet(bundledAgents)
 	skillSet := foldedSet(bundledSkills)
 	managedAgents := map[string]struct{}{}
@@ -71,12 +82,15 @@ func ComposeCatalog(input ComposeInput) (CatalogSnapshot, error) {
 	for _, entry := range input.Manifest.Entries {
 		item := CatalogItem{
 			ID:          entry.Identity,
+			Kind:        strings.ToLower(entry.Kind),
 			Origin:      "managed",
 			Active:      true,
 			Digest:      entry.Digest,
 			Source:      entry.Source,
 			ObjectPath:  entry.ObjectPath,
+			ObjectRoot:  input.ObjectStoreRoot,
 			Diagnostics: append([]ActivationDiagnostic{}, entry.Diagnostics...),
+			Runtime:     entry.Runtime,
 		}
 		foldedID := strings.ToLower(entry.Identity)
 		switch strings.ToLower(entry.Kind) {
@@ -116,6 +130,33 @@ func ComposeCatalog(input ComposeInput) (CatalogSnapshot, error) {
 			snapshot.Skills = append(snapshot.Skills, item)
 		}
 	}
+	for i := range snapshot.Agents {
+		item := &snapshot.Agents[i]
+		if item.Origin != "managed" || !item.Active {
+			appendCatalogRecoveryDiagnostic(item)
+			continue
+		}
+		entry, ok := findManifestEntry(input.Manifest, "agent", item.ID)
+		if !ok {
+			continue
+		}
+		for _, binding := range entry.SkillBindings {
+			if catalogHasActiveSkill(snapshot.Skills, binding) {
+				continue
+			}
+			item.Active = false
+			item.Reason = "skill_dependency_unavailable"
+			item.Diagnostics = append(item.Diagnostics, ActivationDiagnostic{
+				Code:    "skill_dependency_unavailable",
+				Message: fmt.Sprintf("skill %q from %s origin is unavailable; restore it or remove the binding with `prism agent skill remove %s %s`", binding.Name, binding.Origin, item.ID, binding.Name),
+			})
+			break
+		}
+		appendCatalogRecoveryDiagnostic(item)
+	}
+	for i := range snapshot.Skills {
+		appendCatalogRecoveryDiagnostic(&snapshot.Skills[i])
+	}
 	sort.Slice(snapshot.Agents, func(i, j int) bool {
 		return strings.ToLower(snapshot.Agents[i].ID) < strings.ToLower(snapshot.Agents[j].ID)
 	})
@@ -126,6 +167,31 @@ func ComposeCatalog(input ComposeInput) (CatalogSnapshot, error) {
 		return snapshot, errors.New(strings.Join(collisionErrs, "; "))
 	}
 	return snapshot, nil
+}
+
+func catalogHasActiveSkill(items []CatalogItem, binding SkillBinding) bool {
+	for _, item := range items {
+		if item.Active && strings.EqualFold(item.ID, binding.Name) && (binding.Origin == "" || strings.EqualFold(item.Origin, binding.Origin)) {
+			return true
+		}
+	}
+	return false
+}
+
+func appendCatalogRecoveryDiagnostic(item *CatalogItem) {
+	if item.Active || item.Reason == "" {
+		return
+	}
+	for _, diagnostic := range item.Diagnostics {
+		if diagnostic.Code == item.Reason {
+			return
+		}
+	}
+	message := fmt.Sprintf("%s %q is inactive (%s)", item.Origin, item.ID, item.Reason)
+	if item.Origin == "managed" {
+		message += fmt.Sprintf("; recover with `prism %s rename %s <new-name>` or `prism %s remove %s`", item.Kind, item.ID, item.Kind, item.ID)
+	}
+	item.Diagnostics = append(item.Diagnostics, ActivationDiagnostic{Code: item.Reason, Message: message})
 }
 
 func foldedSet(ids []string) map[string]struct{} {

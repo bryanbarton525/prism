@@ -68,9 +68,6 @@ func (e Endpoint) Validate() error {
 			return fmt.Errorf("self-hosted Graphify endpoint cannot set local executable or managed environment metadata")
 		}
 	case EndpointManaged:
-		if e.Executable != "" {
-			return fmt.Errorf("managed Graphify endpoint cannot set a local executable")
-		}
 		if strings.TrimSpace(e.Environment) == "" || strings.TrimSpace(e.EnvironmentVersion) == "" {
 			return fmt.Errorf("managed Graphify endpoint requires environment and environment_version pins")
 		}
@@ -204,7 +201,7 @@ func CheckReadiness(cfg Config, workspace, fingerprint string) Readiness {
 		add("endpoint", false, err.Error())
 	} else {
 		add("endpoint", true, endpointMessage(*cfg.Endpoint))
-		if cfg.Endpoint.Kind == EndpointLocal {
+		if cfg.Endpoint.Kind == EndpointLocal || (cfg.Endpoint.Kind == EndpointManaged && cfg.Endpoint.Executable != "") {
 			if path, err := exec.LookPath(cfg.Endpoint.Executable); err != nil {
 				add("executable", false, fmt.Sprintf("Graphify executable %q is unavailable: %v", cfg.Endpoint.Executable, err))
 			} else {
@@ -254,6 +251,9 @@ func endpointMessage(endpoint Endpoint) string {
 	case EndpointSelfHosted:
 		return fmt.Sprintf("self-hosted endpoint %q is configured (not contacted by doctor)", endpoint.Server)
 	case EndpointManaged:
+		if endpoint.Executable != "" {
+			return fmt.Sprintf("Prism-managed endpoint %q is pinned to %s@%s", endpoint.Server, endpoint.Environment, endpoint.EnvironmentVersion)
+		}
 		return fmt.Sprintf("managed endpoint %q is pinned to %s@%s (not contacted by doctor)", endpoint.Server, endpoint.Environment, endpoint.EnvironmentVersion)
 	default:
 		return "Graphify endpoint kind is invalid"
@@ -287,8 +287,25 @@ func (e Endpoint) ValidateServer(name, transport, command string) error {
 			return fmt.Errorf("local Graphify endpoint command %q does not match approved executable %q", command, e.Executable)
 		}
 	case EndpointManaged:
-		if transport != "sse" && transport != "streamable-http" {
-			return fmt.Errorf("managed Graphify endpoint %q must use SSE or streamable HTTP transport", e.Server)
+		if e.Executable == "" {
+			if transport != "sse" && transport != "streamable-http" {
+				return fmt.Errorf("managed Graphify service %q must use SSE or streamable HTTP transport", e.Server)
+			}
+			break
+		}
+		if transport != "command" {
+			return fmt.Errorf("Prism-managed Graphify endpoint %q must use command transport", e.Server)
+		}
+		configured, err := filepath.Abs(command)
+		if err != nil {
+			return err
+		}
+		expected, err := filepath.Abs(e.Executable)
+		if err != nil {
+			return err
+		}
+		if filepath.Clean(configured) != filepath.Clean(expected) {
+			return fmt.Errorf("managed Graphify endpoint command %q does not match %q", command, e.Executable)
 		}
 	}
 	return nil

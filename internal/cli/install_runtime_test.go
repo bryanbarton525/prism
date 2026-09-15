@@ -6,12 +6,15 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 
+	"github.com/bryanbarton525/prism/internal/downstreammcp"
 	"github.com/bryanbarton525/prism/internal/extensions"
+	"github.com/bryanbarton525/prism/internal/graphify"
 )
 
 func TestValidateRuntimeScope(t *testing.T) {
@@ -201,8 +204,8 @@ func TestRuntimeOnlyImportsTranslatedAgentWithSelectedModel(t *testing.T) {
 	if err != nil || len(entries) != 1 {
 		t.Fatalf("managed agents: %v %#v", err, entries)
 	}
-	content, err := os.ReadFile(entries[0].ObjectPath)
-	if err != nil || !strings.Contains(string(content), `model: "self-hosted/model"`) {
+	content, err := os.ReadFile(filepath.Join(entries[0].ObjectPath, "selected-agent.md"))
+	if err != nil || !strings.Contains(string(content), `model: self-hosted/model`) {
 		t.Fatalf("selected model missing: %v %s", err, content)
 	}
 }
@@ -217,7 +220,10 @@ func TestHostSuccessRollsBackFailedRuntimeActivation(t *testing.T) {
 	state := filepath.Join(workspace, ".prism")
 	oldSource := filepath.Join(t.TempDir(), "demo")
 	newSource := filepath.Join(t.TempDir(), "demo")
-	for path, content := range map[string]string{oldSource: "old", newSource: "new"} {
+	for path, content := range map[string]string{
+		oldSource: "---\nname: demo\ndescription: old\n---\nold",
+		newSource: "---\nname: demo\ndescription: new\n---\nnew",
+	} {
 		if err := os.MkdirAll(path, 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -252,7 +258,105 @@ func TestHostSuccessRollsBackFailedRuntimeActivation(t *testing.T) {
 		t.Fatalf("runtime rollback: %v %#v", err, entries)
 	}
 	content, err := os.ReadFile(filepath.Join(entries[0].ObjectPath, "SKILL.md"))
-	if err != nil || string(content) != "old" {
+	if err != nil || !strings.Contains(string(content), "description: old") {
 		t.Fatalf("runtime state was not restored: %v %q", err, content)
+	}
+}
+
+func TestRuntimeOnlyUpdatesExistingAgentAndAccessAtomically(t *testing.T) {
+	workspace := t.TempDir()
+	oldWD, _ := os.Getwd()
+	if err := os.Chdir(workspace); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWD) })
+	state := filepath.Join(workspace, ".prism")
+	source := filepath.Join(t.TempDir(), "worker.md")
+	data := "---\nid: worker\nname: Old Name\ndescription: d\nmodel: local\ncontext_budget: 100\nallowed_skills: []\n---\nbody"
+	if err := os.WriteFile(source, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := extensions.NewLocalAgentService(state).InstallLocalAgent(context.Background(), extensions.InstallLocalAgentRequest{Source: source}); err != nil {
+		t.Fatal(err)
+	}
+	cmd := &cobra.Command{}
+	cmd.Flags().String("state-dir", "", "")
+	flags := installFlags{runtimeOnly: true, runtimeScope: "project", runtimeAgentExisting: "worker", runtimeAgentName: "New Name", runtimeAgentSkillsSet: true, runtimeMCPSet: true, runtimeMCPMode: extensions.MCPAccessModeNone}
+	if err := runInstall(cmd, flags); err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := extensions.NewStore(state).LoadManifest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.MCPAccess == nil || manifest.MCPAccess.Agents["worker"].Mode != extensions.MCPAccessModeNone {
+		t.Fatalf("access not in manifest snapshot: %#v", manifest)
+	}
+	entry := manifest.Entries[0]
+	content, err := os.ReadFile(filepath.Join(entry.ObjectPath, "worker.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(content), "name: New Name") || !strings.Contains(string(content), "allowed_skills: []") {
+		t.Fatalf("updated agent = %s", content)
+	}
+}
+
+func TestRuntimeAgentDirectoryImportPreservesSupportFiles(t *testing.T) {
+	workspace := t.TempDir()
+	oldWD, _ := os.Getwd()
+	if err := os.Chdir(workspace); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWD) })
+	packageDir := filepath.Join(t.TempDir(), "package")
+	if err := os.MkdirAll(filepath.Join(packageDir, "agents"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(packageDir, "constitutions"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data := "---\nid: imported\nname: Imported\ndescription: d\nmodel: old\ncontext_budget: 100\nallowed_skills: []\nconstitution_path: constitutions/imported.md\n---\nbody"
+	if err := os.WriteFile(filepath.Join(packageDir, "agents", "imported.md"), []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(packageDir, "constitutions", "imported.md"), []byte("rules"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := &cobra.Command{}
+	cmd.Flags().String("state-dir", "", "")
+	flags := installFlags{runtimeOnly: true, runtimeScope: "project", runtimeAgentSource: packageDir, runtimeAgentSelect: "imported", runtimeAgentModel: "local/model"}
+	if err := runInstall(cmd, flags); err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := extensions.NewStore(filepath.Join(workspace, ".prism")).LoadManifest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(manifest.Entries[0].ObjectPath, "constitutions", "imported.md")); err != nil {
+		t.Fatalf("support file missing: %v", err)
+	}
+}
+
+func TestGraphifyDiscoveryIsOfflineAndFindsUserChoices(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fixture uses a POSIX executable name")
+	}
+	bin := t.TempDir()
+	executable := filepath.Join(bin, graphify.PinnedMCPEntypoint)
+	if err := os.WriteFile(executable, []byte("must not be executed"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin)
+	state := t.TempDir()
+	if err := downstreammcp.Save(filepath.Join(state, "mcp-servers.yaml"), downstreammcp.State{Servers: []downstreammcp.Server{{Name: "hosted", Transport: downstreammcp.TransportStreamableHTTP, URL: "https://example.test/mcp"}}}); err != nil {
+		t.Fatal(err)
+	}
+	discovery, err := discoverGraphifyCandidates(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if discovery.Executable != executable || len(discovery.Endpoints) != 1 || discovery.Endpoints[0].Name != "hosted" {
+		t.Fatalf("discovery = %#v", discovery)
 	}
 }
