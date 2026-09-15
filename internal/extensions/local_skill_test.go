@@ -292,6 +292,38 @@ func TestIdenticalSkillReinstallRejectsCorruptManagedObject(t *testing.T) {
 	}
 }
 
+func TestDirectoryPublishersRejectCorruptExistingObjectWithoutDeleting(t *testing.T) {
+	source := t.TempDir()
+	if err := os.WriteFile(filepath.Join(source, "SKILL.md"), []byte("---\nname: demo\ndescription: fixture\n---\noriginal"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name    string
+		publish func(*Store) (string, string, error)
+	}{
+		{"local", func(store *Store) (string, string, error) { return store.putDirectoryObject(source) }},
+		{"filesystem", func(store *Store) (string, string, error) { return store.putFSDirectory(os.DirFS(source), ".") }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := NewStore(t.TempDir())
+			_, objectPath, err := tc.publish(store)
+			if err != nil {
+				t.Fatal(err)
+			}
+			objectFile := filepath.Join(objectPath, "SKILL.md")
+			if err := os.WriteFile(objectFile, []byte("tampered"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, _, err := tc.publish(store); err == nil || !strings.Contains(err.Error(), "digest mismatch") {
+				t.Fatalf("corrupt digest-named object was trusted or rebuilt: %v", err)
+			}
+			if data, err := os.ReadFile(objectFile); err != nil || string(data) != "tampered" {
+				t.Fatalf("corrupt object was deleted or overwritten: data=%q err=%v", data, err)
+			}
+		})
+	}
+}
+
 func TestRemoveManagedSkillRejectsAgentBinding(t *testing.T) {
 	state := t.TempDir()
 	source := t.TempDir()

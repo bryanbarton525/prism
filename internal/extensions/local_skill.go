@@ -611,16 +611,10 @@ func (s *Store) putDirectoryObject(sourceDir string) (string, string, error) {
 	}
 	digest := hex.EncodeToString(hash.Sum(nil))
 	objectPath := filepath.Join(s.ObjectsDir(), digest)
-	if info, err := os.Stat(objectPath); err == nil && info.IsDir() {
-		existingDigest, err := directoryDigest(objectPath)
-		if err == nil && existingDigest == digest {
-			return digest, objectPath, nil
-		}
-		if err := os.RemoveAll(objectPath); err != nil {
-			return "", "", fmt.Errorf("remove corrupt skill object %q: %w", objectPath, err)
-		}
-	} else if err != nil && !os.IsNotExist(err) {
+	if exists, err := verifyExistingDirectoryObject(objectPath, digest); err != nil {
 		return "", "", err
+	} else if exists {
+		return digest, objectPath, nil
 	}
 	if err := os.MkdirAll(s.ObjectsDir(), 0o755); err != nil {
 		return "", "", err
@@ -645,12 +639,8 @@ func (s *Store) putDirectoryObject(sourceDir string) (string, string, error) {
 		}
 	}
 	if err := os.Rename(stagedPath, objectPath); err != nil {
-		if !os.IsExist(err) {
-			return "", "", err
-		}
-		existingDigest, verifyErr := directoryDigest(objectPath)
-		if verifyErr != nil || existingDigest != digest {
-			return "", "", fmt.Errorf("concurrent skill object %q is incomplete or corrupt", objectPath)
+		if exists, verifyErr := verifyExistingDirectoryObject(objectPath, digest); verifyErr != nil || !exists {
+			return "", "", fmt.Errorf("publish skill object %q: %w (existing object verification: %v)", objectPath, err, verifyErr)
 		}
 	}
 	return digest, objectPath, nil
@@ -695,10 +685,10 @@ func (s *Store) putFSDirectory(fsys fs.FS, root string) (string, string, error) 
 	}
 	digest := hex.EncodeToString(hash.Sum(nil))
 	objectPath := filepath.Join(s.ObjectsDir(), digest)
-	if _, err := os.Stat(objectPath); err == nil {
-		return digest, objectPath, nil
-	} else if !errors.Is(err, os.ErrNotExist) {
+	if exists, err := verifyExistingDirectoryObject(objectPath, digest); err != nil {
 		return "", "", err
+	} else if exists {
+		return digest, objectPath, nil
 	}
 	if err := os.MkdirAll(s.ObjectsDir(), 0o755); err != nil {
 		return "", "", err
@@ -721,10 +711,33 @@ func (s *Store) putFSDirectory(fsys fs.FS, root string) (string, string, error) 
 			return "", "", err
 		}
 	}
-	if err := os.Rename(staged, objectPath); err != nil && !os.IsExist(err) {
-		return "", "", err
+	if err := os.Rename(staged, objectPath); err != nil {
+		if exists, verifyErr := verifyExistingDirectoryObject(objectPath, digest); verifyErr != nil || !exists {
+			return "", "", fmt.Errorf("publish skill object %q: %w (existing object verification: %v)", objectPath, err, verifyErr)
+		}
 	}
 	return digest, objectPath, nil
+}
+
+func verifyExistingDirectoryObject(objectPath, digest string) (bool, error) {
+	info, err := os.Lstat(objectPath)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return false, fmt.Errorf("existing skill object %q is not a regular directory", objectPath)
+	}
+	actual, err := directoryDigest(objectPath)
+	if err != nil {
+		return false, fmt.Errorf("verify existing skill object %q: %w", objectPath, err)
+	}
+	if actual != digest {
+		return false, fmt.Errorf("existing skill object %q digest mismatch: got %s want %s", objectPath, actual, digest)
+	}
+	return true, nil
 }
 
 func directoryDigest(sourceDir string) (string, error) {

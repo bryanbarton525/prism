@@ -44,6 +44,8 @@ Sol work completed:
    unchanged transaction without rewriting the manifest or its activation time.
    Identical file-agent reinstallation follows the same no-publication rule;
    every no-op rechecks the existing object digest/store boundary first.
+   Both skill directory publishers verify a pre-existing digest-named object
+   before reuse and reject corruption without deleting that object.
    Repeated concurrent managed-skill install/conflict and remove/install tests
    and corresponding managed-agent tests pass under the race detector,
    confirming locked revalidation and no lost manifest entries.
