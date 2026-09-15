@@ -40,6 +40,8 @@ Sol work completed:
 1. Runtime activation now publishes skills, agents, durable binding origins,
    and MCP access through one versioned manifest snapshot. Fault-injection
    coverage proves publication failure restores the whole prior snapshot.
+   Identical local and resolver-backed skill reinstallation now closes the
+   unchanged transaction without rewriting the manifest or its activation time.
 2. Guided and non-interactive runtime setup now support existing managed agents,
    installed/new skill bindings, default/custom/none MCP access, interactive or
    file-based import decisions, local/GitHub package discovery with support

@@ -229,11 +229,18 @@ func (s *LocalSkillService) InstallLocalSkills(ctx context.Context, req InstallL
 	if err != nil {
 		return nil, err
 	}
+	changed := false
 	for index := range planned {
 		entry := &planned[index]
-		if current, ok := findManifestEntry(tx.working, "skill", entry.Identity); ok && !req.Replace && !strings.EqualFold(current.Digest, entry.Digest) {
-			_ = tx.Rollback()
-			return nil, fmt.Errorf("skill %q already exists; pass --replace", entry.Identity)
+		if current, ok := findManifestEntry(tx.working, "skill", entry.Identity); ok {
+			if strings.EqualFold(current.Digest, entry.Digest) {
+				*entry = current
+				continue
+			}
+			if !req.Replace {
+				_ = tx.Rollback()
+				return nil, fmt.Errorf("skill %q already exists; pass --replace", entry.Identity)
+			}
 		}
 		packageFS, err := rewrittenSkillFS(os.DirFS(skills[index].Path), ".", entry.Identity)
 		if err != nil {
@@ -247,6 +254,10 @@ func (s *LocalSkillService) InstallLocalSkills(ctx context.Context, req InstallL
 		}
 		entry.Digest, entry.ObjectPath = digest, objectPath
 		tx.UpsertEntry(*entry)
+		changed = true
+	}
+	if !changed {
+		return planned, tx.AbortUnchanged()
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
@@ -292,11 +303,18 @@ func (s *LocalSkillService) InstallResolvedSkillsWithProvenance(ctx context.Cont
 	if err != nil {
 		return nil, err
 	}
+	changed := false
 	for index := range planned {
 		entry := &planned[index]
-		if current, ok := findManifestEntry(tx.working, "skill", entry.Identity); ok && !replace && !strings.EqualFold(current.Digest, entry.Digest) {
-			_ = tx.Rollback()
-			return nil, fmt.Errorf("skill %q already exists; pass --replace", entry.Identity)
+		if current, ok := findManifestEntry(tx.working, "skill", entry.Identity); ok {
+			if strings.EqualFold(current.Digest, entry.Digest) {
+				*entry = current
+				continue
+			}
+			if !replace {
+				_ = tx.Rollback()
+				return nil, fmt.Errorf("skill %q already exists; pass --replace", entry.Identity)
+			}
 		}
 		packageFS, err := rewrittenSkillFS(fsys, skills[index].Path, entry.Identity)
 		if err != nil {
@@ -310,6 +328,10 @@ func (s *LocalSkillService) InstallResolvedSkillsWithProvenance(ctx context.Cont
 		}
 		entry.Digest, entry.ObjectPath = digest, objectPath
 		tx.UpsertEntry(*entry)
+		changed = true
+	}
+	if !changed {
+		return planned, tx.AbortUnchanged()
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err

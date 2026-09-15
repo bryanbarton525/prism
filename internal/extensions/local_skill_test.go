@@ -1,6 +1,7 @@
 package extensions
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -23,6 +24,18 @@ func TestInstallResolvedSkillsMaterializesSourceFilesystem(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(entries[0].ObjectPath, "guide.md")); err != nil {
 		t.Fatalf("resolved skill was not materialized: %v", err)
+	}
+	before, err := os.ReadFile(NewStore(state).ManifestPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := NewLocalSkillService(state).InstallResolvedSkills(context.Background(), source, "remote-skill", "github://owner/repo", DiscoverSkillsOptions{}, false, false)
+	if err != nil || len(again) != 1 || again[0].Digest != entries[0].Digest {
+		t.Fatalf("identical resolved reinstall: entries=%#v err=%v", again, err)
+	}
+	after, err := os.ReadFile(NewStore(state).ManifestPath())
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatalf("identical resolved reinstall rewrote manifest: err=%v", err)
 	}
 }
 
@@ -150,8 +163,21 @@ func TestInstallLocalSkillsReplaceGuard(t *testing.T) {
 	}
 
 	svc := NewLocalSkillService(state)
-	if _, err := svc.InstallLocalSkills(context.Background(), InstallLocalSkillsRequest{Source: sourceA, Discover: DiscoverSkillsOptions{All: true}}); err != nil {
+	first, err := svc.InstallLocalSkills(context.Background(), InstallLocalSkillsRequest{Source: sourceA, Discover: DiscoverSkillsOptions{All: true}})
+	if err != nil {
 		t.Fatal(err)
+	}
+	beforeManifest, err := os.ReadFile(NewStore(state).ManifestPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := svc.InstallLocalSkills(context.Background(), InstallLocalSkillsRequest{Source: sourceA, Discover: DiscoverSkillsOptions{All: true}})
+	if err != nil || len(second) != 1 || second[0].Digest != first[0].Digest {
+		t.Fatalf("identical reinstall should be a no-op: first=%#v second=%#v err=%v", first, second, err)
+	}
+	afterManifest, err := os.ReadFile(NewStore(state).ManifestPath())
+	if err != nil || !bytes.Equal(beforeManifest, afterManifest) {
+		t.Fatalf("identical reinstall rewrote manifest: err=%v", err)
 	}
 	if _, err := svc.InstallLocalSkills(context.Background(), InstallLocalSkillsRequest{Source: sourceB, Discover: DiscoverSkillsOptions{All: true}}); err == nil {
 		t.Fatal("expected replace guard error")

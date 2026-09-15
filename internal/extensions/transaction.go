@@ -3,6 +3,7 @@ package extensions
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -123,6 +124,21 @@ func (tx *Transaction) Rollback() error {
 			err = clearErr
 		}
 	}
+	tx.unlock()
+	tx.closed = true
+	return err
+}
+
+// AbortUnchanged releases a transaction that planned no mutable changes
+// without rewriting the manifest or creating a new activation timestamp.
+func (tx *Transaction) AbortUnchanged() error {
+	if tx.closed {
+		return fmt.Errorf("transaction already closed")
+	}
+	if !reflect.DeepEqual(tx.working, tx.previous) {
+		return fmt.Errorf("cannot abort a changed transaction without rollback")
+	}
+	err := tx.store.clearJournal()
 	tx.unlock()
 	tx.closed = true
 	return err
