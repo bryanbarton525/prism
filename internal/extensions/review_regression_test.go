@@ -105,6 +105,24 @@ func TestReviewManagedObjectRequiresDigestAndStoreBoundary(t *testing.T) {
 	}
 }
 
+func TestReviewMaterializationRejectsUnsafeManifestIdentities(t *testing.T) {
+	base := fstest.MapFS{"agents/README.md": {Data: []byte("base")}}
+	for _, kind := range []string{"agent", "skill"} {
+		t.Run(kind, func(t *testing.T) {
+			snapshot := CatalogSnapshot{}
+			item := CatalogItem{ID: "../escape", Origin: "managed", Active: true}
+			if kind == "agent" {
+				snapshot.Agents = []CatalogItem{item}
+			} else {
+				snapshot.Skills = []CatalogItem{item}
+			}
+			if _, err := MaterializeRuntimeBundle(base, snapshot); err == nil {
+				t.Fatal("unsafe managed identity escaped its runtime namespace")
+			}
+		})
+	}
+}
+
 func TestReviewSkillValidationAndDryRun(t *testing.T) {
 	state := t.TempDir()
 	source := filepath.Join(t.TempDir(), "demo")
