@@ -123,6 +123,46 @@ func TestReviewMaterializationRejectsUnsafeManifestIdentities(t *testing.T) {
 	}
 }
 
+func TestManagedAgentConstitutionsRemainIsolatedAcrossSameRelativePath(t *testing.T) {
+	base := fstest.MapFS{"agents/README.md": {Data: []byte("base")}}
+	snapshot := CatalogSnapshot{}
+	for _, id := range []string{"alpha", "beta"} {
+		object := filepath.Join(t.TempDir(), id)
+		if err := os.MkdirAll(filepath.Join(object, "constitutions"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(object, id+".md"), reviewAgent(id, "constitutions/rules.md"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(object, "constitutions", "rules.md"), []byte(id+" rules"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		digest, err := directoryDigest(object)
+		if err != nil {
+			t.Fatal(err)
+		}
+		snapshot.Agents = append(snapshot.Agents, CatalogItem{ID: id, Origin: "managed", Active: true, Digest: digest, ObjectPath: object})
+	}
+	runtimeFS, err := MaterializeRuntimeBundle(base, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"alpha", "beta"} {
+		content, err := fs.ReadFile(runtimeFS, "agents/"+id+".md")
+		if err != nil {
+			t.Fatal(err)
+		}
+		spec, err := agent.ParseManaged(content, id+".md")
+		if err != nil || spec.ConstitutionPath != "managed/"+id+"/constitutions/rules.md" {
+			t.Fatalf("%s constitution reference: spec=%#v err=%v", id, spec, err)
+		}
+		rules, err := fs.ReadFile(runtimeFS, spec.ConstitutionPath)
+		if err != nil || string(rules) != id+" rules" {
+			t.Fatalf("%s constitution content: rules=%q err=%v", id, rules, err)
+		}
+	}
+}
+
 func TestReviewSkillValidationAndDryRun(t *testing.T) {
 	state := t.TempDir()
 	source := filepath.Join(t.TempDir(), "demo")

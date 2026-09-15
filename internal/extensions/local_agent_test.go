@@ -44,10 +44,32 @@ func TestLocalAgentServiceInstallListCopyRenameRemove(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("copy: %v %v", ok, err)
 	}
+	verifyRunnableIdentity := func(identity string) {
+		entries, err := svc.ListManagedAgents(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, entry := range entries {
+			if entry.Identity != identity {
+				continue
+			}
+			data, err := os.ReadFile(entry.ObjectPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := agent.Parse(data, identity+".md"); err != nil {
+				t.Fatalf("%s managed object is not runnable: %v", identity, err)
+			}
+			return
+		}
+		t.Fatalf("managed %s entry missing after mutation", identity)
+	}
+	verifyRunnableIdentity("copied-agent")
 	ok, err = svc.RenameManagedAgent(context.Background(), "copied-agent", "renamed-agent", false)
 	if err != nil || !ok {
 		t.Fatalf("rename: %v %v", ok, err)
 	}
+	verifyRunnableIdentity("renamed-agent")
 	ok, err = svc.RemoveManagedAgent(context.Background(), "renamed-agent", false)
 	if err != nil || !ok {
 		t.Fatalf("remove: %v %v", ok, err)

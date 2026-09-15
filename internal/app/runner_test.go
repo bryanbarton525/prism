@@ -469,6 +469,25 @@ Managed body.`)
 	}
 }
 
+func TestRunner_Run_AllowsNoSkillsForDevelopmentAgentOverride(t *testing.T) {
+	root := makeTestRoot(t, map[string]string{"github-cli.md": githubCLISpec()}, nil)
+	agentDir := t.TempDir()
+	writeFile(t, filepath.Join(agentDir, "github-cli.md"), githubCLISpec())
+	srv := mockOllama(t, `{"summary":"ok","findings":[],"artifacts":[],"confidence":"high"}`)
+	defer srv.Close()
+	runner, err := New(Config{BundleFS: os.DirFS(root), AgentDir: agentDir, OllamaHost: srv.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := runner.Run(context.Background(), RunRequest{AgentID: "github-cli", Task: "say hello"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Status == result.StatusValidationFail && strings.Contains(res.Summary, "at least one skill is required") {
+		t.Fatalf("development override must not be classified as bundled: %#v", res)
+	}
+}
+
 func TestRunner_Run_RepositorySpecialistRequiresWorkspace(t *testing.T) {
 	spec := strings.Replace(githubCLISpec(), "temperature: 0.1", "temperature: 0.1\ntools:\n  - filesystem", 1)
 	root := makeTestRoot(t, map[string]string{"github-cli.md": spec}, map[string]string{"gh-pr-triage": ghPRTriageSkill()})

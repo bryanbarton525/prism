@@ -10,8 +10,9 @@ that management does not require a runnable catalog and rename/remove preserve
 an old immutable object. `go test ./...`, `go vet ./...`,
 `scripts/ci-check.sh`, `git diff --check`, the pinned Graphify
 `uv lock --check`, a Windows binary cross-build, and Windows CLI/app/extensions
-test-binary compilation pass on the current worktree. Commit `9504f84` was
-published to PR #32; its Linux CI and CodeQL checks passed. At least fourteen
+test-binary compilation pass on the current worktree. Sol review fixes through
+commit `c60171f` were published to PR #32; final-head CI is still being
+checked. At least fourteen
 focused review threads were replied to with test evidence and resolved. Spark acceptance
 coverage and the remaining review threads are still open. A read-only Codex CLI
 probe of `gpt-5.3-codex-spark` on 2026-09-15 still returned HTTP 400 with the
@@ -59,6 +60,10 @@ Sol work completed:
    Catalog-backed skill CLI inspection now fails with the underlying recovery
    or object-integrity error instead of silently showing embedded-only content;
    manifest-only managed repair commands remain available.
+   Regression coverage now verifies same-relative-path managed constitutions
+   remain isolated, copied/renamed agent objects parse under their new identity,
+   and a development `AgentDir` replacement with a bundled ID is not subject
+   to bundled-only zero-skill rejection.
 4. A documented outer runtime-configuration lock serializes access policy,
    downstream server mutation/removal, and Graphify reference/binding changes.
    Repeated concurrent-operation tests verify no updates are lost. A shared
