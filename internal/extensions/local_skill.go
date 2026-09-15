@@ -234,6 +234,10 @@ func (s *LocalSkillService) InstallLocalSkills(ctx context.Context, req InstallL
 		entry := &planned[index]
 		if current, ok := findManifestEntry(tx.working, "skill", entry.Identity); ok {
 			if strings.EqualFold(current.Digest, entry.Digest) {
+				if _, err := verifyManagedObject(CatalogItem{ID: current.Identity, Digest: current.Digest, ObjectPath: current.ObjectPath, ObjectRoot: s.store.ObjectRoot()}); err != nil {
+					_ = tx.Rollback()
+					return nil, fmt.Errorf("existing skill %q object integrity: %w", entry.Identity, err)
+				}
 				*entry = current
 				continue
 			}
@@ -308,6 +312,10 @@ func (s *LocalSkillService) InstallResolvedSkillsWithProvenance(ctx context.Cont
 		entry := &planned[index]
 		if current, ok := findManifestEntry(tx.working, "skill", entry.Identity); ok {
 			if strings.EqualFold(current.Digest, entry.Digest) {
+				if _, err := verifyManagedObject(CatalogItem{ID: current.Identity, Digest: current.Digest, ObjectPath: current.ObjectPath, ObjectRoot: s.store.ObjectRoot()}); err != nil {
+					_ = tx.Rollback()
+					return nil, fmt.Errorf("existing skill %q object integrity: %w", entry.Identity, err)
+				}
 				*entry = current
 				continue
 			}

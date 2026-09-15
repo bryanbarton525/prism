@@ -42,9 +42,11 @@ Sol work completed:
    coverage proves publication failure restores the whole prior snapshot.
    Identical local and resolver-backed skill reinstallation now closes the
    unchanged transaction without rewriting the manifest or its activation time.
+   Identical file-agent reinstallation follows the same no-publication rule;
+   every no-op rechecks the existing object digest/store boundary first.
    Repeated concurrent managed-skill install/conflict and remove/install tests
-   pass under the race detector, confirming locked revalidation and no lost
-   manifest entries.
+   and corresponding managed-agent tests pass under the race detector,
+   confirming locked revalidation and no lost manifest entries.
 2. Guided and non-interactive runtime setup now support existing managed agents,
    installed/new skill bindings, default/custom/none MCP access, interactive or
    file-based import decisions, local/GitHub package discovery with support

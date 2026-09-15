@@ -270,6 +270,28 @@ func TestConcurrentManagedSkillMutationsDoNotBypassConflictOrLoseEntries(t *test
 	}
 }
 
+func TestIdenticalSkillReinstallRejectsCorruptManagedObject(t *testing.T) {
+	state := t.TempDir()
+	source := filepath.Join(t.TempDir(), "demo")
+	if err := os.MkdirAll(source, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, "SKILL.md"), []byte("---\nname: demo\ndescription: fixture\n---\noriginal"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	service := NewLocalSkillService(state)
+	entries, err := service.InstallLocalSkills(context.Background(), InstallLocalSkillsRequest{Source: source})
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("install: entries=%#v err=%v", entries, err)
+	}
+	if err := os.WriteFile(filepath.Join(entries[0].ObjectPath, "SKILL.md"), []byte("tampered"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.InstallLocalSkills(context.Background(), InstallLocalSkillsRequest{Source: source}); err == nil || !strings.Contains(err.Error(), "integrity") {
+		t.Fatalf("identical reinstall trusted corrupt object: %v", err)
+	}
+}
+
 func TestRemoveManagedSkillRejectsAgentBinding(t *testing.T) {
 	state := t.TempDir()
 	source := t.TempDir()

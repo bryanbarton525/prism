@@ -11,7 +11,9 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -252,9 +254,18 @@ func (s *LocalAgentService) installContent(ctx context.Context, identity string,
 	if err != nil {
 		return ManifestEntry{}, err
 	}
-	if _, exists := findManifestEntry(tx.working, "agent", identity); exists && !req.Replace {
-		_ = tx.Rollback()
-		return ManifestEntry{}, fmt.Errorf("agent %q already exists; pass --replace", identity)
+	if current, exists := findManifestEntry(tx.working, "agent", identity); exists {
+		if strings.EqualFold(current.Digest, entry.Digest) && current.Source == entry.Source && current.Revision == entry.Revision && current.Subpath == entry.Subpath && reflect.DeepEqual(current.Runtime, entry.Runtime) && reflect.DeepEqual(current.Provenance, entry.Provenance) && slices.Equal(current.SkillBindings, entry.SkillBindings) {
+			if _, err := verifyManagedObject(CatalogItem{ID: current.Identity, Digest: current.Digest, ObjectPath: current.ObjectPath, ObjectRoot: s.store.ObjectRoot()}); err != nil {
+				_ = tx.Rollback()
+				return ManifestEntry{}, fmt.Errorf("existing agent %q object integrity: %w", identity, err)
+			}
+			return current, tx.AbortUnchanged()
+		}
+		if !req.Replace {
+			_ = tx.Rollback()
+			return ManifestEntry{}, fmt.Errorf("agent %q already exists; pass --replace", identity)
+		}
 	}
 	digest, objectPath, err := s.store.PutObject(data)
 	if err != nil {
