@@ -117,7 +117,7 @@ func probe(ctx context.Context, fsys fs.FS) error {
 }
 
 // cloneFallback clones the repository into a temp directory and returns an
-// os.DirFS of the clone. The cleanup function removes the temp dir.
+// confined fs.FS of the clone. The cleanup function removes the temp dir.
 func cloneFallback(ctx context.Context, url string) (fs.FS, func(), error) {
 	tmpDir, err := os.MkdirTemp("", "prism-root-*")
 	if err != nil {
@@ -142,7 +142,7 @@ func cloneFallback(ctx context.Context, url string) (fs.FS, func(), error) {
 		return nil, func() {}, fmt.Errorf("rootresolver: git clone %s: %w", url, err)
 	}
 
-	return os.DirFS(tmpDir), rmCleanup, nil
+	return newConfinedDirFS(tmpDir), rmCleanup, nil
 }
 
 func cloneArgs(url, dest string) []string {

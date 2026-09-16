@@ -77,6 +77,14 @@ func TestDigestChangesWithContent(t *testing.T) {
 	}
 }
 
+func TestDigestFramingDistinguishesNULPayloadsFromFileBoundaries(t *testing.T) {
+	one := fstest.MapFS{"a": &fstest.MapFile{Data: []byte("b\x00c\x00")}}
+	two := fstest.MapFS{"a": &fstest.MapFile{Data: []byte("b")}, "c": &fstest.MapFile{Data: nil}}
+	if DigestFS(one) == DigestFS(two) {
+		t.Fatal("bundle digest collided across NUL-containing payload and file boundary")
+	}
+}
+
 func TestManifestContainsEmbeddedFiles(t *testing.T) {
 	manifest := Manifest()
 	if manifest.Digest != BundleDigest() || len(manifest.Files) == 0 {

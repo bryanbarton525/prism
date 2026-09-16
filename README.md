@@ -24,7 +24,8 @@ Prism uses Ollama by default at `http://127.0.0.1:11434`; SGLang, vLLM, and othe
 ```bash
 prism install                         # interactive selection and preview
 prism install --project --all --yes  # all bundled content in this project
-prism install --global --all --yes
+prism install --global --all --yes  # all bundled content for every host
+prism install --global --target codex --skill gh-pr-triage --specialist github-cli --yes
 prism install --target copilot --skill gh-pr-triage --specialist github-cli
 prism install --dry-run --all
 prism install status

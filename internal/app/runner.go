@@ -104,8 +104,9 @@ type Config struct {
 	// AgentDir is a local path override for the agents directory.
 	// When set it overrides the agents/ sub-FS derived from RootFS/RootDir.
 	AgentDir string
-	// ConstitutionFS supplies support files for an AgentDir override. When
-	// unset, constitutions continue to resolve from the effective bundle.
+	// ConstitutionFS supplies sibling support files for an AgentDir override.
+	// When unset, constitutions resolve from the effective bundle. Both
+	// execution and get_constitution use this filesystem.
 	ConstitutionFS fs.FS
 	// SkillsDir is a local path override for the skills directory.
 	// When set it overrides the skills/ sub-FS derived from RootFS/RootDir.

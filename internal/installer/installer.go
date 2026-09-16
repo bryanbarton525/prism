@@ -213,12 +213,12 @@ func Install(opts Options) (Plan, error) {
 	}
 	for _, planned := range plan.Paths {
 		if err := validatePathInScope(root, planned); err != nil {
-			return plan, err
+			return plan, fmt.Errorf("planned install path %q: %w", planned, err)
 		}
 	}
-	old := Manifest{Scope: opts.Scope}
+	old := Manifest{Scope: plan.Scope}
 	if loaded, loadErr := LoadManifest(plan.ManifestPath); loadErr == nil {
-		if err := validateInstallManifest(root, opts.Scope, loaded); err != nil {
+		if err := validateInstallManifest(root, plan.Scope, loaded); err != nil {
 			return plan, err
 		}
 		old = loaded
@@ -500,6 +500,9 @@ func installMCP(tx *transaction, target, path, binary, runtimeStateDir string, m
 		} else {
 			return fmt.Errorf("cannot preserve existing JSON configuration: expected an object")
 		}
+		if root == nil {
+			root = map[string]any{}
+		}
 	}
 	switch target {
 	case "copilot":
@@ -619,22 +622,15 @@ func installLink(tx *transaction, source, dest string, managed map[string]bool, 
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
 	}
-	stageFile, err := os.CreateTemp(filepath.Dir(dest), ".prism-stage-link-*")
+	stageDir, err := os.MkdirTemp(filepath.Dir(dest), ".prism-stage-link-")
 	if err != nil {
 		return err
 	}
-	stage := stageFile.Name()
-	if err := stageFile.Close(); err != nil {
-		_ = os.Remove(stage)
-		return err
-	}
-	if err := os.Remove(stage); err != nil {
-		return err
-	}
+	defer os.RemoveAll(stageDir)
+	stage := filepath.Join(stageDir, "payload")
 	if err := os.Symlink(source, stage); err != nil {
 		return err
 	}
-	defer os.Remove(stage)
 	if err := tx.prepare(dest, managed, force); err != nil {
 		return err
 	}
@@ -807,24 +803,13 @@ func validatePathInScope(root, candidate string) error {
 	ancestor := candidateAbs
 	var missing []string
 	for {
-		info, statErr := os.Lstat(ancestor)
-		if statErr == nil {
-			if info.Mode()&os.ModeSymlink != 0 {
-				resolved, resolveErr := filepath.EvalSymlinks(ancestor)
-				if resolveErr != nil {
-					return resolveErr
-				}
-				ancestor = resolved
-			} else {
-				resolved, resolveErr := filepath.EvalSymlinks(ancestor)
-				if resolveErr != nil {
-					return resolveErr
-				}
-				ancestor = resolved
+		if _, statErr := os.Lstat(ancestor); statErr == nil {
+			ancestor, err = filepath.EvalSymlinks(ancestor)
+			if err != nil {
+				return err
 			}
 			break
-		}
-		if !errors.Is(statErr, os.ErrNotExist) {
+		} else if !errors.Is(statErr, os.ErrNotExist) {
 			return statErr
 		}
 		parent := filepath.Dir(ancestor)
@@ -837,8 +822,7 @@ func validatePathInScope(root, candidate string) error {
 	for i := len(missing) - 1; i >= 0; i-- {
 		ancestor = filepath.Join(ancestor, missing[i])
 	}
-	realPath := ancestor
-	rel, err := filepath.Rel(rootReal, realPath)
+	rel, err := filepath.Rel(rootReal, ancestor)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return fmt.Errorf("path resolves outside scope root")
 	}
