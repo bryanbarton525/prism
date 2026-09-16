@@ -98,13 +98,20 @@ func normalizeMCPAccess(state MCPAccessState) (MCPAccessState, error) {
 	state.DefaultServers = dedupeServers(state.DefaultServers)
 	normalized := make(map[string]MCPAccessRule, len(state.Agents))
 	for key, rule := range state.Agents {
+		canonical := strings.ToLower(strings.TrimSpace(key))
+		if canonical == "" {
+			return MCPAccessState{}, fmt.Errorf("MCP access agent identity must not be empty")
+		}
+		if _, exists := normalized[canonical]; exists {
+			return MCPAccessState{}, fmt.Errorf("duplicate MCP access agent identity %q after case normalization", canonical)
+		}
 		mode, err := normalizeMode(rule.Mode)
 		if err != nil {
 			return MCPAccessState{}, fmt.Errorf("MCP access rule for agent %q: %w", key, err)
 		}
 		rule.Mode = mode
 		rule.Servers = dedupeServers(rule.Servers)
-		normalized[strings.ToLower(strings.TrimSpace(key))] = rule
+		normalized[canonical] = rule
 	}
 	state.Agents = normalized
 	return state, nil

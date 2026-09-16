@@ -3,6 +3,7 @@ package extensions
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"testing"
 )
@@ -68,5 +69,28 @@ func TestConcurrentMCPAccessUpdatesPreserveDistinctAgentRules(t *testing.T) {
 		if err != nil || !configured || len(state.Agents) != 3 {
 			t.Fatalf("trial %d lost access update: state=%#v configured=%v err=%v", trial, state, configured, err)
 		}
+	}
+}
+
+func TestMCPAccessNormalizationRejectsAmbiguousOrInvalidAuthorization(t *testing.T) {
+	for _, state := range []MCPAccessState{
+		{Agents: map[string]MCPAccessRule{"Foo": {Mode: MCPAccessModeNone}, "foo": {Mode: MCPAccessModeCustom, Servers: []string{"docs"}}}},
+		{Agents: map[string]MCPAccessRule{" ": {Mode: MCPAccessModeNone}}},
+		{Agents: map[string]MCPAccessRule{"worker": {Mode: "typo"}}},
+	} {
+		if err := SaveMCPAccess(t.TempDir(), state); err == nil {
+			t.Fatalf("ambiguous or invalid authorization accepted: %#v", state)
+		}
+	}
+	got, err := normalizeMCPAccess(MCPAccessState{Agents: map[string]MCPAccessRule{"Foo": {Mode: MCPAccessModeNone}}})
+	if err != nil || len(got.Agents) != 1 || got.Agents["foo"].Mode != MCPAccessModeNone {
+		t.Fatalf("canonical access map = %#v, %v", got, err)
+	}
+	stateDir := t.TempDir()
+	if err := os.WriteFile(mcpAccessPath(stateDir), []byte("agents:\n  Foo:\n    mode: none\n  foo:\n    mode: custom\n    servers: [docs]\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := LoadMCPAccess(stateDir); err == nil {
+		t.Fatal("ambiguous persisted access policy was loaded")
 	}
 }
