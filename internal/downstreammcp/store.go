@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/bryanbarton525/prism/internal/fileatomic"
 	"github.com/bryanbarton525/prism/internal/filelock"
 	"gopkg.in/yaml.v3"
 )
@@ -116,17 +117,7 @@ func writeStateAtomically(path string, state State) error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	return replaceStateFile(tmpPath, path)
-}
-
-func replaceStateFile(source, destination string) error {
-	if err := os.Rename(source, destination); err == nil {
-		return nil
-	}
-	if err := os.Remove(destination); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	return os.Rename(source, destination)
+	return fileatomic.Replace(tmpPath, path)
 }
 
 func acquireLock(ctx context.Context, path string) (func(), error) {

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/bryanbarton525/prism/internal/fileatomic"
 	"gopkg.in/yaml.v3"
 )
 
@@ -299,18 +300,5 @@ func writeFileAtomically(path string, data []byte) error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	return replaceFile(tmpPath, path)
-}
-
-func replaceFile(source, destination string) error {
-	if err := os.Rename(source, destination); err == nil {
-		return nil
-	}
-	// Windows does not permit Rename to replace an existing destination. The
-	// destination is private state and is immediately replaced by this staged
-	// file, so this fallback preserves update behavior on that platform.
-	if err := os.Remove(destination); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	return os.Rename(source, destination)
+	return fileatomic.Replace(tmpPath, path)
 }
