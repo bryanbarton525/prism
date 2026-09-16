@@ -59,6 +59,16 @@ func TestResolvedSkillDryRunDoesNotPublishObjectOrManifest(t *testing.T) {
 	}
 }
 
+func TestPutFSDirectoryRejectsSpecialEntriesBeforeSnapshot(t *testing.T) {
+	store := NewStore(t.TempDir())
+	for _, mode := range []os.FileMode{os.ModeSymlink, os.ModeNamedPipe} {
+		fsys := fstest.MapFS{"SKILL.md": &fstest.MapFile{Data: []byte("---\nname: demo\ndescription: d\n---"), Mode: 0o444}, "bad": &fstest.MapFile{Data: []byte("outside"), Mode: mode}}
+		if _, _, err := store.putFSDirectory(fsys, "."); err == nil {
+			t.Fatalf("special entry mode %v accepted", mode)
+		}
+	}
+}
+
 func TestManagedSkillRecoveryDoesNotNeedRunnableCatalogOrDeleteOldObject(t *testing.T) {
 	state := t.TempDir()
 	svc := NewLocalSkillService(state)

@@ -507,6 +507,16 @@ func rewrittenSkillFS(fsys fs.FS, root, identity string) (fs.FS, error) {
 		if entry.IsDir() {
 			return nil
 		}
+		if entry.Type()&fs.ModeSymlink != 0 {
+			return fmt.Errorf("skill package symlink %q is not supported", name)
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("skill package special file %q is not supported", name)
+		}
 		data, err := fs.ReadFile(sub, name)
 		if err != nil {
 			return err

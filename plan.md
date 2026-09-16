@@ -66,6 +66,9 @@ Sol work completed:
    and a development `AgentDir` replacement with a bundled ID is not subject
    to bundled-only zero-skill rejection. Local agent and resolver-backed skill
    dry runs compute previews without publishing objects or manifests.
+   Local agent/skill packages reject named pipes before any read, and the
+   resolver rejects symlinks/special files before bounds accounting or content
+   hashing.
 4. A documented outer runtime-configuration lock serializes access policy,
    downstream server mutation/removal, and Graphify reference/binding changes.
    Repeated concurrent-operation tests, including direct per-agent MCP access

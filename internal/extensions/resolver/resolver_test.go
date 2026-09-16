@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 )
 
 func TestResolveLocalAndDigest(t *testing.T) {
@@ -40,5 +41,25 @@ func TestDescribeGitHubSource(t *testing.T) {
 	canonical, ref, resolved := describeSource("https://github.com/owner/repo/tree/main")
 	if canonical != "github://owner/repo" || ref != "main" || resolved != "" {
 		t.Fatalf("got canonical=%q ref=%q resolved=%q", canonical, ref, resolved)
+	}
+}
+
+func TestResolveRejectsSymlinkAndSpecialFileInputs(t *testing.T) {
+	for _, mode := range []os.FileMode{os.ModeSymlink, os.ModeNamedPipe} {
+		source := fstest.MapFS{"bad": &fstest.MapFile{Data: []byte("outside content"), Mode: mode}}
+		if _, _, _, err := digestFS(source, Bounds{MaxFiles: 1, MaxBytes: 1}); err == nil {
+			t.Fatalf("mode %v escaped resolver source validation", mode)
+		}
+	}
+	root := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "outside")
+	if err := os.WriteFile(outside, []byte("outside content"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, "link")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if _, err := Resolve(context.Background(), root, "", Bounds{MaxFiles: 1, MaxBytes: 1}); err == nil {
+		t.Fatal("local symlink source escaped resolver bounds")
 	}
 }

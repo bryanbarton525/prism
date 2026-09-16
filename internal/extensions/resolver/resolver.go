@@ -105,9 +105,15 @@ func digestFS(fsys fs.FS, bounds Bounds) (string, int, int64, error) {
 		if d.IsDir() {
 			return nil
 		}
+		if d.Type()&fs.ModeSymlink != 0 {
+			return fmt.Errorf("resolver source symlink %q is not supported", path)
+		}
 		info, err := d.Info()
 		if err != nil {
 			return err
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("resolver source special file %q is not supported", path)
 		}
 		files = append(files, filepath.ToSlash(path))
 		if len(files) > bounds.MaxFiles {
