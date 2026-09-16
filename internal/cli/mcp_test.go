@@ -105,6 +105,36 @@ func TestMCPAddInfersStreamableHTTPFromURL(t *testing.T) {
 	}
 }
 
+func TestMCPAddRejectsURLCredentials(t *testing.T) {
+	orig := gf.stateDir
+	gf.stateDir = t.TempDir()
+	t.Cleanup(func() { gf.stateDir = orig })
+	cmd := newMCPAddCmd()
+	cmd.SetArgs([]string{"secret", "--url", "https://user:password@example.com/mcp"})
+	err := cmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), "userinfo") || strings.Contains(err.Error(), "password") {
+		t.Fatalf("URL credentials rejection = %v", err)
+	}
+	state, err := downstreammcp.Load(mcpServersPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := state.Get("secret"); ok {
+		t.Fatal("credential-bearing endpoint was persisted")
+	}
+}
+
+func TestHTTPURLValidationDistinguishesURLFromFilesystemPath(t *testing.T) {
+	if err := validateAbsoluteHTTPURL("https://example.com:8443/mcp"); err != nil {
+		t.Fatalf("valid URL with colon rejected: %v", err)
+	}
+	for _, raw := range []string{"/tmp/mcp", `\\server\share`, "C:/mcp"} {
+		if err := validateAbsoluteHTTPURL(raw); err == nil {
+			t.Fatalf("filesystem path accepted as URL: %q", raw)
+		}
+	}
+}
+
 func TestMCPAddAcceptsHTTPTransportAlias(t *testing.T) {
 	orig := gf.stateDir
 	gf.stateDir = t.TempDir()

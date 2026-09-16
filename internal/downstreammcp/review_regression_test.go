@@ -28,3 +28,16 @@ func TestReviewStrictConfigurationAndStructuredBounds(t *testing.T) {
 		t.Fatalf("bounded structured content is %d bytes", len(data))
 	}
 }
+
+func TestHTTPEndpointRejectsURLCredentialsBeforePersistence(t *testing.T) {
+	for _, transport := range []string{TransportSSE, TransportStreamableHTTP} {
+		server := Server{Name: "secret", Transport: transport, URL: "https://user:password@example.com/mcp"}
+		err := server.Validate()
+		if err == nil || !strings.Contains(err.Error(), "userinfo") || strings.Contains(err.Error(), "password") {
+			t.Fatalf("%s URL credentials: %v", transport, err)
+		}
+		if err := Save(t.TempDir()+"/mcp.yaml", State{Servers: []Server{server}}); err == nil {
+			t.Fatalf("%s URL credentials were persisted", transport)
+		}
+	}
+}

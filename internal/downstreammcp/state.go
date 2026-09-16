@@ -156,6 +156,9 @@ func validateHTTPURL(raw string) error {
 	if err != nil || !parsed.IsAbs() || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
 		return fmt.Errorf("sse and streamable-http transports require an absolute http(s) url")
 	}
+	if parsed.User != nil {
+		return errors.New("http(s) endpoint urls cannot contain userinfo; use header references for credentials")
+	}
 	return nil
 }
 

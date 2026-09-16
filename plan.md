@@ -23,7 +23,8 @@ current ChatGPT login; no Spark-assigned task was run under a substitute model.
 Implemented and locally verified:
 
 - Downstream MCP lifecycle, transports, credential references, bounded calls,
-  cross-platform advisory locks, and legacy command compatibility.
+  cross-platform advisory locks, rejection of credential-bearing endpoint URLs,
+  and legacy command compatibility.
 - Immutable runtime-extension storage, recovery journals, effective catalog
   composition, portable skills/resources, deterministic agent adapters,
   explicit runtime targets, lifecycle/bindings, zero-skill managed agents,

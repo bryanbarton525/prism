@@ -707,6 +707,9 @@ func validateAbsoluteHTTPURL(raw string) error {
 	if parsed.Host == "" {
 		return fmt.Errorf("--url must be absolute")
 	}
+	if parsed.User != nil {
+		return fmt.Errorf("--url cannot contain userinfo; use --header-from for credentials")
+	}
 	if strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, `\`) {
 		return fmt.Errorf("--url must be an absolute URL, not a path")
 	}
