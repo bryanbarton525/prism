@@ -11,8 +11,10 @@ that management does not require a runnable catalog and rename/remove preserve
 an old immutable object. `go test ./...`, `go vet ./...`,
 `scripts/ci-check.sh`, `git diff --check`, the pinned Graphify
 `uv lock --check`, a Windows binary cross-build, and Windows CLI/app/extensions
-test-binary compilation pass on the current worktree. Sol review fixes through
-commit `bf00d27` were published to PR #32; final-head CI is still pending.
+test-binary compilation pass on the current worktree. Foundation review fixes
+were backported to PR #31 in commit `544b4db`, its seven review threads were
+resolved, and the updated foundation was merged into PR #32 as `d721414`.
+Final-head CI for both PRs is still being checked.
 All Sol review threads were replied to with test evidence and resolved; the six
 remaining threads belong to SPARK-4 resource/skill acceptance. Spark acceptance
 coverage is still open. A read-only Codex CLI
@@ -96,7 +98,8 @@ Remaining before completion:
    The six currently open comments are Spark resource/skill contract cases;
    Sol correctness comments are resolved on 2026-09-15.
    Obsolete empty-diff draft PR #34 was closed on 2026-09-15. PR #31 remains
-   the foundation PR.
+   the foundation PR; its seven review fixes are now on that branch and merged
+   into PR #32 without force-pushing either branch.
 
 ## Remaining-work assignment by model
 
