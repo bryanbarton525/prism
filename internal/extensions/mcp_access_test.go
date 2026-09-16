@@ -1,6 +1,11 @@
 package extensions
 
-import "testing"
+import (
+	"context"
+	"fmt"
+	"sync"
+	"testing"
+)
 
 func TestMCPAccessAllowedServers(t *testing.T) {
 	state := MCPAccessState{
@@ -26,5 +31,42 @@ func TestMCPAccessAllowedServers(t *testing.T) {
 	got = state.AllowedServers("unknown", all, false)
 	if len(got) != 3 {
 		t.Fatalf("legacy expected all, got %#v", got)
+	}
+}
+
+func TestConcurrentMCPAccessUpdatesPreserveDistinctAgentRules(t *testing.T) {
+	for trial := 0; trial < 8; trial++ {
+		stateDir := t.TempDir()
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		errors := make(chan error, 3)
+		for index := 0; index < 3; index++ {
+			identity := fmt.Sprintf("agent-%d", index)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				<-start
+				_, err := UpdateMCPAccess(context.Background(), stateDir, func(state *MCPAccessState) error {
+					if state.Agents == nil {
+						state.Agents = map[string]MCPAccessRule{}
+					}
+					state.Agents[identity] = MCPAccessRule{Mode: MCPAccessModeNone}
+					return nil
+				})
+				errors <- err
+			}()
+		}
+		close(start)
+		wg.Wait()
+		close(errors)
+		for err := range errors {
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		state, configured, err := LoadMCPAccess(stateDir)
+		if err != nil || !configured || len(state.Agents) != 3 {
+			t.Fatalf("trial %d lost access update: state=%#v configured=%v err=%v", trial, state, configured, err)
+		}
 	}
 }

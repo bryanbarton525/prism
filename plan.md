@@ -68,7 +68,8 @@ Sol work completed:
    dry runs compute previews without publishing objects or manifests.
 4. A documented outer runtime-configuration lock serializes access policy,
    downstream server mutation/removal, and Graphify reference/binding changes.
-   Repeated concurrent-operation tests verify no updates are lost. A shared
+   Repeated concurrent-operation tests, including direct per-agent MCP access
+   updates under the race detector, verify no updates are lost. A shared
    advisory-lock regression proves an active owner is never reclaimed merely
    because the lock-file mtime is old. Shared platform-specific staged-file
    replacement now overwrites MCP state and extension manifests without first
