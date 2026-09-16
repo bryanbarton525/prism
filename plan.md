@@ -68,7 +68,8 @@ Sol work completed:
    dry runs compute previews without publishing objects or manifests.
    Local agent/skill packages reject named pipes before any read, and the
    resolver rejects symlinks/special files before bounds accounting or content
-   hashing.
+   hashing. Managed agent/skill CLI mutations propagate command cancellation
+   into lock acquisition rather than waiting through a canceled request.
 4. A documented outer runtime-configuration lock serializes access policy,
    downstream server mutation/removal, and Graphify reference/binding changes.
    Repeated concurrent-operation tests, including direct per-agent MCP access
