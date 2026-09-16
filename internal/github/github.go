@@ -5,12 +5,14 @@
 package github
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -110,6 +112,46 @@ func New(owner, repo, ref, token string) *FS {
 		token:  token,
 		client: &http.Client{Timeout: 30 * time.Second},
 	}
+}
+
+// ResolveRevision resolves a requested branch, tag, or SHA to the immutable
+// commit SHA used by the GitHub contents API.
+func ResolveRevision(ctx context.Context, owner, repo, ref, token string) (string, error) {
+	if strings.TrimSpace(ref) == "" {
+		ref = "HEAD"
+	}
+	endpoint := fmt.Sprintf("%s/repos/%s/%s/commits/%s", apiBase, url.PathEscape(owner), url.PathEscape(repo), url.PathEscape(ref))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+	if err != nil {
+		return "", fmt.Errorf("resolve GitHub revision: %w", err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("resolve GitHub revision: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	var payload struct {
+		SHA string `json:"sha"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return "", err
+	}
+	if len(payload.SHA) != 40 {
+		return "", fmt.Errorf("resolve GitHub revision: invalid commit SHA %q", payload.SHA)
+	}
+	return payload.SHA, nil
 }
 
 // Open implements fs.FS.

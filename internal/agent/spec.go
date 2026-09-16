@@ -40,6 +40,25 @@ type Spec struct {
 	Body string `yaml:"-" json:"body,omitempty"`
 }
 
+// Render serializes a normalized Prism agent definition. Managed mutations use
+// this form so identity, model, and skill bindings remain consistent with the
+// immutable object bytes that are activated.
+func Render(spec *Spec) ([]byte, error) {
+	frontmatter, err := yaml.Marshal(spec)
+	if err != nil {
+		return nil, fmt.Errorf("marshal agent frontmatter: %w", err)
+	}
+	var out bytes.Buffer
+	out.WriteString("---\n")
+	out.Write(frontmatter)
+	out.WriteString("---\n")
+	out.WriteString(strings.TrimSpace(spec.Body))
+	if spec.Body != "" {
+		out.WriteByte('\n')
+	}
+	return out.Bytes(), nil
+}
+
 // Summary is a lightweight agent descriptor suitable for list output.
 type Summary struct {
 	ID              string   `json:"id"`
@@ -112,6 +131,16 @@ func (s *Spec) ResolveConstitution(fsys fs.FS) (text, source string, err error) 
 // Parse parses raw bytes that begin with a YAML frontmatter block delimited by
 // "---". The sourcePath is used only for error messages and id-stem validation.
 func Parse(data []byte, sourcePath string) (*Spec, error) {
+	return parseWithOptions(data, sourcePath, false)
+}
+
+// ParseManaged parses a user-managed agent. Managed agents must declare the
+// allowed_skills field, but an explicit empty list is valid.
+func ParseManaged(data []byte, sourcePath string) (*Spec, error) {
+	return parseWithOptions(data, sourcePath, true)
+}
+
+func parseWithOptions(data []byte, sourcePath string, allowEmptySkills bool) (*Spec, error) {
 	const delim = "---"
 
 	content := strings.TrimSpace(string(data))
@@ -134,15 +163,28 @@ func Parse(data []byte, sourcePath string) (*Spec, error) {
 	if err := dec.Decode(spec); err != nil {
 		return nil, fmt.Errorf("%s: YAML parse error: %w", sourcePath, err)
 	}
+	if allowEmptySkills {
+		if spec.ContextBudget == 0 {
+			spec.ContextBudget = 8192
+		}
+		if spec.LatencyBudgetMS == 0 {
+			spec.LatencyBudgetMS = 30000
+		}
+	}
 	spec.Body = body
 
-	if err := validate(spec, sourcePath); err != nil {
+	hasAllowedSkills := false
+	var fields map[string]any
+	if err := yaml.Unmarshal([]byte(frontmatter), &fields); err == nil {
+		_, hasAllowedSkills = fields["allowed_skills"]
+	}
+	if err := validate(spec, sourcePath, allowEmptySkills, hasAllowedSkills); err != nil {
 		return nil, err
 	}
 	return spec, nil
 }
 
-func validate(s *Spec, src string) error {
+func validate(s *Spec, src string, allowEmptySkills, hasAllowedSkills bool) error {
 	var missing []string
 	if s.ID == "" {
 		missing = append(missing, "id")
@@ -159,12 +201,15 @@ func validate(s *Spec, src string) error {
 	if s.ContextBudget == 0 {
 		missing = append(missing, "context_budget")
 	}
-	if len(s.AllowedSkills) == 0 {
+	if !hasAllowedSkills || (!allowEmptySkills && len(s.AllowedSkills) == 0) {
 		missing = append(missing, "allowed_skills")
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("%s: missing required frontmatter fields: %s",
 			src, strings.Join(missing, ", "))
+	}
+	if s.ContextBudget < 0 || s.LatencyBudgetMS < 0 {
+		return fmt.Errorf("%s: context_budget and latency_budget_ms must be positive", src)
 	}
 
 	if src != "" {

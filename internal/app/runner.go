@@ -19,6 +19,8 @@ import (
 	"github.com/bryanbarton525/prism/internal/agent"
 	"github.com/bryanbarton525/prism/internal/buildinfo"
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
+	"github.com/bryanbarton525/prism/internal/extensions"
+	"github.com/bryanbarton525/prism/internal/graphify"
 	"github.com/bryanbarton525/prism/internal/llm"
 	llmruntime "github.com/bryanbarton525/prism/internal/llm/runtime"
 	"github.com/bryanbarton525/prism/internal/ollama"
@@ -103,8 +105,8 @@ type Config struct {
 	// When set it overrides the agents/ sub-FS derived from RootFS/RootDir.
 	AgentDir string
 	// ConstitutionFS supplies sibling support files for an AgentDir override.
-	// A constitution_path is resolved against this FS during both execution
-	// and get_constitution.
+	// When unset, constitutions resolve from the effective bundle. Both
+	// execution and get_constitution use this filesystem.
 	ConstitutionFS fs.FS
 	// SkillsDir is a local path override for the skills directory.
 	// When set it overrides the skills/ sub-FS derived from RootFS/RootDir.
@@ -128,6 +130,19 @@ type Config struct {
 	// PolicyEngine is optional. When set, requests are checked before evidence
 	// collection and model execution.
 	PolicyEngine *internalpolicy.Engine
+	// ExtensionsStateDir enables managed-extension catalog composition.
+	ExtensionsStateDir string
+	// ExtensionSnapshot can be precomputed by callers; when nil New composes one.
+	ExtensionSnapshot *extensions.CatalogSnapshot
+	// MCPAccess controls per-agent downstream MCP visibility and authorization.
+	MCPAccess           extensions.MCPAccessState
+	MCPAccessConfigured bool
+	// Graphify is the explicit, workspace-bound Graphify capability
+	// configuration. It is intentionally independent of MCPAccess.
+	Graphify graphify.Config
+	// RuntimeTarget describes the effective process runtime. Model may be empty
+	// when the process has no global model override.
+	RuntimeTarget extensions.RuntimeTarget
 }
 
 // bundleFS returns the immutable runtime definitions. RootFS/RootDir remain a
@@ -225,6 +240,9 @@ type RunRequest struct {
 	// SkillNames is the required list of skill IDs to attach.
 	// Each must be present in the agent's allowed_skills list.
 	SkillNames []string
+	// SkillResources explicitly attaches bounded text resources in
+	// <skill>:<path> form for runtimes that cannot make tool calls.
+	SkillResources []string
 	// Format controls the rendered output: "json" (default) or "markdown".
 	Format string
 	// Metadata is optional caller context used by team dashboards and reports.
@@ -238,7 +256,8 @@ type RunRequest struct {
 }
 
 type Workspace struct {
-	Root string `json:"root"`
+	Root                  string `json:"root"`
+	GenerationFingerprint string `json:"generation_fingerprint,omitempty"`
 }
 
 // Runner implements AgentRunner on top of a provider-neutral ModelRuntime.
@@ -251,11 +270,14 @@ type Runner struct {
 	plugins        *plugins.Registry
 	// ollama is retained for Ollama-specific diagnostics (doctor). All chat
 	// traffic goes through llm.
-	ollama  *ollama.Client
-	llm     llmruntime.ModelRuntime
-	downmcp DownstreamMCPClient
-	events  observe.Sink
-	policy  *internalpolicy.Engine
+	ollama              *ollama.Client
+	llm                 llmruntime.ModelRuntime
+	downmcp             DownstreamMCPClient
+	events              observe.Sink
+	policy              *internalpolicy.Engine
+	catalog             extensions.CatalogSnapshot
+	mcpAccess           extensions.MCPAccessState
+	mcpAccessConfigured bool
 }
 
 type DownstreamMCPClient interface {
@@ -276,11 +298,31 @@ func New(cfg Config) (*Runner, error) {
 	if cfg.BundleMode == "" {
 		cfg.BundleMode = "embedded"
 	}
+	baseBundleFS := cfg.bundleFS()
+	implicitWorkspaceFS := cfg.workspaceFS()
 	if cfg.BundleDigest == "" {
-		cfg.BundleDigest = prismbundle.DigestFS(cfg.bundleFS())
+		cfg.BundleDigest = prismbundle.DigestFS(baseBundleFS)
+	}
+	catalog, err := resolveCatalogSnapshot(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if materialized, err := extensions.MaterializeRuntimeBundle(baseBundleFS, catalog); err == nil {
+		cfg.BundleFS = materialized
+	} else if hasActiveManagedContent(catalog) {
+		return nil, fmt.Errorf("materializing managed runtime content: %w", err)
+	}
+	if cfg.WorkspaceFS == nil && implicitWorkspaceFS != nil {
+		cfg.WorkspaceFS = implicitWorkspaceFS
 	}
 	agentFS := cfg.agentFS()
-	reg := agent.NewRegistry(agentFS)
+	managedAgentIDs := make([]string, 0)
+	for _, item := range catalog.Agents {
+		if item.Origin == "managed" && item.Active {
+			managedAgentIDs = append(managedAgentIDs, item.ID)
+		}
+	}
+	reg := agent.NewRegistryWithManaged(agentFS, managedAgentIDs)
 	if err := reg.Load(); err != nil {
 		return nil, fmt.Errorf("loading agents: %w", err)
 	}
@@ -302,17 +344,20 @@ func New(cfg Config) (*Runner, error) {
 		modelRuntime = rt
 	}
 	return &Runner{
-		cfg:            cfg,
-		bundleFS:       cfg.bundleFS(),
-		skillsFS:       cfg.skillsFS(),
-		constitutionFS: cfg.constitutionFS(),
-		registry:       reg,
-		plugins:        pluginRegistry,
-		ollama:         oc,
-		llm:            modelRuntime,
-		downmcp:        cfg.DownstreamMCP,
-		events:         eventSink,
-		policy:         cfg.PolicyEngine,
+		cfg:                 cfg,
+		bundleFS:            cfg.bundleFS(),
+		skillsFS:            cfg.skillsFS(),
+		constitutionFS:      cfg.constitutionFS(),
+		registry:            reg,
+		plugins:             pluginRegistry,
+		ollama:              oc,
+		llm:                 modelRuntime,
+		downmcp:             cfg.DownstreamMCP,
+		events:              eventSink,
+		policy:              cfg.PolicyEngine,
+		catalog:             catalog,
+		mcpAccess:           cfg.MCPAccess,
+		mcpAccessConfigured: cfg.MCPAccessConfigured,
 	}, nil
 }
 
@@ -321,6 +366,58 @@ func (c *Config) constitutionFS() fs.FS {
 		return c.ConstitutionFS
 	}
 	return c.bundleFS()
+}
+
+func hasActiveManagedContent(snapshot extensions.CatalogSnapshot) bool {
+	for _, item := range snapshot.Agents {
+		if item.Origin == "managed" && item.Active {
+			return true
+		}
+	}
+	for _, item := range snapshot.Skills {
+		if item.Origin == "managed" && item.Active {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Runner) isBundledAgent(agentID string) bool {
+	if r.cfg.AgentDir != "" {
+		return false
+	}
+	for _, item := range r.catalog.Agents {
+		if item.ID == agentID && item.Origin == "bundled" {
+			return true
+		}
+	}
+	return false
+}
+
+func resolveCatalogSnapshot(cfg Config) (extensions.CatalogSnapshot, error) {
+	if cfg.ExtensionSnapshot != nil {
+		return *cfg.ExtensionSnapshot, nil
+	}
+	manifest := extensions.EmptyManifest()
+	if cfg.ExtensionsStateDir != "" {
+		store := extensions.NewStore(cfg.ExtensionsStateDir)
+		loaded, _, err := store.RecoverAndLoadManifest(context.Background())
+		if err != nil {
+			return extensions.CatalogSnapshot{}, fmt.Errorf("recovering/loading extension state: %w", err)
+		}
+		manifest = loaded
+	}
+	catalog, err := extensions.ComposeCatalog(extensions.ComposeInput{
+		BundleFS:        cfg.bundleFS(),
+		Manifest:        manifest,
+		ObjectStoreRoot: extensions.NewStore(cfg.ExtensionsStateDir).ObjectRoot(),
+		AgentOverride:   cfg.AgentDir != "",
+		SkillOverride:   cfg.SkillsDir != "",
+	})
+	if err != nil {
+		return extensions.CatalogSnapshot{}, fmt.Errorf("composing extension catalog: %w", err)
+	}
+	return catalog, nil
 }
 
 func defaultRuntimePlugins(root fs.FS, downstream DownstreamMCPClient) *plugins.Registry {
@@ -343,6 +440,15 @@ func defaultRuntimePlugins(root fs.FS, downstream DownstreamMCPClient) *plugins.
 // ListAgents implements AgentRunner.
 func (r *Runner) ListAgents(_ context.Context) ([]agent.Summary, error) {
 	return r.registry.List(), nil
+}
+
+func (r *Runner) CatalogSnapshot() extensions.CatalogSnapshot {
+	return r.catalog
+}
+
+// SkillsFS returns the exact runtime skills filesystem used by this runner.
+func (r *Runner) SkillsFS() fs.FS {
+	return r.skillsFS
 }
 
 // GetSpec returns the full parsed Spec for agentID.
@@ -407,16 +513,25 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 	if err != nil {
 		return emit(result.Error(req.AgentID, "", err.Error(), time.Since(start))), nil
 	}
+	if target := r.managedRuntimeTarget(req.AgentID); target != nil {
+		current := r.cfg.RuntimeTarget
+		if !strings.EqualFold(strings.TrimSpace(target.Engine), strings.TrimSpace(current.Engine)) ||
+			strings.TrimSpace(target.BaseURL) != strings.TrimSpace(current.BaseURL) ||
+			(strings.TrimSpace(current.Model) != "" && strings.TrimSpace(target.Model) != strings.TrimSpace(current.Model)) {
+			res := r.validationFail(req.AgentID, spec.Model, start, "managed agent runtime target has drifted; run `prism agent model set` to confirm the effective target")
+			return emit(res), nil
+		}
+	}
 	if req.Workspace.Root == "" && r.cfg.workspaceFS() == nil && agentRequiresWorkspace(spec) {
 		res := r.validationFail(req.AgentID, spec.Model, start,
 			"this specialist requires repository access; provide workspace.root, advertise one MCP root, or start the server with --root")
 		return emit(res), nil
 	}
 
-	// ── 2. Require at least one skill ─────────────────────────────────────
-	if len(req.SkillNames) == 0 {
+	// ── 2. Require at least one skill for bundled agents ──────────────────
+	if len(req.SkillNames) == 0 && r.isBundledAgent(req.AgentID) {
 		res := r.validationFail(req.AgentID, spec.Model, start,
-			"at least one skill is required; pass one or more values from allowed_skills")
+			"at least one skill is required for bundled agents; pass one or more values from allowed_skills")
 		res.ContextBudget = spec.ContextBudget
 		return emit(res), nil
 	}
@@ -486,15 +601,17 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 
 	// ── 7. Collect bounded runtime evidence for declared tools ────────────
 	runtimePlugins := r.plugins
+	workspaceFS := r.cfg.workspaceFS()
 	var workspaceCleanup func()
 	if req.Workspace.Root != "" {
-		workspaceFS, cleanup, resolveErr := rootresolver.Resolve(ctx, req.Workspace.Root, r.cfg.GitHubToken)
+		resolvedWorkspaceFS, cleanup, resolveErr := rootresolver.Resolve(ctx, req.Workspace.Root, r.cfg.GitHubToken)
 		if resolveErr != nil {
 			return emit(result.Error(req.AgentID, spec.Model,
 				fmt.Sprintf("resolving workspace: %s", resolveErr), time.Since(start))), nil
 		}
 		workspaceCleanup = cleanup
-		runtimePlugins = defaultRuntimePlugins(workspaceFS, r.downmcp)
+		workspaceFS = resolvedWorkspaceFS
+		runtimePlugins = defaultRuntimePlugins(resolvedWorkspaceFS, r.downmcp)
 	}
 	if workspaceCleanup != nil {
 		defer workspaceCleanup()
@@ -508,6 +625,22 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 		}
 	}
 	evidence := collectRuntimeEvidence(ctx, runtimePlugins, spec, req.Task)
+	if len(req.SkillResources) > 0 {
+		if r.isBundledAgent(req.AgentID) {
+			res := r.validationFail(req.AgentID, spec.Model, start, "explicit skill-resource attachments are available only to managed agents")
+			res.SkillsUsed = append([]string{}, req.SkillNames...)
+			return emit(res), nil
+		}
+		attachments, attachErr := collectSkillResourceAttachments(r.skillsFS, req.SkillNames, req.SkillResources)
+		if attachErr != nil {
+			res := r.validationFail(req.AgentID, spec.Model, start, attachErr.Error())
+			res.SkillsUsed = append([]string{}, req.SkillNames...)
+			return emit(res), nil
+		}
+		evidence.promptBlock += attachments.promptBlock
+		evidence.artifacts = append(evidence.artifacts, attachments.artifacts...)
+		evidence.byteSize += attachments.byteSize
+	}
 	if r.policy != nil {
 		policyDecision = r.policy.Explain(policypkg.Request{
 			AgentID:              req.AgentID,
@@ -536,8 +669,13 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 
 	// ── 8. Assemble prompt with progressive disclosure ────────────────────
 	systemPrompt, userPrompt := assemblePrompt(constitutionText, skills, req.SkillNames, task)
-	if agentUsesMCP(spec) && r.downmcp != nil {
+	if r.usesGraphifyCapability(spec) {
+		systemPrompt += graphifyMCPToolInstructions()
+	} else if agentUsesMCP(spec) && r.downmcp != nil {
 		systemPrompt += mcpToolLoopInstructions()
+	}
+	if !r.isBundledAgent(spec.ID) {
+		systemPrompt += skillResourceToolInstructions(req.SkillNames)
 	}
 
 	// ── 9. Context budget enforcement ─────────────────────────────────────
@@ -568,7 +706,7 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 		chatReq.Temperature = &temperature
 	}
 
-	toolChat, err := r.chatWithTools(ctx, chatReq, spec)
+	toolChat, err := r.chatWithTools(ctx, chatReq, spec, req.SkillNames, req.Workspace, workspaceFS)
 	elapsed := time.Since(start)
 	if err != nil {
 		status := result.StatusError
@@ -624,10 +762,19 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 	}), nil
 }
 
+func (r *Runner) managedRuntimeTarget(agentID string) *extensions.RuntimeTarget {
+	for _, item := range r.catalog.Agents {
+		if item.Origin == "managed" && item.Active && strings.EqualFold(item.ID, agentID) {
+			return item.Runtime
+		}
+	}
+	return nil
+}
+
 func agentRequiresWorkspace(spec *agent.Spec) bool {
 	for _, tool := range spec.Tools {
 		switch tool {
-		case "filesystem", "goproject", "localdocs", "github":
+		case "filesystem", "goproject", "localdocs", "github", "graphify":
 			return true
 		}
 	}
@@ -636,7 +783,7 @@ func agentRequiresWorkspace(spec *agent.Spec) bool {
 
 func workspacePlugin(name string) bool {
 	switch name {
-	case "filesystem", "goproject", "localdocs", "github":
+	case "filesystem", "goproject", "localdocs", "github", "graphify":
 		return true
 	default:
 		return false

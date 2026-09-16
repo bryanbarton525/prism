@@ -63,3 +63,37 @@ func TestSuggestLinear(t *testing.T) {
 		t.Fatalf("risk = %q", res.Risk)
 	}
 }
+
+func TestSuggestRepositoryInvestigatorForGraphShapedTasks(t *testing.T) {
+	r := New(fakeLister{{ID: "repo-investigator", AllowedSkills: []string{"graphify-query"}}}, nil)
+	for _, task := range []string{
+		"Investigate the repository architecture of the CLI.",
+		"Trace the component relationship between runner and MCP.",
+		"Find the dependency path from host wrapper to execution.",
+		"Perform change impact analysis for the router.",
+	} {
+		t.Run(task, func(t *testing.T) {
+			res, err := r.Suggest(context.Background(), Request{Task: task, Source: "mcp"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if res.AgentID != "repo-investigator" || len(res.SkillNames) != 1 || res.SkillNames[0] != "graphify-query" {
+				t.Fatalf("route = %#v", res)
+			}
+		})
+	}
+}
+
+func TestSuggestDoesNotOverRouteOneFileLookupToGraphify(t *testing.T) {
+	r := New(fakeLister{
+		{ID: "repo-investigator", AllowedSkills: []string{"graphify-query"}},
+		{ID: "go-helper", AllowedSkills: []string{"go-helper-fn"}},
+	}, nil)
+	res, err := r.Suggest(context.Background(), Request{Task: "Locate and read internal/cli/root.go.", Source: "mcp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.AgentID == "repo-investigator" {
+		t.Fatalf("ordinary one-file lookup was over-routed: %#v", res)
+	}
+}

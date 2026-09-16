@@ -61,9 +61,6 @@ func Validate(def graphpkg.Definition) graphpkg.ValidationResult {
 		if node.Agent == "" {
 			res.Errors = append(res.Errors, fmt.Sprintf("node %q missing agent", id))
 		}
-		if len(node.Skills) == 0 {
-			res.Errors = append(res.Errors, fmt.Sprintf("node %q missing skills", id))
-		}
 		if strings.TrimSpace(node.Task) == "" {
 			res.Errors = append(res.Errors, fmt.Sprintf("node %q missing task", id))
 		}

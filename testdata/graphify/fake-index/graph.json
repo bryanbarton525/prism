@@ -1,0 +1,18 @@
+{
+  "directed": true,
+  "multigraph": false,
+  "graph": {
+    "fixture": true,
+    "generated_by": "Prism deterministic Graphify fixture"
+  },
+  "nodes": [
+    {
+      "id": "cli-root",
+      "label": "Prism CLI root",
+      "source_file": "cmd/prism/main.go",
+      "source_location": "L1",
+      "file_type": "function"
+    }
+  ],
+  "links": []
+}

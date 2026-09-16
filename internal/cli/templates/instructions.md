@@ -8,7 +8,7 @@ Use Prism when a task benefits from a dedicated specialist that owns a bulky too
 ### CLI
 
 - `prism agent list` — list available specialist agents.
-- `prism run --agent <id> --skill <skill> --input "<task>"` — run one specialist with a required skill and a short task brief.
+- `prism run <agent-id> --skills <skill> --input <task-file>` — run one specialist with a required skill and a short task brief.
 - `prism doctor` — check runtime, registry, and skill health.
 
 ### MCP

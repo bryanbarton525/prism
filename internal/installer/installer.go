@@ -18,6 +18,8 @@ import (
 	prism "github.com/bryanbarton525/prism"
 	"github.com/bryanbarton525/prism/internal/agent"
 	"github.com/bryanbarton525/prism/internal/buildinfo"
+	"github.com/bryanbarton525/prism/internal/graphify"
+	"github.com/bryanbarton525/prism/internal/skill"
 )
 
 type Scope string
@@ -30,15 +32,16 @@ const (
 var Targets = []string{"codex", "copilot", "antigravity", "claude", "opencode"}
 
 type Options struct {
-	Scope       Scope
-	Root        string
-	Targets     []string
-	Skills      []string
-	Specialists []string
-	Copy        bool
-	Force       bool
-	DryRun      bool
-	Binary      string
+	Scope           Scope
+	Root            string
+	Targets         []string
+	Skills          []string
+	Specialists     []string
+	RuntimeStateDir string
+	Copy            bool
+	Force           bool
+	DryRun          bool
+	Binary          string
 }
 
 type Entry struct {
@@ -68,6 +71,9 @@ type Plan struct {
 }
 
 func Catalog() (skills []string, specialists []agent.Summary, err error) {
+	if err := ValidateGraphifyCapability(); err != nil {
+		return nil, nil, err
+	}
 	entries, err := fs.ReadDir(prism.BundleFS(), "skills")
 	if err != nil {
 		return nil, nil, err
@@ -77,6 +83,9 @@ func Catalog() (skills []string, specialists []agent.Summary, err error) {
 			continue
 		}
 		if _, err := fs.Stat(prism.BundleFS(), filepath.ToSlash(filepath.Join("skills", entry.Name(), "SKILL.md"))); err == nil {
+			if internalOnlySkill(entry.Name()) {
+				continue
+			}
 			skills = append(skills, entry.Name())
 		}
 	}
@@ -87,6 +96,66 @@ func Catalog() (skills []string, specialists []agent.Summary, err error) {
 		return nil, nil, err
 	}
 	return skills, registry.List(), nil
+}
+
+func internalOnlySkill(name string) bool {
+	return name == "graphify-query"
+}
+
+func ValidateGraphifyCapability() error {
+	required := []string{
+		"agents/repo-investigator.md",
+		"constitutions/repo-investigator.md",
+		"skills/graphify-query/SKILL.md",
+		"skills/graphify-query/references/REFERENCE.md",
+		"skills/graphify-query/references/GRAPHIFY-RELEASE.json",
+		"skills/graphify-query/scripts/collect.sh",
+		"skills/graphify-query/evals/smoke.yaml",
+	}
+	for _, name := range required {
+		if _, err := fs.Stat(prism.BundleFS(), name); err != nil {
+			return fmt.Errorf("Graphify bundle asset %q: %w", name, err)
+		}
+	}
+	metadata, err := fs.ReadFile(prism.BundleFS(), "skills/graphify-query/references/GRAPHIFY-RELEASE.json")
+	if err != nil {
+		return err
+	}
+	if err := graphify.ValidateReleaseMetadata(metadata); err != nil {
+		return err
+	}
+	agents, err := fs.Sub(prism.BundleFS(), "agents")
+	if err != nil {
+		return err
+	}
+	registry := agent.NewRegistry(agents)
+	if err := registry.Load(); err != nil {
+		return err
+	}
+	spec, err := registry.Get("repo-investigator")
+	if err != nil {
+		return err
+	}
+	if !spec.AllowsSkill("graphify-query") || !contains(spec.Tools, "graphify") {
+		return fmt.Errorf("repo-investigator must retain graphify-query and fixed Graphify capability")
+	}
+	skills, err := fs.Sub(prism.BundleFS(), "skills")
+	if err != nil {
+		return err
+	}
+	if err := skill.ValidateAuthoringStructure(skills, "graphify-query"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func contains(values []string, wanted string) bool {
+	for _, value := range values {
+		if value == wanted {
+			return true
+		}
+	}
+	return false
 }
 
 func BuildPlan(opts Options) (Plan, error) {
@@ -127,6 +196,13 @@ func BuildPlan(opts Options) (Plan, error) {
 }
 
 func Install(opts Options) (Plan, error) {
+	if strings.TrimSpace(opts.RuntimeStateDir) != "" {
+		absolute, err := filepath.Abs(opts.RuntimeStateDir)
+		if err != nil {
+			return Plan{}, fmt.Errorf("canonicalizing runtime state directory: %w", err)
+		}
+		opts.RuntimeStateDir = absolute
+	}
 	plan, err := BuildPlan(opts)
 	if err != nil || opts.DryRun {
 		return plan, err
@@ -196,7 +272,7 @@ func Install(opts Options) (Plan, error) {
 			}
 			entries = append(entries, entryForBytes(dest, "specialist", data))
 		}
-		if err = installMCP(tx, target, layout.config, opts.Binary, managed, opts.Force); err != nil {
+		if err = installMCP(tx, target, layout.config, opts.Binary, opts.RuntimeStateDir, managed, opts.Force); err != nil {
 			return plan, fmt.Errorf("%s MCP configuration: %w", target, err)
 		}
 		entries = append(entries, entryFor(layout.config, "mcp-config"))
@@ -208,7 +284,7 @@ func Install(opts Options) (Plan, error) {
 	for _, stale := range old.Entries {
 		if !newSet[filepath.Clean(stale.Path)] {
 			if stale.Kind == "mcp-config" {
-				err = removeMCP(tx, stale.Path)
+				err = removeMCP(tx, stale)
 			} else {
 				err = tx.remove(stale.Path)
 			}
@@ -247,7 +323,7 @@ func Uninstall(scope Scope, rootOverride string, dryRun bool) (Manifest, error) 
 	for i := len(manifest.Entries) - 1; i >= 0; i-- {
 		entry := manifest.Entries[i]
 		if entry.Kind == "mcp-config" {
-			if err := removeMCP(tx, entry.Path); err != nil {
+			if err := removeMCP(tx, entry); err != nil {
 				tx.rollback()
 				return manifest, err
 			}
@@ -354,7 +430,7 @@ func wrapperFilename(target, id string) string {
 
 func renderWrapper(target string, spec *agent.Spec) string {
 	skills := strings.Join(spec.AllowedSkills, ", ")
-	body := fmt.Sprintf("Delegate this specialist's work to the Prism MCP server by calling `run_agent` with `agent_id` `%s`, one or more `skill_names` from [%s], the user's bounded task, and `workspace.root` when repository evidence is needed. Prism's compiled constitution, model, tools, and policy are authoritative. Return Prism's evidence and result without inventing missing evidence.", spec.ID, skills)
+	body := hostDelegationBody(spec, skills)
 	if target == "codex" {
 		return fmt.Sprintf("name = %q\ndescription = %q\ndeveloper_instructions = %q\n", spec.Name, spec.Description, body)
 	}
@@ -370,6 +446,14 @@ func renderWrapper(target string, spec *agent.Spec) string {
 	return front + "---\n\n# " + spec.Name + "\n\n" + body + "\n"
 }
 
+func hostDelegationBody(spec *agent.Spec, skills string) string {
+	delegation := fmt.Sprintf("Delegate this specialist's work to the Prism MCP server by calling `run_agent` with `agent_id` `%s`, one or more `skill_names` from [%s], the user's bounded task, and `workspace.root` when repository evidence is needed. Prism's compiled constitution, model, tools, and policy are authoritative. Return Prism's evidence and result without inventing missing evidence.", spec.ID, skills)
+	if spec.ID != "repo-investigator" {
+		return delegation
+	}
+	return "Use this specialist for repository architecture, cross-component relationships, dependency paths, and change-impact investigations. Do not route an ordinary one-file lookup, a direct file read, or a simple symbol search here. " + delegation
+}
+
 func lookupAgent(id string) (*agent.Spec, error) {
 	agentFS, _ := fs.Sub(prism.BundleFS(), "agents")
 	registry := agent.NewRegistry(agentFS)
@@ -379,7 +463,7 @@ func lookupAgent(id string) (*agent.Spec, error) {
 	return registry.Get(id)
 }
 
-func installMCP(tx *transaction, target, path, binary string, managed map[string]bool, force bool) error {
+func installMCP(tx *transaction, target, path, binary, runtimeStateDir string, managed map[string]bool, force bool) error {
 	if binary == "" {
 		var err error
 		binary, err = os.Executable()
@@ -387,20 +471,34 @@ func installMCP(tx *transaction, target, path, binary string, managed map[string
 			return err
 		}
 	}
+	args := []string{"mcp", "serve"}
+	if strings.TrimSpace(runtimeStateDir) != "" {
+		absolute, err := filepath.Abs(runtimeStateDir)
+		if err != nil {
+			return fmt.Errorf("canonicalizing runtime state directory: %w", err)
+		}
+		args = append(args, "--state-dir", absolute)
+	}
 	if target == "codex" {
 		const begin, end = "# BEGIN PRISM MCP", "# END PRISM MCP"
-		block := fmt.Sprintf("%s\n[mcp_servers.prism]\ncommand = %q\nargs = [\"mcp\", \"serve\"]\n%s\n", begin, binary, end)
+		block := fmt.Sprintf("%s\n[mcp_servers.prism]\ncommand = %q\nargs = %s\n%s\n", begin, binary, tomlStringArray(args), end)
 		old, _ := os.ReadFile(path)
 		updated := replaceBlock(string(old), begin, end, block)
 		return tx.writeConfig(path, []byte(updated), managed, force)
 	}
 	root := map[string]any{}
 	if data, err := os.ReadFile(path); err == nil && len(strings.TrimSpace(string(data))) > 0 {
-		if err := json.Unmarshal(stripJSONComments(data), &root); err != nil {
+		var decoded any
+		if err := json.Unmarshal(stripJSONComments(data), &decoded); err != nil {
 			if !force {
 				return fmt.Errorf("cannot preserve existing JSON configuration: %w", err)
 			}
+		} else if decoded == nil {
 			root = map[string]any{}
+		} else if object, ok := decoded.(map[string]any); ok {
+			root = object
+		} else {
+			return fmt.Errorf("cannot preserve existing JSON configuration: expected an object")
 		}
 		if root == nil {
 			root = map[string]any{}
@@ -409,19 +507,29 @@ func installMCP(tx *transaction, target, path, binary string, managed map[string
 	switch target {
 	case "copilot":
 		servers := object(root, "servers")
-		servers["prism"] = map[string]any{"type": "stdio", "command": binary, "args": []string{"mcp", "serve"}}
+		servers["prism"] = map[string]any{"type": "stdio", "command": binary, "args": args}
 	case "opencode":
 		servers := object(root, "mcp")
-		servers["prism"] = map[string]any{"type": "local", "command": []string{binary, "mcp", "serve"}, "enabled": true}
+		command := append([]string{binary}, args...)
+		servers["prism"] = map[string]any{"type": "local", "command": command, "enabled": true}
 	default:
 		servers := object(root, "mcpServers")
-		servers["prism"] = map[string]any{"command": binary, "args": []string{"mcp", "serve"}}
+		servers["prism"] = map[string]any{"command": binary, "args": args}
 	}
 	data, _ := json.MarshalIndent(root, "", "  ")
 	return tx.writeConfig(path, append(data, '\n'), managed, force)
 }
 
-func removeMCP(tx *transaction, path string) error {
+func tomlStringArray(values []string) string {
+	quoted := make([]string, 0, len(values))
+	for _, value := range values {
+		quoted = append(quoted, fmt.Sprintf("%q", value))
+	}
+	return "[" + strings.Join(quoted, ", ") + "]"
+}
+
+func removeMCP(tx *transaction, entry Entry) error {
+	path := entry.Path
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
@@ -433,14 +541,26 @@ func removeMCP(tx *transaction, path string) error {
 		updated := replaceBlock(string(data), "# BEGIN PRISM MCP", "# END PRISM MCP", "")
 		return tx.writeFile(path, []byte(updated), 0o644, map[string]bool{filepath.Clean(path): true}, true)
 	}
-	root := map[string]any{}
-	if err := json.Unmarshal(stripJSONComments(data), &root); err != nil {
+	var decoded any
+	if err := json.Unmarshal(stripJSONComments(data), &decoded); err != nil {
 		return err
 	}
-	for _, key := range []string{"servers", "mcpServers", "mcp"} {
-		if values, ok := root[key].(map[string]any); ok {
-			delete(values, "prism")
-		}
+	if decoded == nil {
+		return nil
+	}
+	root, ok := decoded.(map[string]any)
+	if !ok {
+		return fmt.Errorf("cannot remove Prism MCP configuration from non-object JSON")
+	}
+	key := "mcpServers"
+	switch filepath.Base(path) {
+	case "mcp.json":
+		key = "servers"
+	case "opencode.json":
+		key = "mcp"
+	}
+	if values, ok := root[key].(map[string]any); ok {
+		delete(values, "prism")
 	}
 	out, _ := json.MarshalIndent(root, "", "  ")
 	return tx.writeFile(path, append(out, '\n'), 0o644, map[string]bool{filepath.Clean(path): true}, true)

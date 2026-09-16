@@ -249,3 +249,105 @@ func TestBuildPlanDryRunDoesNotWrite(t *testing.T) {
 		t.Fatalf("dry run wrote manifest: %v", err)
 	}
 }
+
+func TestInstallMCPIncludesRuntimeStateDirInCommands(t *testing.T) {
+	root := t.TempDir()
+	stateDir := filepath.Join(root, ".prism-runtime")
+	_, err := Install(Options{
+		Scope:           Project,
+		Root:            root,
+		Targets:         []string{"copilot", "codex", "opencode", "claude"},
+		Skills:          []string{"gh-pr-triage"},
+		Specialists:     []string{"github-cli"},
+		RuntimeStateDir: stateDir,
+		Binary:          "/opt/prism",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	copilotData, err := os.ReadFile(filepath.Join(root, ".vscode", "mcp.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(copilotData), "--state-dir") || !strings.Contains(string(copilotData), stateDir) {
+		t.Fatalf("copilot config missing runtime state dir: %s", copilotData)
+	}
+
+	codexData, err := os.ReadFile(filepath.Join(root, ".codex", "config.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(codexData), "--state-dir") || !strings.Contains(string(codexData), stateDir) {
+		t.Fatalf("codex config missing runtime state dir: %s", codexData)
+	}
+
+	opencodeData, err := os.ReadFile(filepath.Join(root, "opencode.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(opencodeData), "--state-dir") || !strings.Contains(string(opencodeData), stateDir) {
+		t.Fatalf("opencode config missing runtime state dir: %s", opencodeData)
+	}
+
+	claudeData, err := os.ReadFile(filepath.Join(root, ".mcp.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(claudeData), "--state-dir") || !strings.Contains(string(claudeData), stateDir) {
+		t.Fatalf("claude config missing runtime state dir: %s", claudeData)
+	}
+}
+
+func TestGraphifyCapabilityCatalogAndHostWrappers(t *testing.T) {
+	skills, specialists, err := Catalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, skill := range skills {
+		if skill == "graphify-query" {
+			t.Fatal("internal Graphify query instructions must not be exported as a host skill")
+		}
+	}
+	found := false
+	for _, specialist := range specialists {
+		if specialist.ID == "repo-investigator" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("repo-investigator missing from installer catalog: %#v", specialists)
+	}
+
+	root := t.TempDir()
+	_, err = Install(Options{
+		Scope:       Project,
+		Root:        root,
+		Targets:     []string{"claude", "codex"},
+		Specialists: []string{"repo-investigator"},
+		Binary:      "/opt/prism",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, target := range []string{"claude", "codex"} {
+		data, err := os.ReadFile(filepath.Join(hostLayout(target, root, Project).agents, wrapperFilename(target, "repo-investigator")))
+		if err != nil {
+			t.Fatal(err)
+		}
+		wrapper := string(data)
+		for _, marker := range []string{"run_agent", "architecture", "relationships", "dependency paths", "change-impact", "ordinary one-file lookup"} {
+			if !strings.Contains(wrapper, marker) {
+				t.Fatalf("%s wrapper missing %q:\n%s", target, marker, wrapper)
+			}
+		}
+		for _, internal := range []string{"query_graph", "get_node", "get_neighbors", "shortest_path", "graphify-mcp"} {
+			if strings.Contains(wrapper, internal) {
+				t.Fatalf("%s wrapper exports internal Graphify workflow %q:\n%s", target, internal, wrapper)
+			}
+		}
+	}
+	if _, err := os.Stat(filepath.Join(root, ".agents", "skills", "graphify-query")); !os.IsNotExist(err) {
+		t.Fatalf("internal Graphify query skill was exported to host: %v", err)
+	}
+}

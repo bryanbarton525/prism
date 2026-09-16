@@ -1,6 +1,384 @@
 # Plan: CLI management of MCP servers, skills, and agents
 
-Status: design review complete; ready for implementation. Finalized 2026-09-13. No feature code implemented.
+Status: Sol correctness work and its review comments published to draft PR #32
+on 2026-09-15 and locally verified. Six Spark-owned skill/resource review
+comments, the Spark fixture/contract/CI/documentation queue, and final PR
+reconciliation remain before the plan can be declared complete.
+
+Phase 2 collision/recovery and phase 5 guided-install checkboxes were reconciled
+with implemented Sol behavior on 2026-09-15. The recovery regression verifies
+that management does not require a runnable catalog and rename/remove preserve
+an old immutable object. `go test ./...`, `go vet ./...`,
+`scripts/ci-check.sh`, `git diff --check`, the pinned Graphify
+`uv lock --check`, a Windows binary cross-build, and Windows CLI/app/extensions
+test-binary compilation pass on the current worktree. Foundation review fixes
+were backported to PR #31 in commit `544b4db`, its seven review threads were
+resolved, and the updated foundation was merged into PR #32 as `d721414`.
+Final-head CI for both PRs is still being checked.
+All Sol review threads were replied to with test evidence and resolved; the six
+remaining threads belong to SPARK-4 resource/skill acceptance. Spark acceptance
+coverage is still open. A read-only Codex CLI
+probe of `gpt-5.3-codex-spark` on 2026-09-15 still returned HTTP 400 with the
+current ChatGPT login; no Spark-assigned task was run under a substitute model.
+
+## Implementation status and remaining work
+
+Implemented and locally verified:
+
+- Downstream MCP lifecycle, transports, credential references, bounded calls,
+  cross-platform advisory locks, rejection of credential-bearing endpoint URLs,
+  and legacy command compatibility.
+- Immutable runtime-extension storage, recovery journals, effective catalog
+  composition, portable skills/resources, deterministic agent adapters,
+  explicit runtime targets, lifecycle/bindings, zero-skill managed agents,
+  per-agent MCP access, and immutable GitHub provenance.
+- The pinned Graphify bundle, fixed tool contract, source verification,
+  managed `uv` environment, explicit setup/removal/doctor probe, host routing,
+  fixtures, evaluation, and optional live smoke path.
+- `go test ./...`, `go vet ./...`, `scripts/ci-check.sh`,
+  `uv lock --check --project skills/graphify-query/references/managed-environment`,
+  a Windows binary cross-build, and Windows test-binary compilation (verified
+  2026-09-14).
+
+Sol work completed:
+
+1. Runtime activation now publishes skills, agents, durable binding origins,
+   and MCP access through one versioned manifest snapshot. Fault-injection
+   coverage proves publication failure restores the whole prior snapshot.
+   Identical local and resolver-backed skill reinstallation now closes the
+   unchanged transaction without rewriting the manifest or its activation time.
+   Identical file-agent reinstallation follows the same no-publication rule;
+   every no-op rechecks the existing object digest/store boundary first.
+   Both skill directory publishers verify a pre-existing digest-named object
+   before reuse and reject corruption without deleting that object.
+   Repeated concurrent managed-skill install/conflict and remove/install tests
+   and corresponding managed-agent tests pass under the race detector,
+   confirming locked revalidation and no lost manifest entries.
+2. Guided and non-interactive runtime setup now support existing managed agents,
+   installed/new skill bindings, default/custom/none MCP access, interactive or
+   file-based import decisions, local/GitHub package discovery with support
+   files, and copy/import display names. Dry runs validate the complete batch.
+3. Catalog, top-level list/show, MCP inspection, and doctor now preserve and
+   render inactive collision/dependency states with exact recovery diagnostics;
+   persisted dependency origin prevents accidental rebinding to bundled items.
+   Catalog-backed skill CLI inspection now fails with the underlying recovery
+   or object-integrity error instead of silently showing embedded-only content;
+   manifest-only managed repair commands remain available.
+   Regression coverage now verifies same-relative-path managed constitutions
+   remain isolated, copied/renamed agent objects parse under their new identity,
+   and a development `AgentDir` replacement with a bundled ID is not subject
+   to bundled-only zero-skill rejection. Local agent and resolver-backed skill
+   dry runs compute previews without publishing objects or manifests.
+   Local agent/skill packages reject named pipes before any read, and the
+   resolver rejects symlinks/special files before bounds accounting or content
+   hashing. Managed agent/skill CLI mutations propagate command cancellation
+   into lock acquisition rather than waiting through a canceled request.
+4. A documented outer runtime-configuration lock serializes access policy,
+   downstream server mutation/removal, and Graphify reference/binding changes.
+   Repeated concurrent-operation tests, including direct per-agent MCP access
+   updates under the race detector, verify no updates are lost. A shared
+   advisory-lock regression proves an active owner is never reclaimed merely
+   because the lock-file mtime is old. Shared platform-specific staged-file
+   replacement now overwrites MCP state and extension manifests without first
+   deleting the current destination on Windows. Access normalization rejects
+   unknown modes and mixed-case duplicate agent keys instead of silently
+   widening or arbitrarily selecting authorization rules.
+5. Guided Graphify setup discovers executable and self-hosted candidates without
+   invoking or contacting them, retains explicit ownership selection, removes a
+   newly created managed environment after install failure, and refuses drifted
+   owned removal. The model receives the four pinned upstream input schemas;
+   dispatch rejects any unapproved tool before downstream MCP invocation.
+
+Remaining before completion:
+
+1. Run the Spark fixture, output/help, import/resource matrix, Windows/release,
+   and documentation tasks listed below.
+2. Finish reviewing and resolving addressed comments on draft PR #32 with
+   evidence, request fresh review, and confirm final-head Linux/Windows checks.
+   The six currently open comments are Spark resource/skill contract cases;
+   Sol correctness comments are resolved on 2026-09-15.
+   Obsolete empty-diff draft PR #34 was closed on 2026-09-15. PR #31 remains
+   the foundation PR; its seven review fixes are now on that branch and merged
+   into PR #32 without force-pushing either branch.
+
+## Remaining-work assignment by model
+
+Use **Sol** for correctness-sensitive state transitions, concurrency, catalog
+semantics, and guided workflow design. Use **Spark** for bounded fixtures,
+contract coverage, help/output polish, CI, and documentation. Workers must stay
+inside their assigned primary files unless a failing test demonstrates a small,
+necessary adjacent fix. Only the final integrator updates this plan's completion
+checkboxes.
+
+### Sol queue
+
+#### SOL-1 — Atomic runtime activation foundation
+
+**Status: complete (2026-09-14).** MCP access was moved into the versioned
+manifest so publication has one reader-visible boundary; batch and injected
+publication-failure tests cover the full skill/agent/binding/access snapshot.
+
+**Depends on:** nothing. This blocks SOL-2.
+
+**Primary files:**
+
+- `internal/extensions/transaction.go`
+- `internal/extensions/local_agent.go`
+- `internal/extensions/local_skill.go`
+- `internal/extensions/mcp_access.go`
+- new runtime-batch service files and fault-injection tests
+
+**Task brief:** Implement remaining-work item 2. Create one runtime activation
+transaction covering selected skills, agents, bindings, and MCP-access changes.
+Stage immutable objects first, validate the complete candidate state, and publish
+one recoverable transition. A crash or forced exit must not expose a partial
+batch. Readers must not observe candidate state while rollback is still
+possible. Preserve existing process snapshots and immutable objects. Add tests
+for replacement, validation failure, concurrent mutation, publication failure,
+and interrupted recovery. Do not redesign the guided CLI beyond the minimum
+service API required by SOL-2.
+
+**Exit evidence:** service-level tests prove all-or-nothing activation and crash
+recovery for a batch containing at least a skill, agent, binding, and access
+rule.
+
+#### SOL-2 — Guided installer parity
+
+**Status: complete (2026-09-14).** Direct flags and the walkthrough share the
+same batch planning path, including existing-agent edits, package support files,
+import decisions, display names, binding origins, MCP access, and validating
+dry-run previews.
+
+**Depends on:** SOL-1.
+
+**Primary files:**
+
+- `internal/cli/install.go`
+- `internal/cli/install_runtime_test.go`
+- runtime-batch APIs created by SOL-1
+
+**Task brief:** Complete the unchecked guided-install gate. Bring `prism
+install` to parity with direct agent, skill, binding, model, import-config, and
+MCP-access commands. Support selecting an existing managed agent, selecting
+already-installed skills, editing the proposed allowlist, selecting
+default/custom/none MCP access, resolving every import finding, importing local
+or GitHub agent packages with support files, and choosing a display name for a
+bundled copy. Prepare one complete preview before applying the atomic runtime
+batch. Keep `--all` and `--yes` from selecting sources, granting capabilities,
+accepting translation loss, or installing Graphify. Preserve accurate separate
+host/runtime/dependency outcomes.
+
+**Exit evidence:** scripted tests cover success, retry, EOF, cancellation, host
+failure, runtime failure, partial host success, and runtime-only retry; no
+cancellation path mutates active state.
+
+#### SOL-3 — Inactive and conflicting catalog recovery
+
+**Status: complete (2026-09-14).** Active/inactive state and diagnostics now
+flow through CLI, MCP catalog output, and doctor, with origin-sensitive
+dependency disabling and explicit rename/removal recovery.
+
+**Depends on:** none, but rebase after SOL-1 before merge.
+
+**Primary files:**
+
+- `internal/extensions/catalog.go`
+- `internal/cli/agent.go`
+- `internal/cli/skill.go`
+- `internal/app/runner.go`
+- MCP catalog and doctor handlers
+
+**Task brief:** Complete remaining-work item 3. Unify active and inactive
+catalog inspection across top-level CLI, MCP, and doctor without requiring a
+runnable catalog. Show origin, active state, collision and dependency-disabled
+diagnostics, plus exact rename/removal recovery commands. A future bundle-name
+collision must preserve the managed object, leave the bundled item usable,
+disable dependent managed agents without rebinding, and keep management
+commands operational. Development overrides must remain distinguishable.
+
+**Exit evidence:** future-bundle-collision, dependency-origin, development
+override, list/show, doctor, and recovery-command tests pass.
+
+#### SOL-4 — Cross-file MCP configuration concurrency
+
+**Status: complete (2026-09-14).** The outer `runtime-config.lock` establishes
+the lock order before extension and downstream stores; concurrent defaults,
+custom access, Graphify binding, server replacement, and removal preserve every
+update.
+
+**Depends on:** none; coordinate lock ordering with SOL-1.
+
+**Primary files:**
+
+- `internal/downstreammcp/*`
+- `internal/extensions/mcp_access.go`
+- `internal/cli/mcp.go`
+- Graphify-reference coordination in `internal/cli/graphify.go`
+
+**Task brief:** Complete remaining-work item 4. Establish a documented lock
+ordering or shared configuration transaction so downstream MCP removal and its
+access-policy/Graphify reference checks are atomic relative to concurrent
+updates. Prevent lost updates and deadlocks. Preserve unrelated servers and
+rules. Dry runs remain non-mutating and endpoint connections remain explicit.
+
+**Exit evidence:** deterministic concurrency tests cover simultaneous default
+access, custom access, Graphify binding, server update, and removal operations.
+
+#### SOL-5 — Graphify discovery and lifecycle ownership
+
+**Status: complete (2026-09-14).** Offline discovery exposes user-managed PATH
+and configured HTTP candidates for explicit selection. Managed failure cleanup,
+drift refusal, dry-run behavior, and external-resource preservation are covered.
+
+**Depends on:** SOL-2. Incorporate SPARK-1 fixtures.
+
+**Primary files:**
+
+- `internal/cli/graphify.go`
+- `internal/graphify/*`
+- Graphify integration points in `internal/cli/install.go`
+
+**Task brief:** Complete remaining-work item 5. Detect compatible
+user-managed Graphify executables and already configured self-hosted endpoints,
+then expose them as explicit guided choices without taking ownership. Strengthen
+managed registration/environment drift checks, retry diagnostics, and exact
+owned removal. Listing, discovery, doctor without `--probe`, dry run, `--all`,
+and `--yes` must not download a dependency, build an index, contact an endpoint,
+select a cloud backend, or invoke a model.
+
+**Exit evidence:** user-managed, self-hosted, managed, drift, cancellation,
+failure, dry-run, and uninstall-ownership fixtures pass.
+
+### Spark queue
+
+#### SPARK-1 — Graphify lifecycle fixtures
+
+**Can run with:** SOL-1. Rebase before SOL-5 integration.
+
+**Primary files:** `internal/cli/graphify_test.go` and isolated Graphify test
+helpers.
+
+**Task brief:** Add deterministic fake-`uv` tests for cancellation, command
+failure, missing system Python, missing produced executable, dry-run filesystem
+invariants, successful exact owned removal, and refusal to remove a drifted
+registration. Use temporary directories only. Do not access public Graphify,
+install Python packages, or invoke a model. Limit production edits to small
+defects directly exposed by a fixture; report architectural issues to SOL-5.
+
+**Exit evidence:** the expanded test set passes without network or credentials.
+
+#### SPARK-2 — CLI JSON and help contracts
+
+**Can run with:** SOL-1 and SOL-4. Rebase after SOL-2 before final merge.
+
+**Primary files:** CLI tests and CLI help/output strings; do not change
+transaction or catalog internals.
+
+**Task brief:** Audit runtime-extension commands against this plan. Add
+table-driven coverage for stable JSON fields, dry-run actions, `agent`/`agents`
+and `skill`/`skills` aliases, selector errors, explicit model selection,
+resource flags, import-config diagnostics, and restart-required mutation
+messages. Restrict production changes to output/help formatting.
+
+**Exit evidence:** direct and compatibility forms have deterministic output and
+nonzero failures in both text and JSON modes.
+
+#### SPARK-3 — Agent import fixture matrix
+
+**Can run with:** SOL-1.
+
+**Primary files:**
+
+- `internal/agent/importer/*_test.go`
+- `internal/agent/importconfig/*_test.go`
+- import fixtures under `testdata`
+
+**Task brief:** Cover multiline Claude instructions, Codex declared names that
+differ from filenames, YAML-sensitive skill values, mixed-format ambiguity,
+missing execution targets, source-cloud-model provenance, explicit field
+mapping and omission, stale source and adapter digests, native support files,
+and exclusion of `AGENTS.md`. Prefer tests and make only isolated adapter fixes
+revealed by them.
+
+**Exit evidence:** every Agent translation acceptance-matrix clause maps to a
+named deterministic test and translation performs no model call.
+
+#### SPARK-4 — Skill resource acceptance matrix
+
+**Can run with:** SOL-1.
+
+**Primary files:**
+
+- `internal/skill/*_test.go`
+- `internal/app/*_test.go`
+- `internal/mcp/*_test.go`
+- `internal/graph/*_test.go`
+
+**Task brief:** Complete coverage for nested resource paths, media type and
+size, UTF-8 boundaries, offset/truncation metadata, binary rejection, traversal,
+escaping symlinks, the 32 KiB per-read limit, the 128 KiB per-run limit,
+attached-skill enforcement, and explicit CLI/MCP/graph attachments for
+non-tool models. Avoid redesigning the resource API; report architectural
+issues for Sol work. Resolve the six currently open PR #32 comments with
+focused tests and necessary in-scope fixes: any `scripts/` compatibility
+warning (4001153376), nested `references/SKILL.md` (4001153395), truly bounded
+reads (4001153407), binary media rejection (4001153413), UTF-8-safe byte ranges
+(4001153419), and per-skill identity validation (4001175538).
+
+**Exit evidence:** every Resource reads acceptance-matrix clause maps to a named
+test.
+
+#### SPARK-5 — Windows and release automation
+
+**Can run with:** all code work, but merge after core branches stabilize.
+
+**Primary files:** `.github/workflows/ci.yml`, `scripts/ci-check.sh`, and release
+verification documentation.
+
+**Task brief:** Add deterministic Linux and Windows release verification. Run
+the normal Go suite on both platforms where supported, validate the embedded
+Graphify lock without installing its dependencies, and keep public MCP,
+Graphify, and inference smoke checks optional. Never commit generated binaries
+or require credentials for required CI.
+
+**Exit evidence:** CI configuration validates, Linux checks pass, Windows tests
+run or compile as documented, and `uv lock --check` passes.
+
+#### SPARK-6 — Documentation final audit
+
+**Depends on:** merged SOL-2, SOL-3, SOL-4, and SOL-5 behavior.
+
+**Primary files:** README, usage, model-runtime, agent/skill authoring,
+acceptance matrix, and recovery/setup documentation.
+
+**Task brief:** Audit public documentation against the final command help and
+behavior. Cover supported sources/formats, scope, activation/restart semantics,
+model selection, translation losses, resources, rename/conflict recovery,
+atomic and staged outcomes, MCP access, and Graphify ownership. Verify every
+documented command against `--help` and every named test against the repository.
+Do not mark a plan gate complete without automated evidence.
+
+**Exit evidence:** documentation tests and the complete repository suite pass;
+no stale future-tense or unsupported-behavior claims remain.
+
+### Integration and merge order
+
+1. Merge SOL-1.
+2. Rebase and merge SOL-4 using the lock order established with SOL-1.
+3. Rebase and merge SOL-3.
+4. Merge SPARK-1, SPARK-3, and SPARK-4 after conflict-free rebases.
+5. Build and merge SOL-2 on SOL-1.
+6. Build and merge SOL-5 on SOL-2, incorporating SPARK-1 fixtures.
+7. Rebase and merge SPARK-2.
+8. Merge SPARK-5 and then SPARK-6.
+9. Run the full acceptance audit and update the two remaining phase checkboxes.
+10. Commit/push PR #32 and resolve addressed review threads with test evidence.
+    Obsolete empty-diff draft PR #34 was closed on 2026-09-15.
+
+Parallel workers must not edit `plan.md`, shared acceptance-matrix rows, or PR
+state. They return a summary containing files changed, tests run, unresolved
+risks, and the exact commit to integrate. The final integrator owns conflict
+resolution, full-suite verification, plan status, and PR reconciliation.
 
 User-reviewed product decisions are captured below. Operational choices for failure handling, upgrade recovery, and release sequencing were finalized during consolidation. See [CONTEXT.md](CONTEXT.md) for terminology and [the boundary decision](docs/adr/0001-runtime-extensions.md) for rationale.
 
@@ -353,61 +731,61 @@ Implement these in order as reviewable changes. No public service or running mod
 
 ### 1. State mutation and MCP registration
 
-- [ ] Extract MCP services from command handlers; preserve legacy commands and synthesized Linear configuration.
-- [ ] Implement atomic writes, mutation locks, HTTP transport, input validation, environment references, and top-level add/list/show/remove/tools/call commands.
-- [ ] Exercise command, SSE, and Streamable HTTP clients with protocol fixtures.
+- [x] Extract MCP services from command handlers; preserve legacy commands and synthesized Linear configuration.
+- [x] Implement atomic writes, mutation locks, HTTP transport, input validation, environment references, and top-level add/list/show/remove/tools/call commands.
+- [x] Exercise command, SSE, and Streamable HTTP clients with protocol fixtures.
 
 Exit: the requested `prism mcp add openaiDeveloperDocs --url ...` syntax persists the correct transport; local fixtures complete initialize/list/call. Registration performs no process launch or inference.
 
 ### 2. Extension store and runtime composition
 
-- [ ] Implement the versioned manifest, immutable objects, transaction recovery, and provenance.
-- [ ] Compose catalogs with per-agent constitution roots, origin-preserving dependencies, development overrides, and consistent startup snapshots.
-- [ ] Add collision diagnostics and management paths that work without a runnable catalog. Retain objects referenced by old snapshots.
-- [ ] Wire shared catalog inspection into CLI, MCP, doctor, and effective-content digests.
+- [x] Implement the versioned manifest, immutable objects, transaction recovery, and provenance.
+- [x] Compose catalogs with per-agent constitution roots, origin-preserving dependencies, development overrides, and consistent startup snapshots.
+- [x] Add collision diagnostics and management paths that work without a runnable catalog. Retain objects referenced by old snapshots.
+- [x] Wire shared catalog inspection into CLI, MCP, doctor, and effective-content digests.
 
 Exit: fixture additions coexist with bundled content and resolve identical identities/constitutions through CLI and MCP. Fault-injected writes restore the prior configuration.
 
 ### 3. Standard skills and resources
 
-- [ ] Implement local skill discovery, add/list/show/remove/rename, selectors, aliases, replacement, JSON output, and dry run.
-- [ ] Complete Agent Skills format validation; separate strict repository authoring checks from portable format acceptance.
-- [ ] Implement bounded resource listing/reading, run-scoped tools, explicit attachments, and script capability reporting.
+- [x] Implement local skill discovery, add/list/show/remove/rename, selectors, aliases, replacement, JSON output, and dry run.
+- [x] Complete Agent Skills format validation; separate strict repository authoring checks from portable format acceptance.
+- [x] Implement bounded resource listing/reading, run-scoped tools, explicit attachments, and script capability reporting.
 
 Exit: a minimal standard skill and one with nested text/binary resources install without Prism-only metadata. Text resources are usable within bounds; scripts are preserved without adding execution support.
 
 ### 4. Agent imports, model selection, and bindings
 
-- [ ] Implement native Prism, Claude Code Markdown, and Codex TOML imports using deterministic adapters and versioned translation documents.
-- [ ] Require explicit effective offload target selection; implement model remapping and configuration-drift checks using existing runtime adapters.
-- [ ] Implement copy/rename/remove, independent constitutions, skill bindings, and origin-aware zero-skill validation across CLI/MCP/graphs.
-- [ ] Implement per-agent MCP access/default selection and enforcement across tool and evidence paths.
+- [x] Implement native Prism, Claude Code Markdown, and Codex TOML imports using deterministic adapters and versioned translation documents.
+- [x] Require explicit effective offload target selection; implement model remapping and configuration-drift checks using existing runtime adapters.
+- [x] Implement copy/rename/remove, independent constitutions, skill bindings, and origin-aware zero-skill validation across CLI/MCP/graphs.
+- [x] Implement per-agent MCP access/default selection and enforcement across tool and evidence paths.
 
 Exit: translated and copied user agents run with a fake model, with or without attached skills, while respecting their selected MCP servers. Bundled behavior stays compatible.
 
 ### 5. Remote sources and guided setup
 
-- [ ] Implement GitHub shorthand/repository/tree resolution, immutable revision fetching, credentials, bounded downloads, and GitHub-backed skills.sh page normalization.
-- [ ] Extend `prism install` with runtime scope, source selection, copy/import, model mapping, skills, MCP access, translation preview, and runtime-only retry.
-- [ ] Pass selected runtime configuration into generated host registrations and implement separate host/runtime transaction outcomes.
+- [x] Implement GitHub shorthand/repository/tree resolution, immutable revision fetching, credentials, bounded downloads, and GitHub-backed skills.sh page normalization.
+- [x] Extend `prism install` with runtime scope, source selection, copy/import, model mapping, skills, MCP access, translation preview, and runtime-only retry.
+- [x] Pass selected runtime configuration into generated host registrations and implement separate host/runtime transaction outcomes.
 
 Exit: equivalent GitHub and skills.sh page inputs install the same selected revision without Node or catalog credentials. Scripted walkthrough tests cover successful setup, cancellation, partial success, and retries.
 
 ### 6. Bundled Graphify capability
 
-- [ ] Add the bundled repository specialist, constitution, standard query skill, references/evals, and host delegation instructions; cover embedding, digest, catalog, and installer selection.
-- [ ] Implement workspace-bound Graphify access with the fixed query-tool allowlist, bounded results, source verification, and provenance.
-- [ ] Add pinned dependency guidance, explicit setup choices, endpoint/index binding, compatibility/freshness diagnostics, and safe lifecycle ownership.
-- [ ] Test host rendering for Claude and Codex so instructions route repository investigations through Prism; keep internal query instructions inside the specialist workflow.
-- [ ] Add fixture-based end-to-end runs and a documented optional real Graphify/offload-model smoke test. Measure retrieval usefulness, evidence correctness, and tool/context cost against source-only investigation before recommending broad use.
+- [x] Add the bundled repository specialist, constitution, standard query skill, references/evals, and host delegation instructions; cover embedding, digest, catalog, and installer selection.
+- [x] Implement workspace-bound Graphify access with the fixed query-tool allowlist, bounded results, source verification, and provenance.
+- [x] Add pinned dependency guidance, explicit setup choices, endpoint/index binding, compatibility/freshness diagnostics, and safe lifecycle ownership.
+- [x] Test host rendering for Claude and Codex so instructions route repository investigations through Prism; keep internal query instructions inside the specialist workflow.
+- [x] Add fixture-based end-to-end runs and a documented optional real Graphify/offload-model smoke test. Measure retrieval usefulness, evidence correctness, and tool/context cost against source-only investigation before recommending broad use.
 
 Exit: a released bundle contains the complete integration; a configured fixture host invocation reaches the bundled specialist and only its allowed Graphify tools. Missing prerequisites remain diagnosable without breaking Prism startup or unrelated specialists. Setup performs zero inference calls.
 
 ### 7. Release verification and documentation
 
-- [ ] Update README, usage, model-runtime, and agent/skill authoring docs, including stale claims about tool calling and directory requirements.
-- [ ] Document supported sources/formats, scope, restart activation, model selection, translation losses, resource limits, rename recovery, and staged setup outcomes.
-- [ ] Run focused package tests, then `go test ./...` and applicable repository CI checks. Keep live public-server checks optional.
+- [x] Update README, usage, model-runtime, and agent/skill authoring docs, including stale claims about tool calling and directory requirements.
+- [x] Document supported sources/formats, scope, restart activation, model selection, translation losses, resource limits, rename recovery, and staged setup outcomes.
+- [x] Run focused package tests, then `go test ./...` and applicable repository CI checks. Keep live public-server checks optional.
 
 Exit: all acceptance cases below pass with fixtures and documentation matches shipped behavior. All seven phases are required for the initial release. Catalog search is follow-on work.
 

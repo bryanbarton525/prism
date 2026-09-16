@@ -79,11 +79,16 @@ func Resolve(ctx context.Context, root, token string) (fsys fs.FS, cleanup func(
 	return cloneRepo(ctx, root)
 }
 
-// confinedDirFS rejects symlinks at every path component before opening local
-// workspace content, including files encountered by repository plugins.
-type confinedDirFS struct{ root string }
+// confinedDirFS deliberately rejects symlinks at every component. Repository
+// plugins consume arbitrary walked paths via fs.ReadFile; os.DirFS otherwise
+// follows a link inside the workspace and can expose files outside the root.
+type confinedDirFS struct {
+	root string
+}
 
-func newConfinedDirFS(root string) fs.FS { return confinedDirFS{root: root} }
+func newConfinedDirFS(root string) fs.FS {
+	return confinedDirFS{root: root}
+}
 
 func (f confinedDirFS) Open(name string) (fs.File, error) {
 	if name != "." && !fs.ValidPath(name) {
@@ -121,7 +126,15 @@ func cloneFallback(ctx context.Context, url string) (fs.FS, func(), error) {
 	rmCleanup := func() { os.RemoveAll(tmpDir) }
 
 	//nolint:gosec // url comes from the operator-controlled --root flag
-	cmd := exec.CommandContext(ctx, "git", cloneArgs(url, tmpDir)...)
+	cloneURL := url
+	ref := ""
+	if owner, repo, parsedRef, parseErr := github.ParseURL(url); parseErr == nil {
+		cloneURL = "https://github.com/" + owner + "/" + repo + ".git"
+		if parsedRef != "" && parsedRef != "HEAD" {
+			ref = parsedRef
+		}
+	}
+	cmd := exec.CommandContext(ctx, "git", cloneArgsWithRef(cloneURL, ref, tmpDir)...)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -134,4 +147,11 @@ func cloneFallback(ctx context.Context, url string) (fs.FS, func(), error) {
 
 func cloneArgs(url, dest string) []string {
 	return []string{"clone", "--depth", "1", "--", url, dest}
+}
+
+func cloneArgsWithRef(url, ref, dest string) []string {
+	if ref == "" {
+		return cloneArgs(url, dest)
+	}
+	return []string{"clone", "--depth", "1", "--branch", ref, "--single-branch", "--", url, dest}
 }

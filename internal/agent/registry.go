@@ -9,8 +9,9 @@ import (
 
 // Registry loads and caches agent specs from an fs.FS.
 type Registry struct {
-	fsys  fs.FS
-	specs map[string]*Spec
+	fsys       fs.FS
+	specs      map[string]*Spec
+	managedIDs map[string]struct{}
 }
 
 // NewRegistry creates a Registry that reads specs from fsys.
@@ -19,6 +20,16 @@ type Registry struct {
 // For GitHub: agent.NewRegistry(fs.Sub(githubFS, "agents"))
 func NewRegistry(fsys fs.FS) *Registry {
 	return &Registry{fsys: fsys, specs: make(map[string]*Spec)}
+}
+
+// NewRegistryWithManaged identifies agent files that use managed-agent
+// validation, including support for an explicit empty skill allowlist.
+func NewRegistryWithManaged(fsys fs.FS, ids []string) *Registry {
+	managed := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		managed[strings.ToLower(id)] = struct{}{}
+	}
+	return &Registry{fsys: fsys, specs: make(map[string]*Spec), managedIDs: managed}
 }
 
 // Load scans the FS root for *.md files and parses them as agent specs.
@@ -37,7 +48,14 @@ func (r *Registry) Load() error {
 		if err != nil {
 			return fmt.Errorf("reading agent spec %s: %w", e.Name(), err)
 		}
-		spec, err := Parse(data, e.Name())
+		id := strings.TrimSuffix(e.Name(), ".md")
+		_, managed := r.managedIDs[strings.ToLower(id)]
+		var spec *Spec
+		if managed {
+			spec, err = ParseManaged(data, e.Name())
+		} else {
+			spec, err = Parse(data, e.Name())
+		}
 		if err != nil {
 			return fmt.Errorf("loading agent spec %s: %w", e.Name(), err)
 		}
