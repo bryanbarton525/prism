@@ -1,8 +1,9 @@
 # Plan: CLI management of MCP servers, skills, and agents
 
-Status: Sol correctness work published to draft PR #32 on 2026-09-15 and locally
-verified. The Spark fixture/contract/CI/documentation queue and remaining PR
-review reconciliation remain before the plan can be declared complete.
+Status: Sol correctness work and its review comments published to draft PR #32
+on 2026-09-15 and locally verified. Six Spark-owned skill/resource review
+comments, the Spark fixture/contract/CI/documentation queue, and final PR
+reconciliation remain before the plan can be declared complete.
 
 Phase 2 collision/recovery and phase 5 guided-install checkboxes were reconciled
 with implemented Sol behavior on 2026-09-15. The recovery regression verifies
@@ -11,10 +12,10 @@ an old immutable object. `go test ./...`, `go vet ./...`,
 `scripts/ci-check.sh`, `git diff --check`, the pinned Graphify
 `uv lock --check`, a Windows binary cross-build, and Windows CLI/app/extensions
 test-binary compilation pass on the current worktree. Sol review fixes through
-commit `c60171f` were published to PR #32; final-head CI is still being
-checked. At least fourteen
-focused review threads were replied to with test evidence and resolved. Spark acceptance
-coverage and the remaining review threads are still open. A read-only Codex CLI
+commit `bf00d27` were published to PR #32; final-head CI is still pending.
+All Sol review threads were replied to with test evidence and resolved; the six
+remaining threads belong to SPARK-4 resource/skill acceptance. Spark acceptance
+coverage is still open. A read-only Codex CLI
 probe of `gpt-5.3-codex-spark` on 2026-09-15 still returned HTTP 400 with the
 current ChatGPT login; no Spark-assigned task was run under a substitute model.
 
@@ -92,6 +93,8 @@ Remaining before completion:
    and documentation tasks listed below.
 2. Finish reviewing and resolving addressed comments on draft PR #32 with
    evidence, request fresh review, and confirm final-head Linux/Windows checks.
+   The six currently open comments are Spark resource/skill contract cases;
+   Sol correctness comments are resolved on 2026-09-15.
    Obsolete empty-diff draft PR #34 was closed on 2026-09-15. PR #31 remains
    the foundation PR.
 
@@ -313,7 +316,11 @@ size, UTF-8 boundaries, offset/truncation metadata, binary rejection, traversal,
 escaping symlinks, the 32 KiB per-read limit, the 128 KiB per-run limit,
 attached-skill enforcement, and explicit CLI/MCP/graph attachments for
 non-tool models. Avoid redesigning the resource API; report architectural
-issues for Sol work.
+issues for Sol work. Resolve the six currently open PR #32 comments with
+focused tests and necessary in-scope fixes: any `scripts/` compatibility
+warning (4001153376), nested `references/SKILL.md` (4001153395), truly bounded
+reads (4001153407), binary media rejection (4001153413), UTF-8-safe byte ranges
+(4001153419), and per-skill identity validation (4001175538).
 
 **Exit evidence:** every Resource reads acceptance-matrix clause maps to a named
 test.
