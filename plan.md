@@ -83,7 +83,8 @@ Sol work completed:
 5. Guided Graphify setup discovers executable and self-hosted candidates without
    invoking or contacting them, retains explicit ownership selection, removes a
    newly created managed environment after install failure, and refuses drifted
-   owned removal.
+   owned removal. The model receives the four pinned upstream input schemas;
+   dispatch rejects any unapproved tool before downstream MCP invocation.
 
 Remaining before completion:
 

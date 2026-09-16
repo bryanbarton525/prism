@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -18,6 +19,24 @@ type fakeGraphifyMCP struct {
 	calls   []string
 	content string
 	server  downstreammcp.Server
+}
+
+func TestGraphifyModelToolsExposePinnedInputSchemas(t *testing.T) {
+	contracts := graphify.PinnedToolContracts()
+	tools := graphifyMCPTools()
+	if len(tools) != len(contracts) {
+		t.Fatalf("offered %d Graphify tools, pinned %d", len(tools), len(contracts))
+	}
+	for index, contract := range contracts {
+		tool := tools[index].Function
+		if tool.Name != contract.Name || !reflect.DeepEqual(tool.Parameters, contract.InputSchema) {
+			t.Fatalf("model tool %d does not expose pinned contract: %#v != %#v", index, tool, contract)
+		}
+		required, _ := tool.Parameters["required"].([]any)
+		if len(required) == 0 {
+			t.Fatalf("model tool %q has no required input arguments", tool.Name)
+		}
+	}
 }
 
 func (f *fakeGraphifyMCP) Servers() []downstreammcp.Server {
