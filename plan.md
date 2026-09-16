@@ -64,7 +64,8 @@ Sol work completed:
    Regression coverage now verifies same-relative-path managed constitutions
    remain isolated, copied/renamed agent objects parse under their new identity,
    and a development `AgentDir` replacement with a bundled ID is not subject
-   to bundled-only zero-skill rejection.
+   to bundled-only zero-skill rejection. Local agent and resolver-backed skill
+   dry runs compute previews without publishing objects or manifests.
 4. A documented outer runtime-configuration lock serializes access policy,
    downstream server mutation/removal, and Graphify reference/binding changes.
    Repeated concurrent-operation tests verify no updates are lost. A shared

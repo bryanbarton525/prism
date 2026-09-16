@@ -41,6 +41,24 @@ func TestInstallResolvedSkillsMaterializesSourceFilesystem(t *testing.T) {
 	}
 }
 
+func TestResolvedSkillDryRunDoesNotPublishObjectOrManifest(t *testing.T) {
+	state := t.TempDir()
+	source := fstest.MapFS{
+		"SKILL.md": &fstest.MapFile{Data: []byte("---\nname: remote-skill\ndescription: Remote skill\n---\n# Remote skill")},
+		"guide.md": &fstest.MapFile{Data: []byte("guidance")},
+	}
+	entries, err := NewLocalSkillService(state).InstallResolvedSkills(context.Background(), source, "remote-skill", "github://owner/repo", DiscoverSkillsOptions{}, false, true)
+	if err != nil || len(entries) != 1 || entries[0].Digest == "" {
+		t.Fatalf("resolved dry run: entries=%#v err=%v", entries, err)
+	}
+	if _, err := os.Stat(entries[0].ObjectPath); !os.IsNotExist(err) {
+		t.Fatalf("resolved dry run published object: %v", err)
+	}
+	if _, err := os.Stat(NewStore(state).ManifestPath()); !os.IsNotExist(err) {
+		t.Fatalf("resolved dry run published manifest: %v", err)
+	}
+}
+
 func TestManagedSkillRecoveryDoesNotNeedRunnableCatalogOrDeleteOldObject(t *testing.T) {
 	state := t.TempDir()
 	svc := NewLocalSkillService(state)
