@@ -59,6 +59,25 @@ func TestResolveLocal_ReturnsOSDirFS(t *testing.T) {
 	}
 }
 
+func TestResolveLocalRejectsWorkspaceSymlinkReads(t *testing.T) {
+	root := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "secret.md")
+	if err := os.WriteFile(outside, []byte("secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, "linked.md")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	fsys, cleanup, err := Resolve(context.Background(), root, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	if _, err := fs.ReadFile(fsys, "linked.md"); err == nil {
+		t.Fatal("workspace symlink file was followed")
+	}
+}
+
 func TestResolveGitHubTokenPath(t *testing.T) {
 	origNewGitHubFS := newGitHubFS
 	origProbeFS := probeFS

@@ -102,6 +102,10 @@ type Config struct {
 	// AgentDir is a local path override for the agents directory.
 	// When set it overrides the agents/ sub-FS derived from RootFS/RootDir.
 	AgentDir string
+	// ConstitutionFS supplies sibling support files for an AgentDir override.
+	// A constitution_path is resolved against this FS during both execution
+	// and get_constitution.
+	ConstitutionFS fs.FS
 	// SkillsDir is a local path override for the skills directory.
 	// When set it overrides the skills/ sub-FS derived from RootFS/RootDir.
 	SkillsDir string
@@ -239,11 +243,12 @@ type Workspace struct {
 
 // Runner implements AgentRunner on top of a provider-neutral ModelRuntime.
 type Runner struct {
-	cfg      Config
-	bundleFS fs.FS // resolved agent/skill/constitution bundle
-	skillsFS fs.FS // resolved skills FS (cached from cfg)
-	registry *agent.Registry
-	plugins  *plugins.Registry
+	cfg            Config
+	bundleFS       fs.FS // resolved agent/skill/constitution bundle
+	skillsFS       fs.FS // resolved skills FS (cached from cfg)
+	constitutionFS fs.FS
+	registry       *agent.Registry
+	plugins        *plugins.Registry
 	// ollama is retained for Ollama-specific diagnostics (doctor). All chat
 	// traffic goes through llm.
 	ollama  *ollama.Client
@@ -297,17 +302,25 @@ func New(cfg Config) (*Runner, error) {
 		modelRuntime = rt
 	}
 	return &Runner{
-		cfg:      cfg,
-		bundleFS: cfg.bundleFS(),
-		skillsFS: cfg.skillsFS(),
-		registry: reg,
-		plugins:  pluginRegistry,
-		ollama:   oc,
-		llm:      modelRuntime,
-		downmcp:  cfg.DownstreamMCP,
-		events:   eventSink,
-		policy:   cfg.PolicyEngine,
+		cfg:            cfg,
+		bundleFS:       cfg.bundleFS(),
+		skillsFS:       cfg.skillsFS(),
+		constitutionFS: cfg.constitutionFS(),
+		registry:       reg,
+		plugins:        pluginRegistry,
+		ollama:         oc,
+		llm:            modelRuntime,
+		downmcp:        cfg.DownstreamMCP,
+		events:         eventSink,
+		policy:         cfg.PolicyEngine,
 	}, nil
+}
+
+func (c *Config) constitutionFS() fs.FS {
+	if c.ConstitutionFS != nil {
+		return c.ConstitutionFS
+	}
+	return c.bundleFS()
 }
 
 func defaultRuntimePlugins(root fs.FS, downstream DownstreamMCPClient) *plugins.Registry {
@@ -347,7 +360,7 @@ func (r *Runner) GetConstitution(_ context.Context, agentID string) (Constitutio
 		return Constitution{}, err
 	}
 
-	text, src, err := spec.ResolveConstitution(r.bundleFS)
+	text, src, err := spec.ResolveConstitution(r.constitutionFS)
 	if err != nil {
 		return Constitution{}, fmt.Errorf("resolving constitution for %s: %w", agentID, err)
 	}
@@ -442,7 +455,7 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 	}
 
 	// ── 4. Load constitution ──────────────────────────────────────────────
-	constitutionText, constitutionSrc, err := spec.ResolveConstitution(r.bundleFS)
+	constitutionText, constitutionSrc, err := spec.ResolveConstitution(r.constitutionFS)
 	if err != nil {
 		res := result.Error(req.AgentID, spec.Model,
 			fmt.Sprintf("resolving constitution: %s", err), time.Since(start))

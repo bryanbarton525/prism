@@ -4,6 +4,7 @@ package prism
 import (
 	"crypto/sha256"
 	"embed"
+	"encoding/binary"
 	"encoding/hex"
 	"io/fs"
 	"path/filepath"
@@ -89,10 +90,15 @@ func DigestParts(parts map[string]fs.FS) string {
 		if err != nil {
 			continue
 		}
-		h.Write([]byte(item.path))
-		h.Write([]byte{0})
-		h.Write(data)
-		h.Write([]byte{0})
+		writeDigestFrame(h, []byte(item.path))
+		writeDigestFrame(h, data)
 	}
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+func writeDigestFrame(h interface{ Write([]byte) (int, error) }, value []byte) {
+	var length [8]byte
+	binary.BigEndian.PutUint64(length[:], uint64(len(value)))
+	_, _ = h.Write(length[:])
+	_, _ = h.Write(value)
 }

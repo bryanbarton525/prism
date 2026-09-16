@@ -131,8 +131,24 @@ func Install(opts Options) (Plan, error) {
 	if err != nil || opts.DryRun {
 		return plan, err
 	}
-	root, _ := scopeRoot(opts)
-	old, _ := LoadManifest(plan.ManifestPath)
+	root, err := scopeRoot(opts)
+	if err != nil {
+		return plan, err
+	}
+	for _, planned := range plan.Paths {
+		if err := validatePathInScope(root, planned); err != nil {
+			return plan, fmt.Errorf("planned install path %q: %w", planned, err)
+		}
+	}
+	old := Manifest{Scope: plan.Scope}
+	if loaded, loadErr := LoadManifest(plan.ManifestPath); loadErr == nil {
+		if err := validateInstallManifest(root, plan.Scope, loaded); err != nil {
+			return plan, err
+		}
+		old = loaded
+	} else if !errors.Is(loadErr, os.ErrNotExist) {
+		return plan, fmt.Errorf("loading existing install manifest: %w", loadErr)
+	}
 	tx := &transaction{}
 	defer tx.rollback()
 	managed := make(map[string]bool)
@@ -219,6 +235,9 @@ func Uninstall(scope Scope, rootOverride string, dryRun bool) (Manifest, error) 
 	path := filepath.Join(root, ".prism", "install.json")
 	manifest, err := LoadManifest(path)
 	if err != nil {
+		return Manifest{}, err
+	}
+	if err := validateInstallManifest(root, scope, manifest); err != nil {
 		return Manifest{}, err
 	}
 	if dryRun {
@@ -383,6 +402,9 @@ func installMCP(tx *transaction, target, path, binary string, managed map[string
 			}
 			root = map[string]any{}
 		}
+		if root == nil {
+			root = map[string]any{}
+		}
 	}
 	switch target {
 	case "copilot":
@@ -480,12 +502,15 @@ func installLink(tx *transaction, source, dest string, managed map[string]bool, 
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
 	}
-	stage := filepath.Join(filepath.Dir(dest), ".prism-stage-link-"+filepath.Base(dest))
-	_ = os.Remove(stage)
+	stageDir, err := os.MkdirTemp(filepath.Dir(dest), ".prism-stage-link-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(stageDir)
+	stage := filepath.Join(stageDir, "payload")
 	if err := os.Symlink(source, stage); err != nil {
 		return err
 	}
-	defer os.Remove(stage)
 	if err := tx.prepare(dest, managed, force); err != nil {
 		return err
 	}
@@ -595,13 +620,93 @@ func (t *transaction) commit() {
 }
 
 func scopeRoot(opts Options) (string, error) {
+	var root string
+	var err error
 	if opts.Root != "" {
-		return filepath.Abs(opts.Root)
+		root, err = filepath.Abs(opts.Root)
+	} else if opts.Scope == Global {
+		root, err = os.UserHomeDir()
+	} else {
+		root, err = os.Getwd()
 	}
-	if opts.Scope == Global {
-		return os.UserHomeDir()
+	if err != nil {
+		return "", err
 	}
-	return os.Getwd()
+	if resolved, resolveErr := filepath.EvalSymlinks(root); resolveErr == nil {
+		root = resolved
+	}
+	return filepath.Clean(root), nil
+}
+
+func validateInstallManifest(root string, scope Scope, manifest Manifest) error {
+	if manifest.Scope != scope {
+		return fmt.Errorf("install manifest scope %q does not match requested scope %q", manifest.Scope, scope)
+	}
+	for _, entry := range manifest.Entries {
+		if err := validatePathInScope(root, entry.Path); err != nil {
+			return fmt.Errorf("install manifest entry %q: %w", entry.Path, err)
+		}
+		if entry.Kind == "mcp-config" && !isMCPConfigPath(root, scope, entry.Path) {
+			return fmt.Errorf("install manifest MCP entry %q is not a supported %s-scope MCP configuration", entry.Path, scope)
+		}
+	}
+	return nil
+}
+
+func isMCPConfigPath(root string, scope Scope, candidate string) bool {
+	candidate = filepath.Clean(candidate)
+	for _, target := range Targets {
+		if candidate == filepath.Clean(hostLayout(target, root, scope).config) {
+			return true
+		}
+	}
+	return false
+}
+
+func validatePathInScope(root, candidate string) error {
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return err
+	}
+	rootReal, err := filepath.EvalSymlinks(rootAbs)
+	if err != nil {
+		return fmt.Errorf("resolve scope root: %w", err)
+	}
+	candidateAbs, err := filepath.Abs(candidate)
+	if err != nil {
+		return err
+	}
+	lexical, err := filepath.Rel(rootAbs, candidateAbs)
+	if err != nil || lexical == ".." || strings.HasPrefix(lexical, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("path escapes scope root")
+	}
+	ancestor := candidateAbs
+	var missing []string
+	for {
+		if _, statErr := os.Lstat(ancestor); statErr == nil {
+			ancestor, err = filepath.EvalSymlinks(ancestor)
+			if err != nil {
+				return err
+			}
+			break
+		} else if !errors.Is(statErr, os.ErrNotExist) {
+			return statErr
+		}
+		parent := filepath.Dir(ancestor)
+		if parent == ancestor {
+			return fmt.Errorf("path has no existing ancestor")
+		}
+		missing = append(missing, filepath.Base(ancestor))
+		ancestor = parent
+	}
+	for i := len(missing) - 1; i >= 0; i-- {
+		ancestor = filepath.Join(ancestor, missing[i])
+	}
+	rel, err := filepath.Rel(rootReal, ancestor)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("path resolves outside scope root")
+	}
+	return nil
 }
 
 func selectNames(selected, available []string, kind string) ([]string, error) {

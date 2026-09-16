@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
@@ -248,6 +249,11 @@ func newRunnerWithControls(ctx context.Context, sink observe.Sink, policyEngine 
 		constitutionsFS, _ := fs.Sub(embedded, "constitutions")
 		if gf.agentDir != "" {
 			agentsFS = os.DirFS(gf.agentDir)
+			if root := configuredConstitutionFS(); root != nil {
+				if overrideConstitutions, subErr := fs.Sub(root, "constitutions"); subErr == nil {
+					constitutionsFS = overrideConstitutions
+				}
+			}
 		}
 		if gf.skillsDir != "" {
 			skillsFS = os.DirFS(gf.skillsDir)
@@ -262,6 +268,7 @@ func newRunnerWithControls(ctx context.Context, sink observe.Sink, policyEngine 
 		WorkspaceLabel: workspaceRoot,
 		GitHubToken:    cfg.GitHubToken,
 		AgentDir:       gf.agentDir,
+		ConstitutionFS: configuredConstitutionFS(),
 		SkillsDir:      gf.skillsDir,
 		OllamaHost:     gf.ollamaHost,
 		EventSink:      sink,
@@ -303,4 +310,13 @@ func resolvedAgentDir() string {
 		return gf.agentDir
 	}
 	return "embedded://agents"
+}
+
+func configuredConstitutionFS() fs.FS {
+	if gf.agentDir == "" {
+		return nil
+	}
+	// --agent-dir names agents/, while constitution_path remains relative to
+	// its parent bundle root (constitutions/<name>.md).
+	return os.DirFS(filepath.Dir(gf.agentDir))
 }

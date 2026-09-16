@@ -378,6 +378,40 @@ constitution_path: constitutions/github-cli.md
 	}
 }
 
+func TestAgentDirOverrideUsesSiblingConstitutionForRunAndInspection(t *testing.T) {
+	bundleRoot := makeTestRoot(t, map[string]string{"github-cli.md": githubCLISpec()}, map[string]string{"gh-pr-triage": ghPRTriageSkill()})
+	writeFile(t, filepath.Join(bundleRoot, "constitutions", "github-cli.md"), "embedded constitution")
+	overrideRoot := t.TempDir()
+	agentDir := filepath.Join(overrideRoot, "agents")
+	writeFile(t, filepath.Join(agentDir, "github-cli.md"), `---
+id: github-cli
+name: Development Agent
+description: development override
+model: llama3.1:8b
+context_budget: 6144
+allowed_skills: [gh-pr-triage]
+latency_budget_ms: 30000
+constitution_path: constitutions/github-cli.md
+---
+`)
+	writeFile(t, filepath.Join(overrideRoot, "constitutions", "github-cli.md"), "development constitution")
+	model := &fakeModelRuntime{}
+	runner, err := New(Config{BundleFS: os.DirFS(bundleRoot), AgentDir: agentDir, ConstitutionFS: os.DirFS(overrideRoot), ModelRuntime: model})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inspected, err := runner.GetConstitution(context.Background(), "github-cli")
+	if err != nil || inspected.Text != "development constitution" {
+		t.Fatalf("inspected constitution = %#v, %v", inspected, err)
+	}
+	if _, err := runner.Run(context.Background(), RunRequest{AgentID: "github-cli", Task: "check", SkillNames: []string{"gh-pr-triage"}}); err != nil {
+		t.Fatal(err)
+	}
+	if len(model.requests) == 0 || !strings.Contains(model.requests[0].Messages[0].Content, "development constitution") || strings.Contains(model.requests[0].Messages[0].Content, "embedded constitution") {
+		t.Fatalf("run prompt did not use development constitution: %#v", model.requests)
+	}
+}
+
 func TestRunner_GetConstitution_NotFound(t *testing.T) {
 	root := makeTestRoot(t, map[string]string{}, nil)
 	srv := mockOllama(t, "")

@@ -1,6 +1,7 @@
 package installer
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,6 +68,24 @@ func TestSymlinkAndIdempotentReinstall(t *testing.T) {
 	}
 }
 
+func TestLinkStagingPreservesUnrelatedUserFile(t *testing.T) {
+	root := t.TempDir()
+	sentinel := filepath.Join(root, ".claude", "skills", ".prism-stage-link-gh-pr-triage")
+	if err := os.MkdirAll(filepath.Dir(sentinel), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(sentinel, []byte("user file"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Install(Options{Scope: Project, Root: root, Targets: []string{"claude"}, Skills: []string{"gh-pr-triage"}, Binary: "prism"}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(sentinel)
+	if err != nil || string(data) != "user file" {
+		t.Fatalf("user staging-name file changed: %q, %v", data, err)
+	}
+}
+
 func TestAdapterFailureRollsBack(t *testing.T) {
 	root := t.TempDir()
 	config := filepath.Join(root, ".vscode", "mcp.json")
@@ -86,6 +105,65 @@ func TestAdapterFailureRollsBack(t *testing.T) {
 	data, _ := os.ReadFile(config)
 	if string(data) != "not json" {
 		t.Fatalf("configuration changed: %q", data)
+	}
+}
+
+func TestInstallMCPHandlesExistingJSONNullWithoutPanic(t *testing.T) {
+	root := t.TempDir()
+	config := filepath.Join(root, ".vscode", "mcp.json")
+	if err := os.MkdirAll(filepath.Dir(config), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(config, []byte("null\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Install(Options{Scope: Project, Root: root, Targets: []string{"copilot"}, Binary: "prism"}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(config)
+	if err != nil || !strings.Contains(string(data), `"prism"`) {
+		t.Fatalf("JSON null config was not updated safely: %q, %v", data, err)
+	}
+}
+
+func TestInstallAndUninstallRejectTamperedManifestPaths(t *testing.T) {
+	for _, symlinkedParent := range []bool{false, true} {
+		t.Run(map[bool]string{false: "outside-path", true: "symlinked-parent"}[symlinkedParent], func(t *testing.T) {
+			root := t.TempDir()
+			outside := t.TempDir()
+			victim := filepath.Join(outside, "victim")
+			if err := os.WriteFile(victim, []byte("keep"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			entryPath := victim
+			if symlinkedParent {
+				if err := os.Symlink(outside, filepath.Join(root, "linked")); err != nil {
+					t.Skipf("symlinks unavailable: %v", err)
+				}
+				entryPath = filepath.Join(root, "linked", "victim")
+			}
+			manifestPath := filepath.Join(root, ".prism", "install.json")
+			if err := os.MkdirAll(filepath.Dir(manifestPath), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			data, err := json.Marshal(Manifest{Version: 1, Scope: Project, Entries: []Entry{{Path: entryPath, Kind: "skill"}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(manifestPath, data, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Install(Options{Scope: Project, Root: root}); err == nil {
+				t.Fatal("reinstall accepted tampered manifest path")
+			}
+			if _, err := Uninstall(Project, root, false); err == nil {
+				t.Fatal("uninstall accepted tampered manifest path")
+			}
+			content, err := os.ReadFile(victim)
+			if err != nil || string(content) != "keep" {
+				t.Fatalf("outside victim changed: %q, %v", content, err)
+			}
+		})
 	}
 }
 
