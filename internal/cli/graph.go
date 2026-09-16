@@ -87,7 +87,7 @@ func newGraphRunCmd() *cobra.Command {
 				return err
 			}
 			defer closeEventSink()
-			runner, cleanup, err := newRunnerWithControls(cmd.Context(), eventSink, policyEngine)
+			runner, cleanup, err := newRunnerWithControls(cmd.Context(), eventSink, policyEngine, true)
 			if err != nil {
 				return err
 			}

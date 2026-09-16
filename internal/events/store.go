@@ -80,6 +80,8 @@ CREATE TABLE IF NOT EXISTS run_events (
   policy_reason TEXT,
   bundle_id TEXT,
   bundle_version TEXT,
+  bundle_digest TEXT,
+  bundle_mode TEXT,
   error TEXT,
   validation_error TEXT
 );
@@ -90,6 +92,12 @@ CREATE INDEX IF NOT EXISTS run_events_status_idx ON run_events(status);
 		return err
 	}
 	if err := s.addColumnIfMissing(ctx, "run_events", "event_kind", "TEXT"); err != nil {
+		return err
+	}
+	if err := s.addColumnIfMissing(ctx, "run_events", "bundle_digest", "TEXT"); err != nil {
+		return err
+	}
+	if err := s.addColumnIfMissing(ctx, "run_events", "bundle_mode", "TEXT"); err != nil {
 		return err
 	}
 	_, err := s.db.ExecContext(ctx, `INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES(1, ?)`, time.Now().UTC().Format(time.RFC3339Nano))
@@ -137,14 +145,14 @@ INSERT INTO run_events (
   run_id, timestamp, graph_id, graph_node_id, event_kind, actor_id, workspace_id, source, correlation_id,
   agent_id, model, status, skills_json, plugins_json, duration_ms, prompt_tokens_estimate,
   completion_tokens_estimate, context_budget, prompt_size_estimate, context_budget_exceeded,
-  policy_decision, policy_reason, bundle_id, bundle_version, error, validation_error
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  policy_decision, policy_reason, bundle_id, bundle_version, bundle_digest, bundle_mode, error, validation_error
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `, event.RunID, event.Timestamp.Format(time.RFC3339Nano), event.GraphID, event.GraphNodeID, event.EventKind,
 		event.ActorID, event.WorkspaceID, event.Source, event.CorrelationID,
 		event.AgentID, event.Model, event.Status, string(skills), string(plugins),
 		event.DurationMS, event.PromptTokensEstimate, event.CompletionTokensEstimate,
 		event.ContextBudget, event.PromptSizeEstimate, boolInt(event.ContextBudgetExceeded),
-		event.PolicyDecision, event.PolicyReason, event.BundleID, event.BundleVersion,
+		event.PolicyDecision, event.PolicyReason, event.BundleID, event.BundleVersion, event.BundleDigest, event.BundleMode,
 		event.Error, event.ValidationError)
 	return err
 }
@@ -166,7 +174,7 @@ func (s *Store) List(ctx context.Context, opts ListOptions) ([]observe.RunEvent,
 	query := `SELECT run_id, timestamp, graph_id, graph_node_id, event_kind, actor_id, workspace_id, source, correlation_id,
 agent_id, model, status, skills_json, plugins_json, duration_ms, prompt_tokens_estimate,
 completion_tokens_estimate, context_budget, prompt_size_estimate, context_budget_exceeded,
-policy_decision, policy_reason, bundle_id, bundle_version, error, validation_error FROM run_events`
+policy_decision, policy_reason, bundle_id, bundle_version, bundle_digest, bundle_mode, error, validation_error FROM run_events`
 	var where []string
 	var args []any
 	if opts.Status != "" {
@@ -213,7 +221,7 @@ policy_decision, policy_reason, bundle_id, bundle_version, error, validation_err
 			&event.AgentID, &event.Model, &event.Status, &skillsJSON, &pluginsJSON,
 			&event.DurationMS, &event.PromptTokensEstimate, &event.CompletionTokensEstimate,
 			&event.ContextBudget, &event.PromptSizeEstimate, &exceeded,
-			&event.PolicyDecision, &event.PolicyReason, &event.BundleID, &event.BundleVersion,
+			&event.PolicyDecision, &event.PolicyReason, &event.BundleID, &event.BundleVersion, &event.BundleDigest, &event.BundleMode,
 			&event.Error, &event.ValidationError); err != nil {
 			return nil, err
 		}

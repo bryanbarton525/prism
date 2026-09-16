@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	prismbundle "github.com/bryanbarton525/prism"
 	"github.com/bryanbarton525/prism/internal/skill"
 )
 
@@ -47,10 +48,11 @@ func newSkillTestCmd() *cobra.Command {
 				if !results[i].OK {
 					continue
 				}
-				if !fileExists(filepath.Join(gf.skillsDirOrDefault(), results[i].Name, "references")) {
+				fsys := configuredSkillsFS()
+				if _, err := fs.Stat(fsys, filepath.ToSlash(filepath.Join(results[i].Name, "references"))); err != nil {
 					results[i].Warnings = append(results[i].Warnings, "no references directory")
 				}
-				count, err := skill.ValidateEvals(os.DirFS(gf.skillsDirOrDefault()), results[i].Name)
+				count, err := skill.ValidateEvals(fsys, results[i].Name)
 				if err != nil {
 					results[i].OK = false
 					results[i].Errors = append(results[i].Errors, err.Error())
@@ -94,14 +96,14 @@ type skillResult struct {
 }
 
 func lintSkills(args []string) []skillResult {
-	root := gf.skillsDirOrDefault()
+	fsys := configuredSkillsFS()
 	var names []string
 	if len(args) == 1 {
 		names = []string{args[0]}
 	} else {
-		entries, err := os.ReadDir(root)
+		entries, err := fs.ReadDir(fsys, ".")
 		if err != nil {
-			return []skillResult{{Name: root, OK: false, Errors: []string{err.Error()}}}
+			return []skillResult{{Name: "skills", OK: false, Errors: []string{err.Error()}}}
 		}
 		for _, entry := range entries {
 			if entry.IsDir() {
@@ -110,7 +112,6 @@ func lintSkills(args []string) []skillResult {
 		}
 	}
 	results := make([]skillResult, 0, len(names))
-	fsys := os.DirFS(root)
 	for _, name := range names {
 		res := skillResult{Name: name, OK: true}
 		data, err := fs.ReadFile(fsys, filepath.ToSlash(filepath.Join(name, "SKILL.md")))
@@ -168,14 +169,10 @@ func printSkillResults(results []skillResult) error {
 	return nil
 }
 
-func (f globalFlags) skillsDirOrDefault() string {
-	if f.skillsDir != "" {
-		return f.skillsDir
+func configuredSkillsFS() fs.FS {
+	if gf.skillsDir != "" {
+		return os.DirFS(gf.skillsDir)
 	}
-	return filepath.Join(f.rootDir, "skills")
-}
-
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
+	skillsFS, _ := fs.Sub(prismbundle.BundleFS(), "skills")
+	return skillsFS
 }

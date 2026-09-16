@@ -77,6 +77,8 @@ type RunResult struct {
 	PolicyReason          string `json:"policy_reason,omitempty"`
 	BundleID              string `json:"bundle_id,omitempty"`
 	BundleVersion         string `json:"bundle_version,omitempty"`
+	BundleDigest          string `json:"bundle_digest,omitempty"`
+	BundleMode            string `json:"bundle_mode,omitempty"`
 
 	// RawOutput stores the unmodified model response for debugging.
 	RawOutput string `json:"raw_output,omitempty"`
