@@ -39,6 +39,8 @@ type RunEvent struct {
 	PolicyReason             string `json:"policy_reason,omitempty"`
 	BundleID                 string `json:"bundle_id,omitempty"`
 	BundleVersion            string `json:"bundle_version,omitempty"`
+	BundleDigest             string `json:"bundle_digest,omitempty"`
+	BundleMode               string `json:"bundle_mode,omitempty"`
 
 	Error           string `json:"error,omitempty"`
 	ValidationError string `json:"validation_error,omitempty"`

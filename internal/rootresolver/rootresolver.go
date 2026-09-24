@@ -20,6 +20,8 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"github.com/bryanbarton525/prism/internal/github"
 )
@@ -37,8 +39,21 @@ var (
 // cleanup removes the temporary directory.
 func Resolve(ctx context.Context, root, token string) (fsys fs.FS, cleanup func(), err error) {
 	if !github.IsURL(root) {
-		// Local filesystem path — fast path, no network.
-		return os.DirFS(root), func() {}, nil
+		absolute, err := filepath.Abs(root)
+		if err != nil {
+			return nil, func() {}, fmt.Errorf("rootresolver: canonicalizing local root: %w", err)
+		}
+		if canonical, evalErr := filepath.EvalSymlinks(absolute); evalErr == nil {
+			absolute = canonical
+		}
+		info, err := os.Stat(absolute)
+		if err != nil {
+			return nil, func() {}, fmt.Errorf("rootresolver: reading local root: %w", err)
+		}
+		if !info.IsDir() {
+			return nil, func() {}, fmt.Errorf("rootresolver: local root is not a directory: %s", absolute)
+		}
+		return newConfinedDirFS(absolute), func() {}, nil
 	}
 
 	// --- GitHub URL ---
@@ -64,6 +79,32 @@ func Resolve(ctx context.Context, root, token string) (fsys fs.FS, cleanup func(
 	return cloneRepo(ctx, root)
 }
 
+// confinedDirFS rejects symlinks at every path component before opening local
+// workspace content, including files encountered by repository plugins.
+type confinedDirFS struct{ root string }
+
+func newConfinedDirFS(root string) fs.FS { return confinedDirFS{root: root} }
+
+func (f confinedDirFS) Open(name string) (fs.File, error) {
+	if name != "." && !fs.ValidPath(name) {
+		return nil, fs.ErrInvalid
+	}
+	current := f.root
+	if name != "." {
+		for _, component := range strings.Split(name, "/") {
+			current = filepath.Join(current, component)
+			info, err := os.Lstat(current)
+			if err != nil {
+				return nil, err
+			}
+			if info.Mode()&os.ModeSymlink != 0 {
+				return nil, fmt.Errorf("rootresolver: path %q contains a symlink", name)
+			}
+		}
+	}
+	return os.Open(current)
+}
+
 // probe verifies that the FS is accessible by attempting to read the root directory.
 func probe(ctx context.Context, fsys fs.FS) error {
 	_, err := fs.ReadDir(fsys, ".")
@@ -71,7 +112,7 @@ func probe(ctx context.Context, fsys fs.FS) error {
 }
 
 // cloneFallback clones the repository into a temp directory and returns an
-// os.DirFS of the clone. The cleanup function removes the temp dir.
+// confined fs.FS of the clone. The cleanup function removes the temp dir.
 func cloneFallback(ctx context.Context, url string) (fs.FS, func(), error) {
 	tmpDir, err := os.MkdirTemp("", "prism-root-*")
 	if err != nil {
@@ -88,7 +129,7 @@ func cloneFallback(ctx context.Context, url string) (fs.FS, func(), error) {
 		return nil, func() {}, fmt.Errorf("rootresolver: git clone %s: %w", url, err)
 	}
 
-	return os.DirFS(tmpDir), rmCleanup, nil
+	return newConfinedDirFS(tmpDir), rmCleanup, nil
 }
 
 func cloneArgs(url, dest string) []string {

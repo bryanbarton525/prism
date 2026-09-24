@@ -15,13 +15,14 @@ import (
 )
 
 func TestResolveLocal(t *testing.T) {
+	temp := t.TempDir()
 	cases := []struct {
 		name string
 		root string
 	}{
-		{"absolute path", "/some/local/path"},
+		{"absolute path", temp},
 		{"dot", "."},
-		{"relative", "../prism"},
+		{"relative", ".."},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -55,6 +56,25 @@ func TestResolveLocal_ReturnsOSDirFS(t *testing.T) {
 	}
 	if string(data) != "hello" {
 		t.Errorf("content: want %q, got %q", "hello", data)
+	}
+}
+
+func TestResolveLocalRejectsWorkspaceSymlinkReads(t *testing.T) {
+	root := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "secret.md")
+	if err := os.WriteFile(outside, []byte("secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, "linked.md")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	fsys, cleanup, err := Resolve(context.Background(), root, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	if _, err := fs.ReadFile(fsys, "linked.md"); err == nil {
+		t.Fatal("workspace symlink file was followed")
 	}
 }
 
