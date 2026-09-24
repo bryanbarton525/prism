@@ -74,8 +74,12 @@ func newReportSkillsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "skills",
 		Short: "Generate skill health report",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			items := reportSkillHealthFS(configuredSkillsFS(), "skills")
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			fsys, err := configuredSkillsFSChecked(cmd.Context())
+			if err != nil {
+				return err
+			}
+			items := reportSkillHealthFS(fsys, "skills")
 			switch format {
 			case "json":
 				enc := json.NewEncoder(os.Stdout)
@@ -149,14 +153,14 @@ func reportSkillHealthFS(fsys fs.FS, label string) []reportSkill {
 			item.OK = false
 			item.Errors = append(item.Errors, err.Error())
 		}
-		if err := skill.ValidateStructure(fsys, name); err != nil {
+		if err := skill.ValidatePortableStructure(fsys, name); err != nil {
 			item.OK = false
 			item.Errors = append(item.Errors, err.Error())
 		}
+		item.Warnings = append(item.Warnings, skill.ExecutionLimitations(fsys, name)...)
 		count, err := skill.ValidateEvals(fsys, name)
 		if err != nil {
-			item.OK = false
-			item.Errors = append(item.Errors, err.Error())
+			item.Warnings = append(item.Warnings, "eval validation unavailable: "+err.Error())
 		} else {
 			item.Evals = count
 		}

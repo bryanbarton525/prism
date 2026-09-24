@@ -1,0 +1,11 @@
+version: 1
+skill: graphify-query
+cases:
+  - name: bounded graph query with verification
+    prompt: "Investigate which package initializes Prism's CLI root command and verify the result from source."
+    expected:
+      includes:
+        - query_graph
+        - source
+        - provenance
+        - confidence

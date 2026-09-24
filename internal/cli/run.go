@@ -13,10 +13,12 @@ import (
 )
 
 type runFlags struct {
-	skills []string
-	input  string
-	stdin  bool
-	format string
+	skills              []string
+	input               string
+	stdin               bool
+	format              string
+	graphifyFingerprint string
+	skillResources      []string
 }
 
 func newRunCmd() *cobra.Command {
@@ -27,7 +29,8 @@ func newRunCmd() *cobra.Command {
 		Short: "Run a specialist agent with required skills",
 		Long: `Invoke a local Ollama specialist agent.
 
-At least one --skills value is required and must be in the agent's allowed_skills.
+Bundled agents require at least one --skills value. Managed agents may run with
+an explicitly empty allowed_skills list. Every supplied skill must be allowed.
 Provide the task via --input <file> or --stdin; if neither flag is set, the
 command reads from stdin automatically when stdin is piped.
 
@@ -44,13 +47,17 @@ Examples:
 	}
 
 	cmd.Flags().StringSliceVar(&rf.skills, "skills", nil,
-		"Comma-separated or repeated skill names to attach (required)")
+		"Comma-separated or repeated skill names to attach (required for bundled agents)")
 	cmd.Flags().StringVar(&rf.input, "input", "",
 		"Path to a file containing the task text")
 	cmd.Flags().BoolVar(&rf.stdin, "stdin", false,
 		"Read task text from stdin")
 	cmd.Flags().StringVar(&rf.format, "format", "json",
 		`Output format: "json" or "markdown"`)
+	cmd.Flags().StringVar(&rf.graphifyFingerprint, "graphify-fingerprint", "",
+		"Current Graphify workspace generation fingerprint for repo-investigator")
+	cmd.Flags().StringSliceVar(&rf.skillResources, "skill-resource", nil,
+		"Attach a bounded text resource as <skill>:<path> (repeatable)")
 	return cmd
 }
 
@@ -72,11 +79,15 @@ func runAgent(ctx context.Context, agentID string, rf runFlags) error {
 	defer cleanup()
 
 	res, err := runner.Run(ctx, app.RunRequest{
-		AgentID:    agentID,
-		Task:       task,
-		SkillNames: rf.skills,
-		Format:     rf.format,
-		Metadata:   observe.Metadata{Source: "cli"},
+		AgentID:        agentID,
+		Task:           task,
+		SkillNames:     rf.skills,
+		SkillResources: rf.skillResources,
+		Format:         rf.format,
+		Metadata:       observe.Metadata{Source: "cli"},
+		Workspace: app.Workspace{
+			GenerationFingerprint: rf.graphifyFingerprint,
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("run failed: %w", err)

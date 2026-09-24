@@ -1,0 +1,64 @@
+{
+  "metadata_version": 1,
+  "upstream": {
+    "repository": "https://github.com/Graphify-Labs/graphify",
+    "tag": "v0.9.61",
+    "commit": "fe66389083369c3159aa391117185c8f58b4d07c",
+    "python_package": "graphifyy[mcp]==0.9.61",
+    "python_requires": ">=3.10",
+    "mcp_extra_requirements": [
+      "mcp>=1,<3",
+      "starlette>=1.3.1,<2"
+    ],
+    "mcp_entrypoint": "graphify-mcp",
+    "mcp_launch": {
+      "arguments": [
+        "--graph",
+        "<absolute-workspace>/graphify-out/graph.json"
+      ]
+    },
+    "code_indexing": {
+      "command": [
+        "graphify",
+        "extract",
+        "<absolute-workspace>",
+        "--code-only",
+        "--no-viz"
+      ],
+      "output": "<absolute-workspace>/graphify-out/graph.json",
+      "guarantee": "The pinned upstream README documents --code-only as local AST extraction with no LLM or API key. Prism does not invoke this command."
+    },
+    "release_asset": {
+      "name": "graphify-self-graph.tar.gz",
+      "sha256": "1e48264a79b8ab7e7a5e99d779fbf6878d5f3afba9a83fb50c68b341120e74a6"
+    },
+    "license": "Apache-2.0",
+    "notice": "The pinned upstream NOTICE identifies Graphify as Apache License 2.0 and notes prior MIT-licensed contributions. Prism redistributes no Graphify executable, Python package, or generated graph."
+  },
+  "contract": {
+    "id": "prism-graphify-mcp-v0.9.61",
+    "source": "Graphify-Labs/graphify graphify/serve.py list_tools at tag v0.9.61; project_path is injected into every upstream tool schema.",
+    "approved_tools": [
+      "query_graph",
+      "get_node",
+      "get_neighbors",
+      "shortest_path"
+    ]
+  },
+  "platform_support": {
+    "status": "validated at install time",
+    "reason": "The universal uv lock covers Python >=3.10. uv validates the selected system interpreter and platform wheels before changing the Prism-owned environment; Prism does not download Python itself."
+  },
+  "dependency_hashes": {
+    "release_asset": "Recorded above from the upstream release.",
+    "python_wheel_sha256": "7e11f2fd61b61552a17f8db1d4dadf8318b295436e61d997b5d85318cceccc6e",
+    "python_sdist_sha256": "8058174c5f2a9bcdbb3a90d19f67ef32ca0504f7814b699322a48a785b91eafd",
+    "universal_uv_lock": "managed-environment/uv.lock",
+    "universal_uv_lock_sha256": "15bb19dab6b284ccd0b0941c3096bf405873882f48bf9a5d20bb2ee64fd2997b"
+  },
+  "deliberately_unsupported": [
+    "Prism does not automatically build, refresh, or infer a repository index.",
+    "Prism does not download Python or modify system Python.",
+    "Prism does not claim compatibility until uv resolves the locked artifacts for the selected system interpreter and platform."
+  ]
+}

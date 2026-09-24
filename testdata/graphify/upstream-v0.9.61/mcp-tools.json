@@ -1,0 +1,60 @@
+{
+  "upstream_tag": "v0.9.61",
+  "upstream_commit": "fe66389083369c3159aa391117185c8f58b4d07c",
+  "contract_id": "prism-graphify-mcp-v0.9.61",
+  "tools": [
+    {
+      "name": "query_graph",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "question": {"type": "string", "description": "Natural language question or keyword search"},
+          "mode": {"type": "string", "enum": ["bfs", "dfs"], "default": "bfs", "description": "bfs=broad context, dfs=trace a specific path"},
+          "depth": {"type": "integer", "default": 3, "description": "Traversal depth (1-6)"},
+          "token_budget": {"type": "integer", "default": 2000, "description": "Max output tokens"},
+          "context_filter": {"type": "array", "items": {"type": "string"}, "description": "Optional explicit edge-context filter, e.g. ['call', 'field']"},
+          "project_path": {"type": "string", "description": "Absolute path to a project directory containing graphify-out/graph.json. Optional — defaults to the graph this server was started with."}
+        },
+        "required": ["question"]
+      }
+    },
+    {
+      "name": "get_node",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "label": {"type": "string", "description": "Node label or ID to look up"},
+          "project_path": {"type": "string", "description": "Absolute path to a project directory containing graphify-out/graph.json. Optional — defaults to the graph this server was started with."}
+        },
+        "required": ["label"]
+      }
+    },
+    {
+      "name": "get_neighbors",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "label": {"type": "string"},
+          "relation_filter": {"type": "string", "description": "Optional: filter by relation type"},
+          "token_budget": {"type": "integer", "default": 2000, "description": "Max output tokens"},
+          "project_path": {"type": "string", "description": "Absolute path to a project directory containing graphify-out/graph.json. Optional — defaults to the graph this server was started with."}
+        },
+        "required": ["label"]
+      }
+    },
+    {
+      "name": "shortest_path",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "source": {"type": "string", "description": "Source concept label or keyword"},
+          "target": {"type": "string", "description": "Target concept label or keyword"},
+          "max_hops": {"type": "integer", "default": 8, "description": "Maximum hops to consider"},
+          "undirected": {"type": "boolean", "default": false, "description": "Ignore stored edge direction when searching"},
+          "project_path": {"type": "string", "description": "Absolute path to a project directory containing graphify-out/graph.json. Optional — defaults to the graph this server was started with."}
+        },
+        "required": ["source", "target"]
+      }
+    }
+  ]
+}

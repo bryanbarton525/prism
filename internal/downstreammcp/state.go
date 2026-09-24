@@ -1,19 +1,19 @@
 package downstreammcp
 
 import (
+	"context"
 	"errors"
-	"os"
-	"path/filepath"
+	"fmt"
+	"net/url"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 const (
-	TransportCommand = "command"
-	TransportSSE     = "sse"
-	DefaultTimeoutMS = 30000
-	DefaultMaxBytes  = 20000
+	TransportCommand        = "command"
+	TransportSSE            = "sse"
+	TransportStreamableHTTP = "streamable-http"
+	DefaultTimeoutMS        = 30000
+	DefaultMaxBytes         = 20000
 )
 
 type State struct {
@@ -21,40 +21,49 @@ type State struct {
 }
 
 type Server struct {
-	Name        string   `yaml:"name" json:"name"`
-	Transport   string   `yaml:"transport" json:"transport"`
-	Command     string   `yaml:"command,omitempty" json:"command,omitempty"`
-	Args        []string `yaml:"args,omitempty" json:"args,omitempty"`
-	URL         string   `yaml:"url,omitempty" json:"url,omitempty"`
-	TimeoutMS   int      `yaml:"timeout_ms,omitempty" json:"timeout_ms,omitempty"`
-	MaxBytes    int      `yaml:"max_bytes,omitempty" json:"max_bytes,omitempty"`
-	Description string   `yaml:"description,omitempty" json:"description,omitempty"`
+	Name        string            `yaml:"name" json:"name"`
+	Transport   string            `yaml:"transport" json:"transport"`
+	Command     string            `yaml:"command,omitempty" json:"command,omitempty"`
+	Args        []string          `yaml:"args,omitempty" json:"args,omitempty"`
+	EnvRefs     map[string]string `yaml:"env_refs,omitempty" json:"env_refs,omitempty"`
+	URL         string            `yaml:"url,omitempty" json:"url,omitempty"`
+	HeaderRefs  map[string]string `yaml:"header_refs,omitempty" json:"header_refs,omitempty"`
+	TimeoutMS   int               `yaml:"timeout_ms,omitempty" json:"timeout_ms,omitempty"`
+	MaxBytes    int               `yaml:"max_bytes,omitempty" json:"max_bytes,omitempty"`
+	Description string            `yaml:"description,omitempty" json:"description,omitempty"`
 }
 
 func Load(path string) (State, error) {
-	data, err := os.ReadFile(path)
+	snapshot, err := NewFileStore(path).Read(context.Background())
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return State{}, nil
-		}
 		return State{}, err
 	}
-	var state State
-	if err := yaml.Unmarshal(data, &state); err != nil {
+	if err := snapshot.State.Validate(); err != nil {
 		return State{}, err
 	}
-	return state, nil
+	return snapshot.State, nil
 }
 
 func Save(path string, state State) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := state.Validate(); err != nil {
 		return err
 	}
-	data, err := yaml.Marshal(state)
-	if err != nil {
-		return err
+	return writeStateAtomically(path, state)
+}
+
+func (s State) Validate() error {
+	seen := map[string]struct{}{}
+	for _, server := range s.Servers {
+		if err := server.Validate(); err != nil {
+			return fmt.Errorf("server %q: %w", server.Name, err)
+		}
+		key := strings.ToLower(strings.TrimSpace(server.Name))
+		if _, exists := seen[key]; exists {
+			return fmt.Errorf("duplicate server name %q", server.Name)
+		}
+		seen[key] = struct{}{}
 	}
-	return os.WriteFile(path, data, 0o600)
+	return nil
 }
 
 func (s State) Get(name string) (Server, bool) {
@@ -77,6 +86,17 @@ func (s *State) Upsert(server Server) {
 	s.Servers = append(s.Servers, server)
 }
 
+func (s *State) Remove(name string) (Server, bool) {
+	for i := range s.Servers {
+		if s.Servers[i].Name == name {
+			removed := s.Servers[i].withDefaults()
+			s.Servers = append(s.Servers[:i], s.Servers[i+1:]...)
+			return removed, true
+		}
+	}
+	return Server{}, false
+}
+
 func (s State) PublicServers() []Server {
 	out := make([]Server, 0, len(s.Servers))
 	for _, server := range s.Servers {
@@ -89,17 +109,55 @@ func (s Server) Validate() error {
 	if strings.TrimSpace(s.Name) == "" {
 		return errors.New("server name is required")
 	}
+	if s.TimeoutMS < 0 {
+		return errors.New("timeout_ms must be > 0 when specified")
+	}
+	if s.MaxBytes < 0 {
+		return errors.New("max_bytes must be > 0 when specified")
+	}
+	if err := validateReferences(s.EnvRefs, "environment"); err != nil {
+		return err
+	}
+	if err := validateReferences(s.HeaderRefs, "header"); err != nil {
+		return err
+	}
 	switch s.Transport {
 	case TransportCommand:
 		if strings.TrimSpace(s.Command) == "" {
 			return errors.New("command transport requires command")
 		}
-	case TransportSSE:
-		if strings.TrimSpace(s.URL) == "" {
-			return errors.New("sse transport requires url")
+		if strings.TrimSpace(s.URL) != "" || len(s.HeaderRefs) > 0 {
+			return errors.New("command transport cannot include URL or header references")
+		}
+	case TransportSSE, TransportStreamableHTTP:
+		if err := validateHTTPURL(s.URL); err != nil {
+			return err
+		}
+		if strings.TrimSpace(s.Command) != "" || len(s.Args) > 0 || len(s.EnvRefs) > 0 {
+			return errors.New("URL-based transport cannot include command, args, or environment references")
 		}
 	default:
-		return errors.New("transport must be command or sse")
+		return errors.New("transport must be command, sse, or streamable-http")
+	}
+	return nil
+}
+
+func validateReferences(refs map[string]string, kind string) error {
+	for key, ref := range refs {
+		if strings.TrimSpace(key) == "" || strings.TrimSpace(ref) == "" {
+			return fmt.Errorf("%s reference assignments require non-empty key and environment variable", kind)
+		}
+	}
+	return nil
+}
+
+func validateHTTPURL(raw string) error {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || !parsed.IsAbs() || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return fmt.Errorf("sse and streamable-http transports require an absolute http(s) url")
+	}
+	if parsed.User != nil {
+		return errors.New("http(s) endpoint urls cannot contain userinfo; use header references for credentials")
 	}
 	return nil
 }
@@ -112,4 +170,41 @@ func (s Server) withDefaults() Server {
 		s.MaxBytes = DefaultMaxBytes
 	}
 	return s
+}
+
+func (s Server) equals(other Server) bool {
+	left := s.withDefaults()
+	right := other.withDefaults()
+	if left.Name != right.Name ||
+		left.Transport != right.Transport ||
+		left.Command != right.Command ||
+		left.URL != right.URL ||
+		left.TimeoutMS != right.TimeoutMS ||
+		left.MaxBytes != right.MaxBytes ||
+		left.Description != right.Description ||
+		len(left.Args) != len(right.Args) ||
+		len(left.EnvRefs) != len(right.EnvRefs) ||
+		len(left.HeaderRefs) != len(right.HeaderRefs) {
+		return false
+	}
+	for i := range left.Args {
+		if left.Args[i] != right.Args[i] {
+			return false
+		}
+	}
+	for k, v := range left.EnvRefs {
+		if right.EnvRefs[k] != v {
+			return false
+		}
+	}
+	for k, v := range left.HeaderRefs {
+		if right.HeaderRefs[k] != v {
+			return false
+		}
+	}
+	return true
+}
+
+func (s Server) Equals(other Server) bool {
+	return s.equals(other)
 }
