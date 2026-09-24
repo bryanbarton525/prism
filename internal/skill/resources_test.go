@@ -55,3 +55,24 @@ func TestReadResourceRejectsBinaryContent(t *testing.T) {
 		t.Fatalf("err = %v, want ErrUnsupportedTextResource", err)
 	}
 }
+
+func TestTOMLResourceIsReadableText(t *testing.T) {
+	const content = "[project]\nname = \"graphify\"\n"
+	fys := fstest.MapFS{
+		"demo/references/managed-environment/pyproject.toml": &fstest.MapFile{Data: []byte(content)},
+	}
+	resources, err := ListResources(fys, "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resources) != 1 || resources[0].MediaType != "application/toml" || resources[0].Binary {
+		t.Fatalf("unexpected TOML resource entry: %#v", resources)
+	}
+	result, err := ReadResource(fys, "demo", "references/managed-environment/pyproject.toml", ReadResourceOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Content != content || result.MediaType != "application/toml" {
+		t.Fatalf("unexpected TOML content: %#v", result)
+	}
+}

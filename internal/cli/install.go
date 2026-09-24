@@ -166,18 +166,9 @@ func runInstall(cmd *cobra.Command, flags installFlags) error {
 	if err := validateRuntimeScope(flags.runtimeScope); err != nil {
 		return err
 	}
-	runtimeStateDir, err := resolveRuntimeStateDir(flags.runtimeScope)
+	runtimeStateDir, err := resolveInstallRuntimeStateDir(cmd, flags.runtimeScope)
 	if err != nil {
 		return err
-	}
-	if cmd.Flags().Changed("state-dir") {
-		explicitStateDir, err := filepath.Abs(gf.stateDir)
-		if err != nil {
-			return err
-		}
-		if filepath.Clean(explicitStateDir) != filepath.Clean(runtimeStateDir) {
-			return fmt.Errorf("--state-dir %q conflicts with --runtime-scope %q (expected %q)", gf.stateDir, flags.runtimeScope, runtimeStateDir)
-		}
 	}
 	scope := installer.Project
 	if flags.global {
@@ -205,13 +196,13 @@ func runInstall(cmd *cobra.Command, flags installFlags) error {
 			if err := activateRuntime(cmd, flags, runtimeStateDir); err != nil {
 				return err
 			}
-			return runInstallGraphify(cmd, flags, true)
+			return runInstallGraphify(cmd, flags, runtimeStateDir, true)
 		}
 		if err := activateRuntimeTransaction(cmd, flags, runtimeStateDir, true); err != nil {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Initialized runtime extension state (scope=%s, state-dir=%s). Host installer changes are skipped.\n", flags.runtimeScope, runtimeStateDir)
-		return runInstallGraphify(cmd, flags, false)
+		return runInstallGraphify(cmd, flags, runtimeStateDir, false)
 	}
 	skills, specialists, err := installer.Catalog()
 	if err != nil {
@@ -323,7 +314,7 @@ func applyInstall(cmd *cobra.Command, flags installFlags, scope installer.Scope,
 		if err := activateRuntime(cmd, flags, runtimeStateDir); err != nil {
 			return err
 		}
-		return runInstallGraphify(cmd, flags, true)
+		return runInstallGraphify(cmd, flags, runtimeStateDir, true)
 	}
 	if _, err := installer.Install(opts); err != nil {
 		return err
@@ -332,7 +323,7 @@ func applyInstall(cmd *cobra.Command, flags installFlags, scope installer.Scope,
 	if err := activateRuntimeTransaction(cmd, flags, runtimeStateDir, false); err != nil {
 		return fmt.Errorf("host installation succeeded but runtime activation failed: %w; retry runtime setup with `prism install --runtime-only --runtime-scope %s`", err, flags.runtimeScope)
 	}
-	if err := runInstallGraphify(cmd, flags, false); err != nil {
+	if err := runInstallGraphify(cmd, flags, runtimeStateDir, false); err != nil {
 		return fmt.Errorf("host/runtime installation succeeded but Graphify dependency setup failed: %w; retry with `prism graphify setup`", err)
 	}
 	return nil
@@ -370,7 +361,7 @@ func promptGuidedRuntime(input *guidedInput, flags *installFlags) (string, error
 			flags.runtimeSkillNames = []string{skills[0].Name}
 		}
 	}
-	runtimeStateDir, err := resolveRuntimeStateDir(flags.runtimeScope)
+	runtimeStateDir, err := resolveInstallRuntimeStateDir(input.cmd, flags.runtimeScope)
 	if err != nil {
 		return "", err
 	}
@@ -675,7 +666,7 @@ func validateInstallGraphify(flags installFlags) error {
 	return nil
 }
 
-func runInstallGraphify(cmd *cobra.Command, flags installFlags, dryRun bool) error {
+func runInstallGraphify(cmd *cobra.Command, flags installFlags, runtimeStateDir string, dryRun bool) error {
 	if flags.graphifyKind == "" && flags.graphifyManaged {
 		flags.graphifyKind = "managed"
 	}
@@ -693,12 +684,8 @@ func runInstallGraphify(cmd *cobra.Command, flags installFlags, dryRun bool) err
 			return err
 		}
 	}
-	stateDir, err := resolveRuntimeStateDir(flags.runtimeScope)
-	if err != nil {
-		return err
-	}
 	originalStateDir := gf.stateDir
-	gf.stateDir = stateDir
+	gf.stateDir = runtimeStateDir
 	defer func() { gf.stateDir = originalStateDir }()
 	args := []string{
 		"--workspace", workspace,
@@ -1316,6 +1303,34 @@ func validateRuntimeScope(scope string) error {
 		return fmt.Errorf("runtime scope must be 'project' or 'user'")
 	}
 	return nil
+}
+
+func resolveInstallRuntimeStateDir(cmd *cobra.Command, scope string) (string, error) {
+	explicitScope := strings.EqualFold(strings.TrimSpace(scope), "project") || flagChanged(cmd, "runtime-scope")
+	explicitStateDir := flagChanged(cmd, "state-dir")
+	if gf.stateDir == "" {
+		if explicitStateDir {
+			return "", fmt.Errorf("--state-dir cannot be empty")
+		}
+		return resolveRuntimeStateDir(scope)
+	}
+	selectedDir, err := filepath.Abs(gf.stateDir)
+	if err != nil {
+		return "", err
+	}
+	if explicitStateDir && explicitScope {
+		scopedDir, err := resolveRuntimeStateDir(scope)
+		if err != nil {
+			return "", err
+		}
+		if filepath.Clean(selectedDir) != filepath.Clean(scopedDir) {
+			return "", fmt.Errorf("--state-dir %q conflicts with --runtime-scope %q (expected %q)", gf.stateDir, scope, scopedDir)
+		}
+	}
+	if explicitStateDir || !explicitScope {
+		return selectedDir, nil
+	}
+	return resolveRuntimeStateDir(scope)
 }
 
 func resolveRuntimeStateDir(scope string) (string, error) {

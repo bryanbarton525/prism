@@ -278,6 +278,9 @@ func resourceMediaType(resourcePath string) string {
 	if ext == "" {
 		return "application/octet-stream"
 	}
+	if ext == ".toml" {
+		return "application/toml"
+	}
 	if t := mime.TypeByExtension(ext); t != "" {
 		return t
 	}
@@ -299,5 +302,6 @@ func isTextMediaType(mediaType string) bool {
 	return strings.HasPrefix(mediaType, "text/") ||
 		strings.Contains(mediaType, "json") ||
 		strings.Contains(mediaType, "yaml") ||
-		strings.Contains(mediaType, "xml")
+		strings.Contains(mediaType, "xml") ||
+		mediaType == "application/toml"
 }

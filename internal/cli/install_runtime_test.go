@@ -91,7 +91,11 @@ func TestRunInstallRejectsConflictingStateDirAndScope(t *testing.T) {
 
 	cmd := &cobra.Command{}
 	cmd.Flags().String("state-dir", "", "")
+	cmd.Flags().String("runtime-scope", "user", "")
 	if err := cmd.Flags().Set("state-dir", gf.stateDir); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("runtime-scope", "user"); err != nil {
 		t.Fatal(err)
 	}
 	flags := installFlags{runtimeOnly: true, runtimeScope: "user"}
@@ -104,6 +108,7 @@ func TestRunInstallRejectsConflictingStateDirAndScope(t *testing.T) {
 func TestRunInstallAllowsMatchingStateDirAndScope(t *testing.T) {
 	originalStateDir := gf.stateDir
 	defer func() { gf.stateDir = originalStateDir }()
+	t.Setenv("HOME", t.TempDir())
 	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Fatal(err)
@@ -112,12 +117,104 @@ func TestRunInstallAllowsMatchingStateDirAndScope(t *testing.T) {
 
 	cmd := &cobra.Command{}
 	cmd.Flags().String("state-dir", "", "")
+	cmd.Flags().String("runtime-scope", "user", "")
 	if err := cmd.Flags().Set("state-dir", gf.stateDir); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("runtime-scope", "user"); err != nil {
 		t.Fatal(err)
 	}
 	flags := installFlags{runtimeOnly: true, runtimeScope: "user"}
 	if err := runInstall(cmd, flags); err != nil {
 		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestRunInstallUsesCustomStateDirWithDefaultRuntimeScope(t *testing.T) {
+	originalStateDir := gf.stateDir
+	defer func() { gf.stateDir = originalStateDir }()
+	gf.stateDir = filepath.Join(t.TempDir(), "custom-state")
+	cmd := &cobra.Command{}
+	cmd.Flags().String("state-dir", "", "")
+	if err := cmd.Flags().Set("state-dir", gf.stateDir); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	if err := runInstall(cmd, installFlags{runtimeOnly: true, runtimeScope: "user"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(gf.stateDir, "extensions.yaml")); err != nil {
+		t.Fatalf("runtime manifest missing from selected state dir: %v", err)
+	}
+	if !strings.Contains(out.String(), gf.stateDir) {
+		t.Fatalf("output %q omits selected state dir %q", out.String(), gf.stateDir)
+	}
+}
+
+func TestRunInstallEmbedsCustomStateDirInCodexHostConfig(t *testing.T) {
+	originalStateDir := gf.stateDir
+	defer func() { gf.stateDir = originalStateDir }()
+	originalWD, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	workspace := t.TempDir()
+	if err := os.Chdir(workspace); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(originalWD); err != nil {
+			t.Fatal(err)
+		}
+	})
+	gf.stateDir = filepath.Join(workspace, "runtime-state")
+	cmd := &cobra.Command{}
+	cmd.Flags().String("state-dir", "", "")
+	if err := cmd.Flags().Set("state-dir", gf.stateDir); err != nil {
+		t.Fatal(err)
+	}
+	cmd.SetOut(&bytes.Buffer{})
+	flags := installFlags{
+		project: true, yes: true, copyMode: true, runtimeScope: "user",
+		targets: []string{"codex"}, skills: []string{"gh-pr-triage"}, specialists: []string{"github-cli"},
+	}
+	if err := runInstall(cmd, flags); err != nil {
+		t.Fatal(err)
+	}
+	config, err := os.ReadFile(filepath.Join(workspace, ".codex", "config.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(config), "--state-dir") || !strings.Contains(string(config), gf.stateDir) {
+		t.Fatalf("Codex host config omits selected state dir: %s", config)
+	}
+}
+
+func TestRunInstallGraphifyUsesCustomStateDir(t *testing.T) {
+	originalStateDir := gf.stateDir
+	defer func() { gf.stateDir = originalStateDir }()
+	workspace := t.TempDir()
+	gf.stateDir = filepath.Join(workspace, "selected-state")
+	index := filepath.Join(workspace, "graph.json")
+	if err := os.WriteFile(index, []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := &cobra.Command{}
+	cmd.Flags().String("state-dir", "", "")
+	if err := cmd.Flags().Set("state-dir", gf.stateDir); err != nil {
+		t.Fatal(err)
+	}
+	cmd.SetOut(&bytes.Buffer{})
+	flags := installFlags{
+		runtimeOnly: true, runtimeScope: "user", graphifyKind: "self-hosted",
+		graphifyWorkspace: workspace, graphifyIndex: index, graphifyFingerprint: "source-sha", graphifyServer: "graphify",
+	}
+	if err := runInstall(cmd, flags); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := graphify.Load(filepath.Join(gf.stateDir, "graphify.yaml")); err != nil {
+		t.Fatalf("Graphify binding missing from selected state dir: %v", err)
 	}
 }
 
