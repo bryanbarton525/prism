@@ -67,3 +67,17 @@ body`), 0o644); err != nil {
 		t.Fatal("expected execution limitation warnings")
 	}
 }
+
+func TestExecutionLimitationsWarnForAnyScriptFile(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "custom-skill", "scripts"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "custom-skill", "scripts", "inspect.py"), []byte("print('ok')"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	warnings := ExecutionLimitations(os.DirFS(root), "custom-skill")
+	if len(warnings) == 0 || warnings[0] != "scripts/ present; script execution is not performed during installation" {
+		t.Fatalf("script warning = %v", warnings)
+	}
+}

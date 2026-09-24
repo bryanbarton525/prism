@@ -156,7 +156,17 @@ func ReadResource(fsys fs.FS, skillName, resourcePath string, opts ReadResourceO
 	if err != nil {
 		return ReadResourceResult{}, fmt.Errorf("reading resource %q: %w", rel, err)
 	}
-	if !utf8.Valid(data) {
+	// A bounded window can start inside a rune that ends before the requested
+	// offset. Drop only that partial prefix; the returned range is then aligned
+	// against complete UTF-8 characters.
+	for start < opts.Offset && len(data) > 0 && isUTF8Continuation(data[0]) {
+		data = data[1:]
+		start++
+		prefix--
+	}
+	var valid bool
+	data, valid = completeUTF8Prefix(data, start+int64(len(data)) < size)
+	if !valid {
 		return ReadResourceResult{}, fmt.Errorf("reading resource %q: %w", rel, ErrUnsupportedTextResource)
 	}
 	begin := int(prefix)
@@ -183,7 +193,7 @@ func ReadResource(fsys fs.FS, skillName, resourcePath string, opts ReadResourceO
 }
 
 func validateSkillIdentity(name string) error {
-	if !standardSkillNamePattern.MatchString(strings.TrimSpace(name)) {
+	if !standardSkillNamePattern.MatchString(name) {
 		return fmt.Errorf("skill name %q must match %s", name, standardSkillNamePattern.String())
 	}
 	return nil
@@ -235,6 +245,20 @@ func minInt64(left, right int64) int64 {
 
 func isUTF8Continuation(value byte) bool {
 	return value&0xc0 == 0x80
+}
+
+func completeUTF8Prefix(data []byte, windowIsTruncated bool) ([]byte, bool) {
+	for offset := 0; offset < len(data); {
+		r, size := utf8.DecodeRune(data[offset:])
+		if r == utf8.RuneError && size == 1 {
+			if windowIsTruncated && !utf8.FullRune(data[offset:]) {
+				return data[:offset], true
+			}
+			return nil, false
+		}
+		offset += size
+	}
+	return data, true
 }
 
 func normalizeResourcePath(p string) (string, error) {
