@@ -88,7 +88,7 @@ selects that state separately from the host installation scope.
 
 Workspace resolution order is explicit `workspace.root`, one root advertised by the MCP host, then server-level `--root`. Multiple advertised roots require an explicit selection. Operations that do not need repository access work without a workspace. Local roots are canonicalized and repository plugins receive only a filesystem rooted at the selected directory.
 
-Core MCP tools include `list_agents`, `run_agent`, `get_constitution`, `doctor`, `suggest_route`, `run_graph`, `list_skill_resources`, `read_skill_resource`, and the policy, usage, and downstream-MCP inspection tools. Bundle and runtime-extension provenance is stamped automatically; clients do not send bundle IDs or versions.
+Core MCP tools include `list_agents`, `run_agent`, `get_constitution`, `doctor`, `suggest_route`, `recommend_tools`, `run_graph`, `list_skill_resources`, `read_skill_resource`, and the policy, usage, and downstream-MCP inspection tools. `recommend_tools` suggests from an agent's authorized catalog without granting execution access. Bundle and runtime-extension provenance is stamped automatically; clients do not send bundle IDs or versions.
 
 ## Direct CLI use
 
@@ -110,7 +110,7 @@ snapshot.
 
 Direct CLI commands use the current directory when workspace access is needed. `--root` is an optional workspace fallback, not the location of Prism itself.
 
-See [usage documentation](docs/usage.md), [model runtime configuration](docs/model-runtime.md), and the [agent](agents/README.md) and [skill](skills/README.md) authoring guides.
+See [usage documentation](docs/usage.md), [model runtime configuration](docs/model-runtime.md), [local tool recommendation and measured performance](docs/tool-recommendation.md), and the [agent](agents/README.md) and [skill](skills/README.md) authoring guides.
 The shipped Graphify/release coverage is recorded in the
 [acceptance matrix](docs/acceptance-matrix.md).
 

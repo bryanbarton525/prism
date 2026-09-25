@@ -28,7 +28,7 @@ import (
 // Fixture helpers
 // ---------------------------------------------------------------------------
 
-func writeFile(t *testing.T, path, content string) {
+func writeFile(t testing.TB, path, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
@@ -40,7 +40,7 @@ func writeFile(t *testing.T, path, content string) {
 
 // makeTestRoot creates a temporary project root with agents/ and skills/
 // directories always present, plus any supplied spec and skill files.
-func makeTestRoot(t *testing.T, agents map[string]string, skills map[string]string) string {
+func makeTestRoot(t testing.TB, agents map[string]string, skills map[string]string) string {
 	t.Helper()
 	root := t.TempDir()
 	// Always create the baseline directories so New() succeeds.

@@ -418,6 +418,18 @@ func TestRunner_Run_RepoInvestigatorUsesOnlyBoundGraphifyTools(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
+	recommendations, err := runner.RecommendToolsForWorkspace(t.Context(), "repo-investigator", "Find the root node", 2, Workspace{GenerationFingerprint: "generation-1"})
+	if err != nil {
+		t.Fatalf("Graphify recommendations: %v", err)
+	}
+	if len(recommendations.Tools) != 2 {
+		t.Fatalf("Graphify recommendations: %+v", recommendations)
+	}
+	for _, tool := range recommendations.Tools {
+		if tool.Server != "graphify" || !strings.Contains(" query_graph get_node get_neighbors shortest_path ", " "+tool.Name+" ") {
+			t.Fatalf("unexpected Graphify recommendation: %+v", tool)
+		}
+	}
 	res, err := runner.Run(t.Context(), RunRequest{
 		AgentID:    "repo-investigator",
 		Task:       "Investigate the root node.",
@@ -449,7 +461,7 @@ func TestRunner_Run_RepoInvestigatorUsesOnlyBoundGraphifyTools(t *testing.T) {
 	for _, tool := range modelRuntime.requests[0].Tools {
 		gotTools = append(gotTools, tool.Function.Name)
 	}
-	wantTools := []string{"query_graph", "get_node", "get_neighbors", "shortest_path"}
+	wantTools := []string{"query_graph", "get_node", "get_neighbors", "shortest_path", "read_tool_result"}
 	if strings.Join(gotTools, ",") != strings.Join(wantTools, ",") {
 		t.Fatalf("offered tools = %#v, want %#v", gotTools, wantTools)
 	}

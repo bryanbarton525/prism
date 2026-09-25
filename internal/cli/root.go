@@ -116,6 +116,7 @@ func init() {
 	rootCmd.AddCommand(newReportCmd())
 	rootCmd.AddCommand(newInstructionsCmd())
 	rootCmd.AddCommand(newVersionCmd())
+	rootCmd.AddCommand(newModelsCmd())
 	rootCmd.AddCommand(newInstallCmd())
 	rootCmd.AddCommand(newUninstallCmd())
 }

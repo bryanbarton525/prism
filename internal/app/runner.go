@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	prismbundle "github.com/bryanbarton525/prism"
@@ -36,6 +37,7 @@ import (
 	"github.com/bryanbarton525/prism/internal/result"
 	"github.com/bryanbarton525/prism/internal/rootresolver"
 	"github.com/bryanbarton525/prism/internal/skill"
+	"github.com/bryanbarton525/prism/internal/toolmodel"
 	"github.com/bryanbarton525/prism/pkg/observe"
 	policypkg "github.com/bryanbarton525/prism/pkg/policy"
 )
@@ -142,7 +144,12 @@ type Config struct {
 	Graphify graphify.Config
 	// RuntimeTarget describes the effective process runtime. Model may be empty
 	// when the process has no global model override.
-	RuntimeTarget extensions.RuntimeTarget
+	RuntimeTarget            extensions.RuntimeTarget
+	ToolModelStateDir        string
+	ToolRecommendationAgents []string
+	ToolRecommendationModel  string
+	KevURL                   string
+	KevAPIKeyEnv             string
 }
 
 // bundleFS returns the immutable runtime definitions. RootFS/RootDir remain a
@@ -278,6 +285,18 @@ type Runner struct {
 	catalog             extensions.CatalogSnapshot
 	mcpAccess           extensions.MCPAccessState
 	mcpAccessConfigured bool
+	toolModelOnce       sync.Once
+	toolModel           toolEmbedder
+	toolModelErr        error
+	toolVectorMu        sync.Mutex
+	toolVectors         map[string][]float32
+	toolCatalogMu       sync.Mutex
+	toolCatalog         map[string]cachedToolInventory
+	toolCatalogPending  map[string]*toolCatalogFlight
+	toolCatalogBytes    int
+	kevOnce             sync.Once
+	kevClient           *toolmodel.KevClient
+	kevErr              error
 }
 
 type DownstreamMCPClient interface {
@@ -358,6 +377,9 @@ func New(cfg Config) (*Runner, error) {
 		catalog:             catalog,
 		mcpAccess:           cfg.MCPAccess,
 		mcpAccessConfigured: cfg.MCPAccessConfigured,
+		toolVectors:         map[string][]float32{},
+		toolCatalog:         map[string]cachedToolInventory{},
+		toolCatalogPending:  map[string]*toolCatalogFlight{},
 	}, nil
 }
 
@@ -677,19 +699,25 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 	if !r.isBundledAgent(spec.ID) {
 		systemPrompt += skillResourceToolInstructions(req.SkillNames)
 	}
+	if r.toolRecommendationEnabled(spec.ID) && agentUsesMCP(spec) && r.downmcp != nil {
+		routeCtx, cancelRoute := context.WithTimeout(ctx, 500*time.Millisecond)
+		recommended, recommendErr := r.RecommendTools(routeCtx, spec.ID, req.Task, 5)
+		cancelRoute()
+		if recommendErr == nil {
+			block := recommendationPrompt(recommended)
+			// Reserve output and subsequent tool history; recommendations are omitted
+			// when the original prompt is already close to its configured window.
+			if spec.ContextBudget <= 0 || (len(systemPrompt)+len(userPrompt)+len(block))/4+1024 <= spec.ContextBudget {
+				userPrompt += block
+			}
+		}
+	}
 
 	// ── 9. Context budget enforcement ─────────────────────────────────────
 	promptSize := len(systemPrompt) + len(userPrompt)
 	budgetExceeded := false
 	if spec.ContextBudget > 0 {
-		// Heuristic: ~4 characters per token.
-		estimatedTokens := promptSize / 4
-		if estimatedTokens > spec.ContextBudget {
-			budgetExceeded = true
-			// Truncate the system prompt to fit within budget, preserving the
-			// constitution header and at least the task.
-			systemPrompt = truncateToTokenBudget(systemPrompt, spec.ContextBudget-len(userPrompt)/4)
-		}
+		budgetExceeded = (promptSize+2)/3+responseHeadroomTokens > spec.ContextBudget
 	}
 
 	// ── 10. Call the model runtime ────────────────────────────────────────
