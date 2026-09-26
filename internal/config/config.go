@@ -32,6 +32,7 @@ type Settings struct {
 	ToolRecommendModel  string
 	KevURL              string
 	KevAPIKeyEnv        string
+	KevModel            string
 }
 
 // Load reads configuration from defaults, an optional .env file in the current
@@ -118,6 +119,7 @@ func settingsFrom(v *viper.Viper, fileEnv map[string]string) Settings {
 		ToolRecommendModel:  configValue(v, fileEnv, "tool_recommend_model", "PRISM_TOOL_RECOMMEND_MODEL"),
 		KevURL:              configValue(v, fileEnv, "kev_url", "PRISM_KEV_URL"),
 		KevAPIKeyEnv:        configValue(v, fileEnv, "kev_api_key_env", "PRISM_KEV_API_KEY_ENV"),
+		KevModel:            configValue(v, fileEnv, "kev_model", "PRISM_KEV_MODEL"),
 	}
 }
 
@@ -137,6 +139,9 @@ func modelRuntimeFrom(v *viper.Viper, fileEnv map[string]string) runtime.Runtime
 		BaseURL: configValue(v, fileEnv, "model_runtime_base_url", "PRISM_MODEL_RUNTIME_BASE_URL"),
 		APIKey:  configValue(v, fileEnv, "model_runtime_api_key", "PRISM_MODEL_RUNTIME_API_KEY"),
 		Model:   configValue(v, fileEnv, "model_runtime_model", "PRISM_MODEL_RUNTIME_MODEL"),
+	}
+	if name := configValue(v, fileEnv, "model_runtime_api_key_env", "PRISM_MODEL_RUNTIME_API_KEY_ENV"); name != "" && os.Getenv("PRISM_MODEL_RUNTIME_API_KEY") == "" {
+		primary.APIKey = os.Getenv(name)
 	}
 	fallbackEngine := runtime.Engine(configValue(v, fileEnv, "model_runtime_fallback_engine", "PRISM_MODEL_RUNTIME_FALLBACK_ENGINE"))
 	fallbackBaseURL := configValue(v, fileEnv, "model_runtime_fallback_base_url", "PRISM_MODEL_RUNTIME_FALLBACK_BASE_URL")

@@ -51,3 +51,38 @@ func TestKevRejectsMissingNoulScore(t *testing.T) {
 		t.Fatal("missing noul score was accepted as zero")
 	}
 }
+
+func TestKevAllowsHTTPSJevButNotRemotePlainHTTP(t *testing.T) {
+	if _, err := NewKevClient("https://decisions.example.com", "JEV_TOKEN"); err != nil {
+		t.Fatalf("HTTPS Jev endpoint rejected: %v", err)
+	}
+	if _, err := NewKevClient("http://decisions.example.com", "JEV_TOKEN"); err == nil {
+		t.Fatal("remote plaintext endpoint accepted")
+	}
+	if _, err := NewKevClient("https://user:secret@decisions.example.com", "JEV_TOKEN"); err == nil {
+		t.Fatal("URL credentials accepted")
+	}
+}
+
+func TestDecisionClientUsesConfiguredJevModel(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Model string `json:"model"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Error(err)
+		}
+		if body.Model != "jev-latest" {
+			t.Errorf("model=%q", body.Model)
+		}
+		_, _ = w.Write([]byte(`{"answers":{"tool_0":{"type":"noul","noul":0.7}}}`))
+	}))
+	defer server.Close()
+	client, err := NewDecisionClient(server.URL, "", "jev-latest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Score(context.Background(), "Find issue", []KevTool{{Name: "find_issue"}}); err != nil {
+		t.Fatal(err)
+	}
+}
