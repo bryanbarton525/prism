@@ -1141,6 +1141,7 @@ func newRunnerWithControls(ctx context.Context, sink observe.Sink, policyEngine 
 		ToolRecommendationModel:  cfg.ToolRecommendModel,
 		KevURL:                   cfg.KevURL,
 		KevAPIKeyEnv:             cfg.KevAPIKeyEnv,
+		KevModel:                 cfg.KevModel,
 	})
 	if err != nil {
 		cleanup()

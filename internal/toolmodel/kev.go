@@ -25,6 +25,7 @@ type KevTool struct{ Name, Description string }
 type KevClient struct {
 	url       string
 	apiKeyEnv string
+	model     string
 	http      *http.Client
 	slot      chan struct{}
 	mu        sync.Mutex
@@ -32,15 +33,23 @@ type KevClient struct {
 }
 
 func NewKevClient(rawURL, apiKeyEnv string) (*KevClient, error) {
+	return NewDecisionClient(rawURL, apiKeyEnv, "kev-latest")
+}
+
+// NewDecisionClient supports a local Kev server or a compatible HTTPS Jev endpoint.
+func NewDecisionClient(rawURL, apiKeyEnv, model string) (*KevClient, error) {
+	if model != "kev-latest" && model != "jev-latest" {
+		return nil, fmt.Errorf("decision model must be kev-latest or jev-latest")
+	}
 	parsed, err := url.Parse(rawURL)
-	if err != nil || parsed.Scheme != "http" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Path != "" {
-		return nil, fmt.Errorf("Kev URL must be an http loopback origin")
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") || parsed.Hostname() == "" {
+		return nil, fmt.Errorf("decision service URL must be an HTTPS origin or HTTP loopback origin")
 	}
 	host := parsed.Hostname()
-	if host != "localhost" && !net.ParseIP(host).IsLoopback() {
-		return nil, fmt.Errorf("Kev URL must use a loopback host")
+	if parsed.Scheme == "http" && host != "localhost" && !net.ParseIP(host).IsLoopback() {
+		return nil, fmt.Errorf("plaintext decision service URL must use a loopback host")
 	}
-	return &KevClient{url: strings.TrimSuffix(rawURL, "/"), apiKeyEnv: apiKeyEnv, slot: make(chan struct{}, 1), http: &http.Client{Timeout: 5 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
+	return &KevClient{url: strings.TrimSuffix(rawURL, "/"), apiKeyEnv: apiKeyEnv, model: model, slot: make(chan struct{}, 1), http: &http.Client{Timeout: 5 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
 }
 
 func (c *KevClient) Score(ctx context.Context, task string, tools []KevTool) ([]float64, error) {
@@ -89,7 +98,7 @@ func (c *KevClient) scoreHTTP(ctx context.Context, task string, tools []KevTool)
 	for i, tool := range tools {
 		questions[fmt.Sprintf("tool_%d", i)] = map[string]any{"type": "noul", "instructions": "Would this specific tool help complete the task?", "criteria": map[string]string{"true": tool.Name + ": " + tool.Description, "false": "This tool does not help."}}
 	}
-	body, _ := json.Marshal(map[string]any{"state": task, "model": "kev-latest", "questions": questions})
+	body, _ := json.Marshal(map[string]any{"state": task, "model": c.model, "questions": questions})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.url+"/v1/systemone", bytes.NewReader(body))
 	if err != nil {
 		return nil, err

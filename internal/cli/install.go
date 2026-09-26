@@ -73,6 +73,19 @@ type installFlags struct {
 	graphifyFingerprint        string
 	graphifyServer             string
 	graphifyUV                 string
+	toolModel                  string
+	toolRecommendAgents        []string
+	primaryEngine              string
+	primaryURL                 string
+	primaryModel               string
+	primaryAPIKeyEnv           string
+	decisionService            string
+	decisionURL                string
+	decisionKeyEnv             string
+	decisionModel              string
+	kevPort                    int
+	kevUV                      string
+	kevDevice                  string
 }
 
 var errInstallCancelled = errors.New("setup cancelled")
@@ -155,6 +168,19 @@ func newInstallCmd() *cobra.Command {
 	cmd.Flags().StringVar(&flags.graphifyFingerprint, "graphify-fingerprint", "", "Current Graphify index generation fingerprint")
 	cmd.Flags().StringVar(&flags.graphifyServer, "graphify-server", "graphify", "Downstream MCP name for Prism's managed Graphify endpoint")
 	cmd.Flags().StringVar(&flags.graphifyUV, "graphify-uv", "uv", "uv executable for the explicitly selected managed Graphify install")
+	cmd.Flags().StringVar(&flags.toolModel, "tool-model", "", "Tool recommendation model to set up: potion|onnx")
+	cmd.Flags().StringSliceVar(&flags.toolRecommendAgents, "tool-recommend-agent", nil, "Agent identity to opt into tool recommendations (repeatable)")
+	cmd.Flags().StringVar(&flags.primaryEngine, "primary-engine", "", "Primary model runtime: ollama|sglang|vllm")
+	cmd.Flags().StringVar(&flags.primaryURL, "primary-url", "", "Primary model runtime endpoint")
+	cmd.Flags().StringVar(&flags.primaryModel, "primary-model", "", "Primary model name")
+	cmd.Flags().StringVar(&flags.primaryAPIKeyEnv, "primary-api-key-env", "", "Environment variable containing the primary runtime API key")
+	cmd.Flags().StringVar(&flags.decisionService, "decision-service", "", "Optional decision service: local|jev|install")
+	cmd.Flags().StringVar(&flags.decisionURL, "decision-url", "", "Existing Kev or Jev endpoint origin")
+	cmd.Flags().StringVar(&flags.decisionKeyEnv, "decision-key-env", "", "Environment variable containing the Kev/Jev API key")
+	cmd.Flags().StringVar(&flags.decisionModel, "decision-model", "", "Decision model: kev-latest|jev-latest")
+	cmd.Flags().IntVar(&flags.kevPort, "kev-port", 8009, "Loopback port for explicitly installed Kev")
+	cmd.Flags().StringVar(&flags.kevUV, "kev-uv", "uv", "uv executable for explicitly installed Kev")
+	cmd.Flags().StringVar(&flags.kevDevice, "kev-device", "cpu", "Managed Kev device: cpu|auto")
 	cmd.AddCommand(newInstallStatusCmd())
 	return cmd
 }
@@ -190,19 +216,29 @@ func runInstall(cmd *cobra.Command, flags installFlags) error {
 		if err := validateInstallGraphify(flags); err != nil {
 			return err
 		}
+		if err := validateInstallToolRouting(flags); err != nil {
+			return err
+		}
 		if flags.dryRun {
 			printRuntimePlan(cmd, flags, runtimeStateDir)
+			printToolRoutingPlan(cmd, flags, runtimeStateDir)
 			fmt.Fprintln(cmd.OutOrStdout(), "Host installer changes are skipped. Prism never builds or refreshes Graphify indexes.")
 			if err := activateRuntime(cmd, flags, runtimeStateDir); err != nil {
 				return err
 			}
 			return runInstallGraphify(cmd, flags, runtimeStateDir, true)
 		}
+		if err := prepareInstallToolRouting(cmd, flags, runtimeStateDir); err != nil {
+			return err
+		}
 		if err := activateRuntimeTransaction(cmd, flags, runtimeStateDir, true); err != nil {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Initialized runtime extension state (scope=%s, state-dir=%s). Host installer changes are skipped.\n", flags.runtimeScope, runtimeStateDir)
-		return runInstallGraphify(cmd, flags, runtimeStateDir, false)
+		if err := runInstallGraphify(cmd, flags, runtimeStateDir, false); err != nil {
+			return err
+		}
+		return saveInstallToolRouting(flags, runtimeStateDir)
 	}
 	skills, specialists, err := installer.Catalog()
 	if err != nil {
@@ -266,6 +302,9 @@ func runInstall(cmd *cobra.Command, flags installFlags) error {
 		if err := promptGuidedGraphify(input, &flags, runtimeStateDir); err != nil {
 			return finishInstallInput(err)
 		}
+		if err := promptGuidedToolRouting(input, &flags); err != nil {
+			return finishInstallInput(err)
+		}
 		return applyInstall(cmd, flags, scope, runtimeStateDir, input)
 	}
 	return applyInstall(cmd, flags, scope, runtimeStateDir, nil)
@@ -296,8 +335,12 @@ func applyInstall(cmd *cobra.Command, flags installFlags, scope installer.Scope,
 	if err := validateInstallGraphify(flags); err != nil {
 		return err
 	}
+	if err := validateInstallToolRouting(flags); err != nil {
+		return err
+	}
 	printInstallPlan(cmd, plan, flags.copyMode)
 	printRuntimePlan(cmd, flags, runtimeStateDir)
+	printToolRoutingPlan(cmd, flags, runtimeStateDir)
 	if !flags.yes && !flags.dryRun {
 		if input == nil {
 			input = newGuidedInput(cmd)
@@ -316,6 +359,9 @@ func applyInstall(cmd *cobra.Command, flags installFlags, scope installer.Scope,
 		}
 		return runInstallGraphify(cmd, flags, runtimeStateDir, true)
 	}
+	if err := prepareInstallToolRouting(cmd, flags, runtimeStateDir); err != nil {
+		return err
+	}
 	if _, err := installer.Install(opts); err != nil {
 		return err
 	}
@@ -325,6 +371,9 @@ func applyInstall(cmd *cobra.Command, flags installFlags, scope installer.Scope,
 	}
 	if err := runInstallGraphify(cmd, flags, runtimeStateDir, false); err != nil {
 		return fmt.Errorf("host/runtime installation succeeded but Graphify dependency setup failed: %w; retry with `prism graphify setup`", err)
+	}
+	if err := saveInstallToolRouting(flags, runtimeStateDir); err != nil {
+		return fmt.Errorf("host/runtime installation succeeded but tool routing configuration failed: %w", err)
 	}
 	return nil
 }
