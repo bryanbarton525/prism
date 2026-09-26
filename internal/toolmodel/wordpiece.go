@@ -108,7 +108,7 @@ func (w *WordPiece) Encode(text string, options EncodeOptions) []int32 {
 		budget -= 2
 	}
 
-	ids := make([]int32, 0, len(words)+2)
+	ids := make([]int32, 0, wordPieceCapacity(len(words), options.MaxTokens))
 	if options.AddSpecialTokens && w.classID >= 0 {
 		ids = append(ids, w.classID)
 	}
@@ -132,6 +132,15 @@ func (w *WordPiece) Encode(text string, options EncodeOptions) []int32 {
 	}
 
 	return ids
+}
+
+// wordPieceCapacity bounds the initial allocation without adding to an
+// untrusted word count. Append grows the slice for special or split tokens.
+func wordPieceCapacity(words, maxTokens int) int {
+	if maxTokens > 0 && words > maxTokens {
+		return maxTokens
+	}
+	return words
 }
 
 // basicTokenize splits on whitespace and punctuation, optionally lowercasing
