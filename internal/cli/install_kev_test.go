@@ -43,10 +43,14 @@ func TestManagedKevUnitIsPerStateAndDoesNotOverwriteForeignUnit(t *testing.T) {
 	}
 	source := filepath.Join(state, "kev", "source")
 	name := managedKevUnitName(state)
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if name == managedKevUnitName(t.TempDir()) {
 		t.Fatal("distinct states produced same unit name")
 	}
-	if err := writeKevUnit(state, source, "/usr/bin/uv", name, 8009, "cpu"); err != nil {
+	if err := writeKevUnit(state, source, executable, name, 8009, "cpu"); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(config, "systemd", "user", name)
@@ -59,7 +63,7 @@ func TestManagedKevUnitIsPerStateAndDoesNotOverwriteForeignUnit(t *testing.T) {
 			t.Fatalf("unit missing %q: %s", wanted, data)
 		}
 	}
-	if err := writeKevUnit(state, source, "/usr/bin/uv", name, 8009, "cpu"); err != nil {
+	if err := writeKevUnit(state, source, executable, name, 8009, "cpu"); err != nil {
 		t.Fatalf("idempotent write: %v", err)
 	}
 	if _, err := exec.LookPath("systemd-analyze"); err == nil {
@@ -71,7 +75,7 @@ func TestManagedKevUnitIsPerStateAndDoesNotOverwriteForeignUnit(t *testing.T) {
 	if err := os.WriteFile(path, []byte("[Service]\nExecStart=/bin/true\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := writeKevUnit(state, source, "/usr/bin/uv", name, 8009, "cpu"); err == nil {
+	if err := writeKevUnit(state, source, executable, name, 8009, "cpu"); err == nil {
 		t.Fatal("foreign unit overwritten")
 	}
 }
