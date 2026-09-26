@@ -55,3 +55,15 @@ _Avoid_: Execution DAG, authoritative source snapshot
 **Graphify integration**:
 Prism's bundled repository-investigation capability, connecting a specialist to Graphify's repository knowledge graph. Its instructions, external service, and repository index are distinct parts of the capability.
 _Avoid_: Automatically active MCP server, general-purpose graph-building agent
+
+**Tool recommender**:
+Prism's advisory capability for finding useful tools within an agent's authorized tool catalog. It neither executes tools nor grants access to them.
+_Avoid_: Offload model, tool executor
+
+**Tool shortlist**:
+A bounded set of candidate tools supplied by the tool recommender for a task. A shortlist does not assert that any candidate is suitable.
+_Avoid_: Approved tool set, execution plan
+
+**Retained tool result**:
+The portion of a downstream tool result preserved for the owning agent run and accessible through bounded reads. A result preview is an explicitly incomplete view when the retained portion is larger.
+_Avoid_: Permanent artifact, complete source snapshot

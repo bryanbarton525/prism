@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -48,6 +49,8 @@ type CallResult struct {
 	Content           string `json:"content,omitempty"`
 	StructuredContent any    `json:"structured_content,omitempty"`
 	Truncated         bool   `json:"truncated,omitempty"`
+	// FullContent is available only to the in-process run evidence store.
+	FullContent string `json:"-"`
 }
 
 func New(state State) *Client {
@@ -70,16 +73,48 @@ func (c *Client) ListTools(ctx context.Context, serverName string, opts ListTool
 		return ListToolsResult{}, err
 	}
 	defer closeFn()
-	res, err := session.ListTools(ctx, &mcpsdk.ListToolsParams{})
-	if err != nil {
-		return ListToolsResult{}, fmt.Errorf("listing tools from %s: %w", serverName, err)
+	var inventory []*mcpsdk.Tool
+	cursor := ""
+	seen := map[string]bool{}
+	incomplete := false
+	metadataBytes := 0
+	for page := 0; page < 100; page++ {
+		res, listErr := session.ListTools(ctx, &mcpsdk.ListToolsParams{Cursor: cursor})
+		if listErr != nil {
+			return ListToolsResult{}, fmt.Errorf("listing tools from %s: %w", serverName, listErr)
+		}
+		for _, tool := range res.Tools {
+			if len(inventory) >= 2000 {
+				incomplete = true
+				break
+			}
+			encoded, _ := json.Marshal(tool)
+			metadataBytes += len(encoded)
+			if metadataBytes > 8<<20 {
+				incomplete = true
+				break
+			}
+			inventory = append(inventory, tool)
+		}
+		if incomplete || res.NextCursor == "" {
+			break
+		}
+		if seen[res.NextCursor] {
+			incomplete = true
+			break
+		}
+		seen[res.NextCursor] = true
+		cursor = res.NextCursor
+		if page == 99 {
+			incomplete = true
+		}
 	}
 	limit := opts.MaxTools
-	if limit <= 0 || limit > len(res.Tools) {
-		limit = len(res.Tools)
+	if limit <= 0 || limit > len(inventory) {
+		limit = len(inventory)
 	}
 	tools := make([]ToolSummary, 0, limit)
-	for _, tool := range res.Tools[:limit] {
+	for _, tool := range inventory[:limit] {
 		summary := ToolSummary{
 			Name:        tool.Name,
 			Title:       tool.Title,
@@ -92,8 +127,8 @@ func (c *Client) ListTools(ctx context.Context, serverName string, opts ListTool
 	}
 	return ListToolsResult{
 		Tools:     tools,
-		Total:     len(res.Tools),
-		Truncated: limit < len(res.Tools),
+		Total:     len(inventory),
+		Truncated: limit < len(inventory) || incomplete,
 	}, nil
 }
 
@@ -113,9 +148,14 @@ func (c *Client) CallTool(ctx context.Context, serverName, toolName string, args
 	if err != nil {
 		return CallResult{}, fmt.Errorf("calling %s.%s: %w", serverName, toolName, err)
 	}
-	content := contentText(res.Content)
-	content, truncated := trimWithFlag(content, server.MaxBytes)
+	fullContent := contentText(res.Content)
+	content, truncated := trimWithFlag(fullContent, server.MaxBytes)
 	structured, structuredTruncated := boundedStructuredContent(res.StructuredContent, server.MaxBytes)
+	if res.StructuredContent != nil {
+		if raw, marshalErr := json.Marshal(res.StructuredContent); marshalErr == nil {
+			fullContent += "\n" + string(raw)
+		}
+	}
 	return CallResult{
 		Server:            serverName,
 		Tool:              toolName,
@@ -123,6 +163,7 @@ func (c *Client) CallTool(ctx context.Context, serverName, toolName string, args
 		Content:           content,
 		StructuredContent: structured,
 		Truncated:         truncated || structuredTruncated,
+		FullContent:       fullContent,
 	}, nil
 }
 
@@ -185,6 +226,7 @@ func (c *Client) connect(ctx context.Context, server Server) (*mcpsdk.ClientSess
 		if err != nil {
 			return nil, nil, err
 		}
+		httpClient.Transport = limitedResponseTransport{base: httpClient.Transport, limit: 16 << 20}
 		transport = &mcpsdk.StreamableClientTransport{Endpoint: server.URL, HTTPClient: httpClient}
 	}
 	session, err := client.Connect(ctx, transport, nil)
@@ -195,6 +237,44 @@ func (c *Client) connect(ctx context.Context, server Server) (*mcpsdk.ClientSess
 		_ = session.Close()
 	}
 	return session, closeFn, nil
+}
+
+type limitedResponseTransport struct {
+	base  http.RoundTripper
+	limit int64
+}
+
+func (t limitedResponseTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.base.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.ContentLength > t.limit {
+		resp.Body.Close()
+		return nil, fmt.Errorf("downstream MCP response exceeds %d bytes", t.limit)
+	}
+	resp.Body = &limitedReadCloser{ReadCloser: resp.Body, remaining: t.limit}
+	return resp, nil
+}
+
+type limitedReadCloser struct {
+	io.ReadCloser
+	remaining int64
+}
+
+func (r *limitedReadCloser) Read(p []byte) (int, error) {
+	if r.remaining < 0 {
+		return 0, fmt.Errorf("downstream MCP response size limit exceeded")
+	}
+	if int64(len(p)) > r.remaining+1 {
+		p = p[:r.remaining+1]
+	}
+	n, err := r.ReadCloser.Read(p)
+	r.remaining -= int64(n)
+	if r.remaining < 0 {
+		return n, fmt.Errorf("downstream MCP response size limit exceeded")
+	}
+	return n, err
 }
 
 func resolveReferencedValues(refs map[string]string, label string) (map[string]string, error) {

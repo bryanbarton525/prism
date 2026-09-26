@@ -123,6 +123,33 @@ func TestSDKListToolsAndCallToolWithInMemoryMCP(t *testing.T) {
 	}
 }
 
+func TestRealHTTPMCPInventoryPaginationAndRetainedResult(t *testing.T) {
+	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "fixture", Version: "1"}, &mcpsdk.ServerOptions{PageSize: 1})
+	mcpsdk.AddTool(server, &mcpsdk.Tool{Name: "find_issue", Description: "Search repository issues"}, func(_ context.Context, _ *mcpsdk.CallToolRequest, _ echoInput) (*mcpsdk.CallToolResult, echoOutput, error) {
+		return nil, echoOutput{Echo: strings.Repeat("issue evidence ", 2000)}, nil
+	})
+	mcpsdk.AddTool(server, &mcpsdk.Tool{Name: "create_issue", Description: "Create a repository issue"}, func(_ context.Context, _ *mcpsdk.CallToolRequest, _ echoInput) (*mcpsdk.CallToolResult, echoOutput, error) {
+		return nil, echoOutput{Echo: "created"}, nil
+	})
+	httpServer := httptest.NewServer(mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server { return server }, nil))
+	defer httpServer.Close()
+	client := New(State{Servers: []Server{{Name: "fixture", Transport: TransportStreamableHTTP, URL: httpServer.URL, MaxBytes: 100}}})
+	tools, err := client.ListTools(context.Background(), "fixture", ListToolsOptions{IncludeSchema: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tools.Total != 2 || len(tools.Tools) != 2 || tools.Truncated {
+		t.Fatalf("inventory=%+v", tools)
+	}
+	result, err := client.CallTool(context.Background(), "fixture", "find_issue", map[string]any{"message": "x"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Truncated || len(result.Content) > 104 || len(result.FullContent) < 20000 {
+		t.Fatalf("result preview/full sizes: %d/%d truncated=%v", len(result.Content), len(result.FullContent), result.Truncated)
+	}
+}
+
 func TestResolveReferencedValues(t *testing.T) {
 	t.Setenv("PRISM_TEST_REF", "secret")
 	values, err := resolveReferencedValues(map[string]string{"Authorization": "PRISM_TEST_REF"}, "header")

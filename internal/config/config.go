@@ -18,16 +18,20 @@ const DefaultOllamaHost = "http://127.0.0.1:11434"
 
 // Settings holds process-level configuration read from defaults, .env, and env.
 type Settings struct {
-	RootDir      string
-	AgentDir     string
-	SkillsDir    string
-	OllamaHost   string
-	GitHubToken  string
-	LinearMCPURL string
-	ModelRuntime runtime.RuntimeConfig
-	EventStore   string
-	PolicyFile   string
-	StateDir     string
+	RootDir             string
+	AgentDir            string
+	SkillsDir           string
+	OllamaHost          string
+	GitHubToken         string
+	LinearMCPURL        string
+	ModelRuntime        runtime.RuntimeConfig
+	EventStore          string
+	PolicyFile          string
+	StateDir            string
+	ToolRecommendAgents []string
+	ToolRecommendModel  string
+	KevURL              string
+	KevAPIKeyEnv        string
 }
 
 // Load reads configuration from defaults, an optional .env file in the current
@@ -100,17 +104,31 @@ func settingsFrom(v *viper.Viper, fileEnv map[string]string) Settings {
 		stateDir = defaultStateDir()
 	}
 	return Settings{
-		RootDir:      rootDir,
-		AgentDir:     configValue(v, fileEnv, "agent_dir", "PRISM_AGENT_DIR"),
-		SkillsDir:    configValue(v, fileEnv, "skills_dir", "PRISM_SKILLS_DIR"),
-		OllamaHost:   firstNonEmpty(configValue(v, fileEnv, "ollama_host", "PRISM_OLLAMA_HOST"), DefaultOllamaHost),
-		GitHubToken:  configValue(v, fileEnv, "github_token", "PRISM_GITHUB_TOKEN", "PRISM_GH_TOKEN", "GITHUB_TOKEN", "GH_TOKEN"),
-		LinearMCPURL: configValue(v, fileEnv, "linear_mcp_url", "PRISM_LINEAR_MCP_URL"),
-		ModelRuntime: modelRuntimeFrom(v, fileEnv),
-		EventStore:   configValue(v, fileEnv, "event_store", "PRISM_EVENT_STORE"),
-		PolicyFile:   configValue(v, fileEnv, "policy_file", "PRISM_POLICY_FILE"),
-		StateDir:     stateDir,
+		RootDir:             rootDir,
+		AgentDir:            configValue(v, fileEnv, "agent_dir", "PRISM_AGENT_DIR"),
+		SkillsDir:           configValue(v, fileEnv, "skills_dir", "PRISM_SKILLS_DIR"),
+		OllamaHost:          firstNonEmpty(configValue(v, fileEnv, "ollama_host", "PRISM_OLLAMA_HOST"), DefaultOllamaHost),
+		GitHubToken:         configValue(v, fileEnv, "github_token", "PRISM_GITHUB_TOKEN", "PRISM_GH_TOKEN", "GITHUB_TOKEN", "GH_TOKEN"),
+		LinearMCPURL:        configValue(v, fileEnv, "linear_mcp_url", "PRISM_LINEAR_MCP_URL"),
+		ModelRuntime:        modelRuntimeFrom(v, fileEnv),
+		EventStore:          configValue(v, fileEnv, "event_store", "PRISM_EVENT_STORE"),
+		PolicyFile:          configValue(v, fileEnv, "policy_file", "PRISM_POLICY_FILE"),
+		StateDir:            stateDir,
+		ToolRecommendAgents: splitCSV(configValue(v, fileEnv, "tool_recommend_agents", "PRISM_TOOL_RECOMMEND_AGENTS")),
+		ToolRecommendModel:  configValue(v, fileEnv, "tool_recommend_model", "PRISM_TOOL_RECOMMEND_MODEL"),
+		KevURL:              configValue(v, fileEnv, "kev_url", "PRISM_KEV_URL"),
+		KevAPIKeyEnv:        configValue(v, fileEnv, "kev_api_key_env", "PRISM_KEV_API_KEY_ENV"),
 	}
+}
+
+func splitCSV(value string) []string {
+	var out []string
+	for _, part := range strings.Split(value, ",") {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
 }
 
 func modelRuntimeFrom(v *viper.Viper, fileEnv map[string]string) runtime.RuntimeConfig {

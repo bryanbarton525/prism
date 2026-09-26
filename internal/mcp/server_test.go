@@ -45,6 +45,59 @@ func TestSuggestRouteHandlerUsesPolicy(t *testing.T) {
 	}
 }
 
+func TestRecommendToolsHandlerCallsRunner(t *testing.T) {
+	runner := &recommendationRunner{}
+	_, got, err := recommendToolsHandler(runner)(context.Background(), nil, RecommendToolsInput{
+		AgentID: "linear", Task: "find an issue", TopK: 3,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runner.agentID != "linear" || runner.task != "find an issue" || runner.topK != 3 {
+		t.Fatalf("request = %+v", runner)
+	}
+	if len(got.Tools) != 1 || got.Tools[0].Name != "find_issue" {
+		t.Fatalf("response = %+v", got)
+	}
+}
+
+func TestRecommendToolsIsCallableThroughMCP(t *testing.T) {
+	ctx := context.Background()
+	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "prism-test", Version: "1"}, nil)
+	runner := &recommendationRunner{}
+	registerTools(server, runner, Config{})
+	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, serverTransport, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer serverSession.Close()
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "parent", Version: "1"}, nil)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clientSession.Close()
+	result, err := clientSession.CallTool(ctx, &mcpsdk.CallToolParams{Name: "recommend_tools", Arguments: map[string]any{"agent_id": "linear", "task": "find issue", "top_k": 1}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError || runner.agentID != "linear" || runner.topK != 1 {
+		t.Fatalf("result=%+v runner=%+v", result, runner)
+	}
+}
+
+type recommendationRunner struct {
+	mcpFakeRunner
+	agentID, task string
+	topK          int
+}
+
+func (r *recommendationRunner) RecommendTools(_ context.Context, agentID, task string, topK int) (app.ToolRecommendations, error) {
+	r.agentID, r.task, r.topK = agentID, task, topK
+	return app.ToolRecommendations{Tools: []app.ToolRecommendation{{Server: "issues", Name: "find_issue"}}}, nil
+}
+
 func TestExplainPolicyHandlerDefaultsWhenUnconfigured(t *testing.T) {
 	_, out, err := explainPolicyHandler(nil)(context.Background(), nil, ExplainPolicyInput{AgentID: "kubectl"})
 	if err != nil {

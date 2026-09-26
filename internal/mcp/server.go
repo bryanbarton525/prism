@@ -83,6 +83,11 @@ func registerTools(srv *mcpsdk.Server, runner app.AgentRunner, cfg Config) {
 	}, suggestRouteHandler(runner, cfg.Policy))
 
 	mcpsdk.AddTool(srv, &mcpsdk.Tool{
+		Name:        "recommend_tools",
+		Description: "Suggest downstream tools available to one Prism agent for a task. Suggestions do not execute tools.",
+	}, recommendToolsHandler(runner))
+
+	mcpsdk.AddTool(srv, &mcpsdk.Tool{
 		Name:        "run_graph",
 		Description: "Run a bounded Prism graph definition.",
 	}, runGraphHandler(runner, cfg))
@@ -152,6 +157,34 @@ func registerTools(srv *mcpsdk.Server, runner app.AgentRunner, cfg Config) {
 		Name:        "get_resource",
 		Description: "Fetch a Prism resource by URI.",
 	}, getResourceHandler(runner))
+}
+
+type RecommendToolsInput struct {
+	AgentID   string          `json:"agent_id"`
+	Task      string          `json:"task"`
+	TopK      int             `json:"top_k,omitempty"`
+	Workspace *WorkspaceInput `json:"workspace,omitempty"`
+}
+
+func recommendToolsHandler(runner app.AgentRunner) func(context.Context, *mcpsdk.CallToolRequest, RecommendToolsInput) (*mcpsdk.CallToolResult, app.ToolRecommendations, error) {
+	return func(ctx context.Context, _ *mcpsdk.CallToolRequest, input RecommendToolsInput) (*mcpsdk.CallToolResult, app.ToolRecommendations, error) {
+		if input.Workspace != nil {
+			if provider, ok := runner.(interface {
+				RecommendToolsForWorkspace(context.Context, string, string, int, app.Workspace) (app.ToolRecommendations, error)
+			}); ok {
+				out, err := provider.RecommendToolsForWorkspace(ctx, input.AgentID, input.Task, input.TopK, app.Workspace{Root: input.Workspace.Root, GenerationFingerprint: input.Workspace.GenerationFingerprint})
+				return nil, out, err
+			}
+		}
+		provider, ok := runner.(interface {
+			RecommendTools(context.Context, string, string, int) (app.ToolRecommendations, error)
+		})
+		if !ok {
+			return nil, app.ToolRecommendations{}, fmt.Errorf("tool recommendation is unavailable")
+		}
+		out, err := provider.RecommendTools(ctx, input.AgentID, input.Task, input.TopK)
+		return nil, out, err
+	}
 }
 
 type ListSkillResourcesInput struct {
