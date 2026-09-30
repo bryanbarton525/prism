@@ -33,7 +33,7 @@ If a client advertises multiple roots, the call must select one explicitly. Loca
 
 ## Host installation
 
-Run `prism install` for the guided flow. It displays the release and digest, prompts for bundled skills and specialists, detects hosts, selects project/global scope and link/copy mode, then separately selects user/project runtime scope, optional skill sources, and optional agent import/copy. It previews both transactions and asks for confirmation.
+Run `prism install` for the guided flow. It displays the release and digest, prompts for bundled skills and specialists, detects hosts, selects project/global scope and link/copy mode, then separately selects user/project runtime scope, optional skill sources, and optional agent import/copy. It also offers optional Potion/ONNX tool routing, an existing Ollama/SGLang/vLLM endpoint, and local Kev or HTTPS Jev. It previews the selected runtime state, model download, and endpoint probes before confirmation.
 
 ```bash
 prism install --project --all --yes
@@ -59,8 +59,8 @@ Generated specialist files are adapters, not copies of Prism frontmatter. They p
 The scope manifest is `.prism/install.json`. Upgrades touch only its recorded paths. Prism refuses unmanaged collisions unless `--force` is used, backs up changed host configuration, removes stale managed paths, and rolls back touched paths on failure.
 
 `prism install --runtime-only` initializes only runtime-extension state unless
-the caller also makes the specific `--graphify-managed` selection. `--all` and
-`--yes` alone never install Python dependencies. `--dry-run` may resolve
+the caller also makes specific optional model or Graphify selections. `--all` and
+`--yes` alone never install Python dependencies or download models. `--dry-run` may resolve
 sources and prints the exact managed `uv sync` operation, but never activates
 content, writes configuration, contacts an endpoint, or changes an environment.
 Prism never creates or refreshes a Graphify index.

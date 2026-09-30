@@ -14,7 +14,21 @@ The setup commands use pinned upstream revisions and SHA-256 checksums. Potion i
 
 Automatic shortlist injection is off by default. Set `PRISM_TOOL_RECOMMEND_AGENTS` to a comma separated list of agent IDs, for example `linear`. Prism calls the same recommendation path before those agents' MCP loops, within a 500 ms routing budget. It omits suggestions when there is insufficient context room. Graphify already has a four tool catalog and does not need automatic discovery; its catalog can be recommended through `recommend_tools` with a workspace.
 
-An optional local Kev server can score the top embedding candidates. Configure `PRISM_KEV_URL=http://127.0.0.1:8009` and, if the server requires a bearer token, `PRISM_KEV_API_KEY_ENV` with the name of the environment variable holding that token. Prism never installs or starts Kev. A failed Kev call leaves the embedding order in place. After an ambiguous hard timeout, Kev stays disabled until Prism restarts.
+An optional local Kev server or compatible HTTPS Jev endpoint can score the top embedding candidates. Guided `prism install` can connect and probe either service. For manual setup, configure `PRISM_KEV_URL=http://127.0.0.1:8009` with `PRISM_KEV_MODEL=kev-latest`, or an HTTPS Jev origin with `PRISM_KEV_MODEL=jev-latest`. If the service requires a bearer token, set `PRISM_KEV_API_KEY_ENV` to the name of an environment variable holding it. Prism stores the variable name, never the secret. Remote plaintext HTTP and URL-embedded credentials are rejected. A failed decision call leaves the embedding order in place. After an ambiguous hard timeout, the decision client stays disabled until Prism restarts.
+
+The installer can explicitly download and verify Potion or MiniLM in the selected runtime state, record opt-in agents, and configure and health-check an existing Ollama/SGLang/vLLM endpoint. For example:
+
+```sh
+prism install --runtime-only --runtime-scope user \
+  --tool-model potion --tool-recommend-agent linear \
+  --primary-engine sglang --primary-url http://127.0.0.1:30000/v1 \
+  --primary-model Qwen/Qwen3-Coder \
+  --decision-service local --decision-url http://127.0.0.1:8009
+```
+
+Use `--decision-service jev --decision-url https://… --decision-key-env JEV_API_KEY` for remote Jev. Set the named variable in the environment from which Prism runs; the installer checks it and probes one decision request before writing host configuration. `--primary-api-key-env` works the same way for an LLM endpoint. `--dry-run` only previews: it neither downloads models nor contacts endpoints. `--yes` and `--all` do not select any optional model or decision service by themselves.
+
+On Linux with a running systemd user manager, `--decision-service install` explicitly installs a pinned Kev checkout and serving dependencies through `uv`, starts `jaredpalmer/kev-0.8b` on loopback (default port 8009), and enables a per-state systemd user service plus linger for reboot persistence. It uses CPU by default so it does not take GPU memory from an existing SGLang deployment; `--kev-device auto` lets Kev select an accelerator. This downloads Python dependencies and the checkpoint and may take several minutes. It requires `git`, `uv`, `systemctl`, and `loginctl`; other platforms should connect to a user-managed Kev endpoint. The installer waits for a model listing and real one-question inference before persisting the URL. A failed setup may leave downloaded Kev files or a service unit for a later retry; it does not silently switch to a different decision source.
 
 Agent tool loops keep large tool results in memory for that run. The model receives a small preview and an opaque `result_id`, then can call `read_tool_result` with an offset and limit. Results are deleted when the run ends. A per-result and per-run limit can make retained output incomplete; that status is shown in the preview and reads. Prism includes tool definitions and history in its context estimate and can replace older previews with their read references.
 

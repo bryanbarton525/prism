@@ -150,6 +150,7 @@ type Config struct {
 	ToolRecommendationModel  string
 	KevURL                   string
 	KevAPIKeyEnv             string
+	KevModel                 string
 }
 
 // bundleFS returns the immutable runtime definitions. RootFS/RootDir remain a

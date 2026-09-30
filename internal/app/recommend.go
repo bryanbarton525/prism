@@ -220,7 +220,13 @@ func (r *Runner) RecommendToolsForWorkspace(ctx context.Context, agentID, task s
 		return a.Name < b.Name
 	})
 	if r.cfg.KevURL != "" && len(result.Tools) > 0 {
-		r.kevOnce.Do(func() { r.kevClient, r.kevErr = toolmodel.NewKevClient(r.cfg.KevURL, r.cfg.KevAPIKeyEnv) })
+		modelName := r.cfg.KevModel
+		if modelName == "" {
+			modelName = "kev-latest"
+		}
+		r.kevOnce.Do(func() {
+			r.kevClient, r.kevErr = toolmodel.NewDecisionClient(r.cfg.KevURL, r.cfg.KevAPIKeyEnv, modelName)
+		})
 		if r.kevErr != nil {
 			result.Warnings = append(result.Warnings, "Kev unavailable: "+r.kevErr.Error())
 		} else {
@@ -240,7 +246,7 @@ func (r *Runner) RecommendToolsForWorkspace(ctx context.Context, agentID, task s
 					result.Tools[i].Score = score
 				}
 				result.ScoreKind = "kev_noul"
-				result.ModelIdentity = "kev-latest"
+				result.ModelIdentity = modelName
 				sort.SliceStable(result.Tools[:count], func(i, j int) bool { return result.Tools[i].Score > result.Tools[j].Score })
 			}
 		}
