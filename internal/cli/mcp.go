@@ -40,7 +40,11 @@ func newMCPAccessCmd() *cobra.Command {
 		Use:   "access",
 		Short: "Configure per-agent downstream MCP access",
 	}
-	cmd.AddCommand(newMCPAccessDefaultSetCmd(), newMCPAccessDefaultShowCmd(), newMCPAccessAgentSetCmd(), newMCPAccessAgentShowCmd())
+	defaults := &cobra.Command{Use: "default", Short: "Manage shared default downstream access"}
+	defaults.AddCommand(newMCPAccessDefaultSetCmd(), newMCPAccessDefaultShowCmd())
+	agents := &cobra.Command{Use: "agent", Short: "Manage per-agent downstream access"}
+	agents.AddCommand(newMCPAccessAgentSetCmd(), newMCPAccessAgentShowCmd())
+	cmd.AddCommand(defaults, agents)
 	return cmd
 }
 
@@ -48,7 +52,7 @@ func newMCPAccessDefaultSetCmd() *cobra.Command {
 	var servers []string
 	var dryRun bool
 	cmd := &cobra.Command{
-		Use:   "default set",
+		Use:   "set",
 		Short: "Set shared default downstream server allowlist",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			unlock, err := acquireRuntimeConfigLock(cmd.Context())
@@ -81,7 +85,7 @@ func newMCPAccessDefaultSetCmd() *cobra.Command {
 
 func newMCPAccessDefaultShowCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "default show",
+		Use:   "show",
 		Short: "Show shared default downstream server allowlist",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			state, configured, err := extensions.LoadMCPAccess(gf.stateDir)
@@ -106,7 +110,7 @@ func newMCPAccessAgentSetCmd() *cobra.Command {
 	var servers []string
 	var dryRun bool
 	cmd := &cobra.Command{
-		Use:   "agent set <agent-id>",
+		Use:   "set <agent-id>",
 		Short: "Set per-agent downstream MCP access mode",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -169,7 +173,7 @@ func validateConfiguredMCPServers(names []string) error {
 
 func newMCPAccessAgentShowCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "agent show <agent-id>",
+		Use:   "show <agent-id>",
 		Short: "Show per-agent downstream MCP access configuration",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {

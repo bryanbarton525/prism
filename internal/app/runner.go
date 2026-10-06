@@ -148,6 +148,9 @@ type Config struct {
 	ToolModelStateDir        string
 	ToolRecommendationAgents []string
 	ToolRecommendationModel  string
+	DecisionURL              string
+	DecisionAPIKeyEnv        string
+	DecisionModel            string
 	KevURL                   string
 	KevAPIKeyEnv             string
 	KevModel                 string
@@ -295,9 +298,9 @@ type Runner struct {
 	toolCatalog         map[string]cachedToolInventory
 	toolCatalogPending  map[string]*toolCatalogFlight
 	toolCatalogBytes    int
-	kevOnce             sync.Once
-	kevClient           *toolmodel.KevClient
-	kevErr              error
+	decisionOnce        sync.Once
+	decisionClient      *toolmodel.DecisionClient
+	decisionErr         error
 }
 
 type DownstreamMCPClient interface {

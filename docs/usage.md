@@ -33,7 +33,7 @@ If a client advertises multiple roots, the call must select one explicitly. Loca
 
 ## Host installation
 
-Run `prism install` for the guided flow. It displays the release and digest, prompts for bundled skills and specialists, detects hosts, selects project/global scope and link/copy mode, then separately selects user/project runtime scope, optional skill sources, and optional agent import/copy. It also offers optional Potion/ONNX tool routing, an existing Ollama/SGLang/vLLM endpoint, and local Kev or HTTPS Jev. It previews the selected runtime state, model download, and endpoint probes before confirmation.
+Run `prism install` for the guided flow. It displays the release and digest, prompts for bundled skills and specialists, detects hosts, selects project/global scope and link/copy mode, then separately selects user/project runtime scope, optional skill sources, and optional agent import/copy. It also offers optional Potion/ONNX tool routing, an existing Ollama/SGLang/vLLM endpoint, and Laya, local Kev, or HTTPS Jev. Linux users can explicitly install the managed Laya CPU service. It previews the selected runtime state, model download, and endpoint probes before confirmation.
 
 ```bash
 prism install --project --all --yes
@@ -76,6 +76,71 @@ runtime actions are never selected by `--yes` or `--all`.
 Per-agent MCP access is intentionally unchanged by import and copy; configure
 it explicitly with `prism --state-dir STATE mcp access agent set AGENT ...` so
 unattended setup never grants a capability.
+
+### Laya tool recommendations
+
+Prism retrieves candidate tools from the agent's authorized catalog using local
+embeddings, then optionally reranks at most 20 candidates with Laya. The offload
+model still chooses and executes tools through the existing access checks.
+Laya does not replace the Ollama/SGLang/vLLM runtime.
+
+Install MiniLM ONNX and the evaluated English Laya CPU runtime in user state:
+
+```bash
+prism install --runtime-only --runtime-scope user \
+  --tool-model onnx --decision-service install-laya
+```
+
+`--laya-port` defaults to 8010 and `--laya-uv` defaults to `uv`. Managed
+installation requires Linux, `uv`, `systemctl`, and `loginctl`. It creates an
+isolated Python 3.13 environment, pins Laya 0.3.22, CPU PyTorch 2.8.0,
+Transformers 5.17.0 and the evaluated checkpoint revision, and enables a
+persistent loopback systemd user service with four CPU threads. Readiness checks
+the checkpoint and a real choice inference before saving configuration. Python
+dependencies and weights are downloaded only when installation is selected.
+
+For an existing endpoint:
+
+```bash
+prism install --runtime-only --runtime-scope user \
+  --decision-service laya --decision-url http://127.0.0.1:8010
+```
+
+An HTTPS origin is also supported; plaintext HTTP is restricted to loopback.
+Use `--decision-key-env LAYA_API_KEY` for a bearer token held in that environment
+variable. Neither installer command registers a downstream MCP server or grants
+an agent access to one. After registering and authorizing your selected server,
+the parent host can call Prism's `recommend_tools`:
+
+```json
+{
+  "agent_id": "linear",
+  "task": "Find issue ENG-731 and report its title without modifying it",
+  "top_k": 5
+}
+```
+
+The result has `score_kind: "laya_choice"` and `model_identity: "laya-english"`.
+Scores express relative preference among the candidates in that request, not
+independent confidence that each tool will be useful. Laya receives one choice
+question with explicit English selection and 1024/512 total/head token budgets.
+Failures retain the initial ranking and add a warning. A hard HTTP timeout
+requires restarting Prism to reset the adapter.
+
+Generic `PRISM_DECISION_URL`, `PRISM_DECISION_MODEL`, and
+`PRISM_DECISION_API_KEY_ENV` settings select the decision service. Existing
+`PRISM_KEV_*` settings remain supported when no generic URL is selected. Laya
+installation clears saved legacy settings; it does not stop an independently
+installed Kev unit. After validating migration, stop and disable the corresponding
+`prism-kev-<state-hash>.service` with `systemctl --user disable --now`.
+Reconnect a running Prism MCP server after switching configuration or binaries.
+
+Automatic injection remains off unless agent identities are explicitly selected
+with `--tool-recommend-agent` and `--tool-model`, or
+`PRISM_TOOL_RECOMMEND_AGENTS`. It has a 500 ms budget, exceeded by the evaluated
+20-candidate English CPU deployment. Use explicit recommendations first. See
+[tool recommendation](tool-recommendation.md), [Laya evaluation](laya-evaluation.md),
+and [example configuration](../examples/config.env).
 
 ### Runtime extension management
 

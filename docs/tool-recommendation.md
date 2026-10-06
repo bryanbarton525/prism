@@ -14,7 +14,21 @@ The setup commands use pinned upstream revisions and SHA-256 checksums. Potion i
 
 Automatic shortlist injection is off by default. Set `PRISM_TOOL_RECOMMEND_AGENTS` to a comma separated list of agent IDs, for example `linear`. Prism calls the same recommendation path before those agents' MCP loops, within a 500 ms routing budget. It omits suggestions when there is insufficient context room. Graphify already has a four tool catalog and does not need automatic discovery; its catalog can be recommended through `recommend_tools` with a workspace.
 
-An optional local Kev server or compatible HTTPS Jev endpoint can score the top embedding candidates. Guided `prism install` can connect and probe either service. For manual setup, configure `PRISM_KEV_URL=http://127.0.0.1:8009` with `PRISM_KEV_MODEL=kev-latest`, or an HTTPS Jev origin with `PRISM_KEV_MODEL=jev-latest`. If the service requires a bearer token, set `PRISM_KEV_API_KEY_ENV` to the name of an environment variable holding it. Prism stores the variable name, never the secret. Remote plaintext HTTP and URL-embedded credentials are rejected. A failed decision call leaves the embedding order in place. After an ambiguous hard timeout, the decision client stays disabled until Prism restarts.
+An optional Laya service reranks the top 20 embedding candidates with one categorical choice question. Use `PRISM_DECISION_URL=http://127.0.0.1:8010` and `PRISM_DECISION_MODEL=laya-english`. Prism explicitly requests the English checkpoint with `max_len=1024` and `head_max_len=512`, preserving candidate order. Results use `score_kind=laya_choice` and `model_identity=laya-english`; scores are relative choice probabilities, not independent probabilities that each tool is useful. The runtime does not claim a checkpoint revision for arbitrary external endpoints.
+
+Kev and HTTPS Jev remain supported through `PRISM_DECISION_MODEL=kev-latest` or `jev-latest`, using independent binary questions. Existing `PRISM_KEV_URL`, `PRISM_KEV_MODEL` and `PRISM_KEV_API_KEY_ENV` settings remain a fallback when no generic decision URL is set. Generic decision settings take precedence as a group. If a bearer token is required, set `PRISM_DECISION_API_KEY_ENV` to the name of its environment variable. Prism stores the variable name, never the secret. Remote plaintext HTTP and URL-embedded credentials are rejected. A failed decision call leaves the embedding order in place. One request may be in flight per runner; its hard HTTP deadline is five seconds. Caller cancellation returns promptly while the exchange finishes in the background; an ambiguous hard timeout disables the decision adapter until Prism restarts.
+
+Install the evaluated Laya CPU runtime on Linux:
+
+```sh
+prism install --runtime-only --runtime-scope user \
+  --decision-service install-laya --laya-port 8010
+```
+
+This installs `laya[serve]==0.3.22`, CPU PyTorch 2.8.0 and Transformers 5.17.0 in the selected state's `laya/venv`, downloads `convaiinnovations/laya` at revision `55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851`, and enables a persistent per-state systemd user service with linger. It binds to loopback, uses four CPU threads, preloads English, and limits resident checkpoints to one. Readiness verifies the actual CPU device, checkpoint revision, and a real choice inference before saving configuration. It requires `uv`, `systemctl`, and `loginctl`. A failed setup can leave downloaded files, but stops a service that fails readiness. The installer does not stop a separately installed Kev service; after successful migration, an operator can stop and disable its per-state unit.
+
+For an existing Laya server use `--decision-service laya --decision-url http://127.0.0.1:8010`, or an HTTPS origin. The service is PyTorch based; this installer does not export Laya to ONNX. MiniLM ONNX still performs the initial retrieval. Automatic injection remains opt-in, with its existing 500 ms budget; the evaluated English Laya CPU configuration exceeds that budget at 20 candidates. See [evaluation](laya-evaluation.md).
+
 
 The installer can explicitly download and verify Potion or MiniLM in the selected runtime state, record opt-in agents, and configure and health-check an existing Ollama/SGLang/vLLM endpoint. For example:
 

@@ -90,10 +90,18 @@ Workspace resolution order is explicit `workspace.root`, one root advertised by 
 
 Core MCP tools include `list_agents`, `run_agent`, `get_constitution`, `doctor`, `suggest_route`, `recommend_tools`, `run_graph`, `list_skill_resources`, `read_skill_resource`, and the policy, usage, and downstream-MCP inspection tools. `recommend_tools` suggests from an agent's authorized catalog without granting execution access. Bundle and runtime-extension provenance is stamped automatically; clients do not send bundle IDs or versions.
 
+## Documentation
+
+Start with [The Prism Book](docs/book/README.md): quick start, installation, worked examples, architecture, testing, troubleshooting, and contributing.
+
 ## Direct CLI use
 
 ```bash
 prism config doctor
+
+# Optional MiniLM retrieval + Laya choice reranking (Linux CPU service)
+prism install --runtime-only --runtime-scope user \
+  --tool-model onnx --decision-service install-laya
 prism route suggest --task "Investigate deployment checkout-api in namespace staging"
 echo "Summarize PR #42 CI status" | prism run github-cli --skills gh-pr-triage
 

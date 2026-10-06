@@ -29,3 +29,29 @@ Notes:
   them if its spec declares `tools: [mcp]`.
 - Per-server `timeout_ms` (default 30000) and `max_bytes` (default 20000) keep
   downstream surfaces bounded.
+
+## Laya tool ranking
+
+The optional commented section in `config.env` separates MiniLM tool retrieval,
+Laya reranking, and the primary offload model runtime. For a managed CPU service:
+
+```bash
+prism install --runtime-only --runtime-scope user \
+  --tool-model onnx --decision-service install-laya
+```
+
+This writes the selected state's configuration after installing pinned weights
+and checking real inference. For an existing Laya endpoint use
+`--decision-service laya --decision-url http://127.0.0.1:8010` instead. Use
+`--dry-run` to preview without downloads, writes, service changes, or probes.
+If `PRISM_CONFIG_FILE` is set, it must point to the selected state's `config.env`.
+
+After registering and authorizing a downstream MCP server, call `recommend_tools`
+from your host with `agent_id`, `task`, and optional `top_k`. Laya returns
+`score_kind=laya_choice`; recommendations never execute tools or change access.
+Automatic injection remains off unless you select agent identities, and its
+500 ms budget is shorter than the evaluated 20-candidate CPU inference time.
+Reconnect Prism MCP after changing its configuration or executable.
+
+See [usage](../docs/usage.md#laya-tool-recommendations) for the complete workflow
+and [evaluation](../docs/laya-evaluation.md) for measurements and limitations.
