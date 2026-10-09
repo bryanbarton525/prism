@@ -11,6 +11,8 @@ Install a release binary, then inspect its compiled identity:
 ```bash
 prism version
 prism version --json
+prism update --check
+prism update
 prism agent list
 prism agent constitution kubectl
 ```
