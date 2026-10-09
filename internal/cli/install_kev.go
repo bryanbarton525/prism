@@ -45,7 +45,7 @@ func installManagedKev(ctx context.Context, stateDir string, port int, uvName, d
 	if _, err := exec.LookPath("loginctl"); err != nil {
 		return fmt.Errorf("managed Kev requires loginctl for reboot persistence: %w", err)
 	}
-	if err := runKevCommand(ctx, "systemctl", "--user", "show-environment"); err != nil {
+	if err := runDecisionCommand(ctx, "systemctl", "--user", "show-environment"); err != nil {
 		return fmt.Errorf("systemd user manager unavailable: %w", err)
 	}
 	unitName := managedKevUnitName(stateDir)
@@ -71,13 +71,13 @@ func installManagedKev(ctx context.Context, stateDir string, port int, uvName, d
 	if err := installKevCheckout(ctx, source); err != nil {
 		return err
 	}
-	if err := runKevCommandIn(ctx, source, uv, "sync", "--frozen", "--extra", "serve"); err != nil {
+	if err := runDecisionCommandIn(ctx, source, uv, "sync", "--frozen", "--extra", "serve"); err != nil {
 		return fmt.Errorf("install Kev Python dependencies: %w", err)
 	}
 	if err := writeKevUnit(stateDir, source, uv, unitName, port, device); err != nil {
 		return err
 	}
-	if err := runKevCommand(ctx, "systemctl", "--user", "daemon-reload"); err != nil {
+	if err := runDecisionCommand(ctx, "systemctl", "--user", "daemon-reload"); err != nil {
 		return err
 	}
 	wasEnabled := exec.CommandContext(ctx, "systemctl", "--user", "is-enabled", "--quiet", unitName).Run() == nil
@@ -89,23 +89,23 @@ func installManagedKev(ctx context.Context, stateDir string, port int, uvName, d
 		}
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		_ = runKevCommand(cleanupCtx, "systemctl", "--user", "stop", unitName)
+		_ = runDecisionCommand(cleanupCtx, "systemctl", "--user", "stop", unitName)
 		if !wasEnabled {
-			_ = runKevCommand(cleanupCtx, "systemctl", "--user", "disable", unitName)
+			_ = runDecisionCommand(cleanupCtx, "systemctl", "--user", "disable", unitName)
 		}
 	}()
-	if err := runKevCommand(ctx, "systemctl", "--user", "enable", unitName); err != nil {
+	if err := runDecisionCommand(ctx, "systemctl", "--user", "enable", unitName); err != nil {
 		return fmt.Errorf("enable managed Kev service: %w", err)
 	}
 	serviceAttempted = true
-	if err := runKevCommand(ctx, "systemctl", "--user", "restart", unitName); err != nil {
+	if err := runDecisionCommand(ctx, "systemctl", "--user", "restart", unitName); err != nil {
 		return fmt.Errorf("start managed Kev service: %w", err)
 	}
 	url := fmt.Sprintf("http://127.0.0.1:%d", port)
 	if err := waitForManagedKev(ctx, url); err != nil {
 		return fmt.Errorf("managed Kev service did not become ready: %w", err)
 	}
-	if err := runKevCommand(ctx, "loginctl", "enable-linger", userInfo.Username); err != nil {
+	if err := runDecisionCommand(ctx, "loginctl", "enable-linger", userInfo.Username); err != nil {
 		return fmt.Errorf("Kev service is ready, but reboot persistence could not be enabled: %w", err)
 	}
 	serviceStarted = true
@@ -127,10 +127,10 @@ func installKevCheckout(ctx context.Context, source string) error {
 		return err
 	}
 	defer os.RemoveAll(tmp)
-	if err := runKevCommand(ctx, "git", "clone", "--quiet", managedKevRepository, tmp); err != nil {
+	if err := runDecisionCommand(ctx, "git", "clone", "--quiet", managedKevRepository, tmp); err != nil {
 		return err
 	}
-	if err := runKevCommand(ctx, "git", "-C", tmp, "checkout", "--quiet", "--detach", managedKevRevision); err != nil {
+	if err := runDecisionCommand(ctx, "git", "-C", tmp, "checkout", "--quiet", "--detach", managedKevRevision); err != nil {
 		return err
 	}
 	return os.Rename(tmp, source)
@@ -237,11 +237,11 @@ func waitForManagedKev(ctx context.Context, endpoint string) error {
 	return err
 }
 
-func runKevCommand(ctx context.Context, executable string, args ...string) error {
-	return runKevCommandIn(ctx, "", executable, args...)
+func runDecisionCommand(ctx context.Context, executable string, args ...string) error {
+	return runDecisionCommandIn(ctx, "", executable, args...)
 }
 
-func runKevCommandIn(ctx context.Context, dir, executable string, args ...string) error {
+func runDecisionCommandIn(ctx context.Context, dir, executable string, args ...string) error {
 	command := exec.CommandContext(ctx, executable, args...)
 	command.Dir = dir
 	output, err := command.CombinedOutput()

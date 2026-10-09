@@ -219,34 +219,37 @@ func (r *Runner) RecommendToolsForWorkspace(ctx context.Context, agentID, task s
 		}
 		return a.Name < b.Name
 	})
-	if r.cfg.KevURL != "" && len(result.Tools) > 0 {
-		modelName := r.cfg.KevModel
+	decisionURL, decisionKey, modelName := r.cfg.DecisionURL, r.cfg.DecisionAPIKeyEnv, r.cfg.DecisionModel
+	if decisionURL == "" {
+		decisionURL, decisionKey, modelName = r.cfg.KevURL, r.cfg.KevAPIKeyEnv, r.cfg.KevModel
+	}
+	if decisionURL != "" && len(result.Tools) > 0 {
 		if modelName == "" {
 			modelName = "kev-latest"
 		}
-		r.kevOnce.Do(func() {
-			r.kevClient, r.kevErr = toolmodel.NewDecisionClient(r.cfg.KevURL, r.cfg.KevAPIKeyEnv, modelName)
+		r.decisionOnce.Do(func() {
+			r.decisionClient, r.decisionErr = toolmodel.NewDecisionClient(decisionURL, decisionKey, modelName)
 		})
-		if r.kevErr != nil {
-			result.Warnings = append(result.Warnings, "Kev unavailable: "+r.kevErr.Error())
+		if r.decisionErr != nil {
+			result.Warnings = append(result.Warnings, "Decision service unavailable: "+r.decisionErr.Error())
 		} else {
 			count := len(result.Tools)
 			if count > 20 {
 				count = 20
 			}
-			candidates := make([]toolmodel.KevTool, count)
+			candidates := make([]toolmodel.DecisionTool, count)
 			for i := range candidates {
-				candidates[i] = toolmodel.KevTool{Name: result.Tools[i].Server + "." + result.Tools[i].Name, Description: result.Tools[i].Description}
+				candidates[i] = toolmodel.DecisionTool{Name: result.Tools[i].Server + "." + result.Tools[i].Name, Description: result.Tools[i].Description}
 			}
-			scores, scoreErr := r.kevClient.Score(ctx, task, candidates)
+			scores, scoreErr := r.decisionClient.Score(ctx, task, candidates)
 			if scoreErr != nil {
-				result.Warnings = append(result.Warnings, "Kev scoring unavailable: "+scoreErr.Error())
+				result.Warnings = append(result.Warnings, "Decision scoring unavailable: "+scoreErr.Error())
 			} else {
 				for i, score := range scores {
 					result.Tools[i].Score = score
 				}
-				result.ScoreKind = "kev_noul"
-				result.ModelIdentity = modelName
+				result.ScoreKind = r.decisionClient.ScoreKind()
+				result.ModelIdentity = r.decisionClient.ModelIdentity()
 				sort.SliceStable(result.Tools[:count], func(i, j int) bool { return result.Tools[i].Score > result.Tools[j].Score })
 			}
 		}

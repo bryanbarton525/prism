@@ -83,6 +83,8 @@ type installFlags struct {
 	decisionURL                string
 	decisionKeyEnv             string
 	decisionModel              string
+	layaPort                   int
+	layaUV                     string
 	kevPort                    int
 	kevUV                      string
 	kevDevice                  string
@@ -174,13 +176,15 @@ func newInstallCmd() *cobra.Command {
 	cmd.Flags().StringVar(&flags.primaryURL, "primary-url", "", "Primary model runtime endpoint")
 	cmd.Flags().StringVar(&flags.primaryModel, "primary-model", "", "Primary model name")
 	cmd.Flags().StringVar(&flags.primaryAPIKeyEnv, "primary-api-key-env", "", "Environment variable containing the primary runtime API key")
-	cmd.Flags().StringVar(&flags.decisionService, "decision-service", "", "Optional decision service: local|jev|install")
-	cmd.Flags().StringVar(&flags.decisionURL, "decision-url", "", "Existing Kev or Jev endpoint origin")
-	cmd.Flags().StringVar(&flags.decisionKeyEnv, "decision-key-env", "", "Environment variable containing the Kev/Jev API key")
-	cmd.Flags().StringVar(&flags.decisionModel, "decision-model", "", "Decision model: kev-latest|jev-latest")
+	cmd.Flags().StringVar(&flags.decisionService, "decision-service", "", "Optional decision service: laya|install-laya|local|jev|install")
+	cmd.Flags().StringVar(&flags.decisionURL, "decision-url", "", "Existing Laya, Kev, or Jev endpoint origin")
+	cmd.Flags().StringVar(&flags.decisionKeyEnv, "decision-key-env", "", "Environment variable containing the decision service API key")
+	cmd.Flags().StringVar(&flags.decisionModel, "decision-model", "", "Decision model: laya-english|kev-latest|jev-latest")
 	cmd.Flags().IntVar(&flags.kevPort, "kev-port", 8009, "Loopback port for explicitly installed Kev")
 	cmd.Flags().StringVar(&flags.kevUV, "kev-uv", "uv", "uv executable for explicitly installed Kev")
 	cmd.Flags().StringVar(&flags.kevDevice, "kev-device", "cpu", "Managed Kev device: cpu|auto")
+	cmd.Flags().IntVar(&flags.layaPort, "laya-port", 8010, "Loopback port for managed Laya")
+	cmd.Flags().StringVar(&flags.layaUV, "laya-uv", "uv", "uv executable for managed Laya")
 	cmd.AddCommand(newInstallStatusCmd())
 	return cmd
 }

@@ -39,3 +39,19 @@ The reviewed Graphify release is `v0.9.61`; its fixed Prism contract is
 `PRISM_GRAPHIFY_SMOKE=1`; it assumes an operator has independently provisioned
 the Python dependency, MCP endpoint, index, and model. It is never invoked by
 CI.
+
+## Laya reranking and book coverage
+
+| Requirement | Deterministic evidence | Optional live evidence |
+| --- | --- | --- |
+| One English choice question, explicit token budgets, candidate order | `TestLayaUsesOneOrderedChoice` | `TestRecommendToolsWithLiveLaya` |
+| Complete, finite, normalized choice probabilities | `TestLayaRejectsInvalidChoiceDistributions` | Actual Laya CPU responses |
+| Authorized catalog and initial-ranking fallback | `TestLayaRecommendationRespectsAccessAndFallsBack` | Two-tool authorized catalog and 50-tool retrieval fixture |
+| Generic decision settings and legacy Kev migration | `TestInstallLayaPersistsGenericSettingsAndClearsKev`, existing Kev/Jev tests | Managed installation and inference probe |
+| CPU service pins, foreign-unit protection, readiness, dry run | `TestManagedLayaUnitPinsCPUAndWeights`, `TestManagedLayaReadinessRejectsWrongDeviceOrRevision`, `TestWaitForManagedLayaChecksRevisionAndChoiceInference`, `TestManagedLayaDryRunDoesNotInstallOrPersist` | Actual systemd user service health and pinned revision |
+| Full recommendation and specialist tool task | Runner/tool-loop fixture tests | `TestLiveLayaSGLangIssueLookup` requires exact fixture ID/title and rejects issue creation |
+| Book navigation, local links, examples, and real CLI routing | `TestBookNavigationAndLocalLinks`, `TestBookCommandsMatchCLI`, `TestDocumentedMCPAccessCommandsExecute`, `TestLayaDocumentationAndExampleConfiguration` | Follow [The Prism Book](book/README.md) with a selected serving deployment |
+
+Live tests are guarded by explicit endpoint and model-state environment values;
+CI does not download Laya weights or require a live serving deployment. The
+[testing chapter](book/testing.md) records commands and what each check proves.

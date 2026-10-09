@@ -30,6 +30,9 @@ type Settings struct {
 	StateDir            string
 	ToolRecommendAgents []string
 	ToolRecommendModel  string
+	DecisionURL         string
+	DecisionAPIKeyEnv   string
+	DecisionModel       string
 	KevURL              string
 	KevAPIKeyEnv        string
 	KevModel            string
@@ -117,6 +120,9 @@ func settingsFrom(v *viper.Viper, fileEnv map[string]string) Settings {
 		StateDir:            stateDir,
 		ToolRecommendAgents: splitCSV(configValue(v, fileEnv, "tool_recommend_agents", "PRISM_TOOL_RECOMMEND_AGENTS")),
 		ToolRecommendModel:  configValue(v, fileEnv, "tool_recommend_model", "PRISM_TOOL_RECOMMEND_MODEL"),
+		DecisionURL:         configValue(v, fileEnv, "decision_url", "PRISM_DECISION_URL"),
+		DecisionAPIKeyEnv:   configValue(v, fileEnv, "decision_api_key_env", "PRISM_DECISION_API_KEY_ENV"),
+		DecisionModel:       configValue(v, fileEnv, "decision_model", "PRISM_DECISION_MODEL"),
 		KevURL:              configValue(v, fileEnv, "kev_url", "PRISM_KEV_URL"),
 		KevAPIKeyEnv:        configValue(v, fileEnv, "kev_api_key_env", "PRISM_KEV_API_KEY_ENV"),
 		KevModel:            configValue(v, fileEnv, "kev_model", "PRISM_KEV_MODEL"),

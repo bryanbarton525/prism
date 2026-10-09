@@ -63,12 +63,27 @@ func promptGuidedToolRouting(input *guidedInput, flags *installFlags) error {
 			return err
 		}
 	}
-	service, err := promptChoice(input, "Decision service [none/local/jev/install] (none): ", "none", []string{"none", "local", "jev", "install"})
+	service, err := promptChoice(input, "Decision service [none/laya/install-laya/local/jev/install] (none): ", "none", []string{"none", "laya", "install-laya", "local", "jev", "install"})
 	if err != nil {
 		return err
 	}
 	if service != "none" {
 		flags.decisionService = service
+		if service == "install-laya" {
+			port, err := input.answer("Laya CPU loopback port (8010): ")
+			if err != nil {
+				return err
+			}
+			flags.layaPort = 8010
+			if port != "" {
+				flags.layaPort, err = strconv.Atoi(port)
+				if err != nil {
+					return fmt.Errorf("invalid Laya port %q", port)
+				}
+			}
+			flags.decisionModel = "laya-english"
+			return nil
+		}
 		if service == "install" {
 			flags.kevDevice, err = promptChoice(input, "Kev device [cpu/auto] (cpu): ", "cpu", []string{"cpu", "auto"})
 			if err != nil {
@@ -96,7 +111,9 @@ func promptGuidedToolRouting(input *guidedInput, flags *installFlags) error {
 		if flags.decisionKeyEnv, err = input.answer("API key environment variable (blank if none): "); err != nil {
 			return err
 		}
-		if service == "jev" {
+		if service == "laya" {
+			flags.decisionModel = "laya-english"
+		} else if service == "jev" {
 			flags.decisionModel = "jev-latest"
 		} else {
 			flags.decisionModel = "kev-latest"
@@ -139,6 +156,21 @@ func validateInstallToolRouting(flags installFlags) error {
 		}
 		return nil
 	}
+	if flags.decisionService == "install-laya" {
+		if flags.layaPort < 1024 || flags.layaPort > 65535 {
+			return fmt.Errorf("--laya-port must be between 1024 and 65535")
+		}
+		if flags.decisionModel != "" && flags.decisionModel != "laya-english" {
+			return fmt.Errorf("managed Laya requires --decision-model laya-english")
+		}
+		if flags.decisionKeyEnv != "" {
+			return fmt.Errorf("managed Laya does not support --decision-key-env")
+		}
+		if flags.decisionURL != "" && flags.decisionURL != fmt.Sprintf("http://127.0.0.1:%d", flags.layaPort) {
+			return fmt.Errorf("managed Laya URL must match loopback --laya-port")
+		}
+		return nil
+	}
 	if flags.decisionService == "install" {
 		if flags.kevDevice != "" && flags.kevDevice != "cpu" && flags.kevDevice != "auto" {
 			return fmt.Errorf("--kev-device must be cpu or auto")
@@ -157,13 +189,19 @@ func validateInstallToolRouting(flags installFlags) error {
 		}
 		return nil
 	}
-	if flags.decisionService != "local" && flags.decisionService != "jev" {
-		return fmt.Errorf("--decision-service must be local, jev, or install")
+	if flags.decisionService != "local" && flags.decisionService != "jev" && flags.decisionService != "laya" {
+		return fmt.Errorf("--decision-service must be laya, install-laya, local, jev, or install")
 	}
 	if flags.decisionURL == "" {
 		return fmt.Errorf("--decision-service requires --decision-url")
 	}
 	model := decisionModel(flags)
+	if flags.decisionService == "laya" && model != "laya-english" {
+		return fmt.Errorf("Laya requires --decision-model laya-english")
+	}
+	if flags.decisionService != "laya" && model == "laya-english" {
+		return fmt.Errorf("laya-english requires --decision-service laya")
+	}
 	if _, err := toolmodel.NewDecisionClient(flags.decisionURL, flags.decisionKeyEnv, model); err != nil {
 		return err
 	}
@@ -180,6 +218,9 @@ func validateInstallToolRouting(flags installFlags) error {
 func decisionModel(flags installFlags) string {
 	if flags.decisionModel != "" {
 		return flags.decisionModel
+	}
+	if flags.decisionService == "laya" || flags.decisionService == "install-laya" {
+		return "laya-english"
 	}
 	if flags.decisionService == "jev" {
 		return "jev-latest"
@@ -206,7 +247,9 @@ func printToolRoutingPlan(cmd *cobra.Command, flags installFlags, stateDir strin
 		fmt.Fprintf(cmd.OutOrStdout(), "  primary: %s %s model=%s (health probe); key env=%s\n", flags.primaryEngine, flags.primaryURL, flags.primaryModel, flags.primaryAPIKeyEnv)
 	}
 	if flags.decisionService != "" {
-		if flags.decisionService == "install" {
+		if flags.decisionService == "install-laya" {
+			fmt.Fprintf(cmd.OutOrStdout(), "  decision: install Laya 0.3.22, pinned English checkpoint, CPU dependencies, and persistent systemd user service at http://127.0.0.1:%d (downloads and choice inference probe)\n", flags.layaPort)
+		} else if flags.decisionService == "install" {
 			fmt.Fprintf(cmd.OutOrStdout(), "  decision: install pinned Kev source, Python dependencies, 0.8B model, and persistent systemd user service at http://127.0.0.1:%d (device=%s; downloads and one inference probe)\n", flags.kevPort, firstNonEmptyInstall(flags.kevDevice, "cpu"))
 		} else {
 			fmt.Fprintf(cmd.OutOrStdout(), "  decision: %s %s model=%s (one inference probe); key env=%s\n", flags.decisionService, flags.decisionURL, decisionModel(flags), flags.decisionKeyEnv)
@@ -265,12 +308,19 @@ func prepareInstallToolRouting(cmd *cobra.Command, flags installFlags, stateDir 
 			return err
 		}
 	}
-	if flags.decisionService == "install" {
+	if flags.decisionService == "install-laya" {
+		if err := installManagedLaya(baseContext, stateDir, flags.layaPort, flags.layaUV); err != nil {
+			return err
+		}
+	} else if flags.decisionService == "install" {
 		if err := installManagedKev(baseContext, stateDir, flags.kevPort, flags.kevUV, firstNonEmptyInstall(flags.kevDevice, "cpu")); err != nil {
 			return err
 		}
 	} else if flags.decisionService != "" {
-		client, _ := toolmodel.NewDecisionClient(flags.decisionURL, flags.decisionKeyEnv, decisionModel(flags))
+		client, err := toolmodel.NewDecisionClient(flags.decisionURL, flags.decisionKeyEnv, decisionModel(flags))
+		if err != nil {
+			return err
+		}
 		ctx, cancel := context.WithTimeout(baseContext, 8*time.Second)
 		defer cancel()
 		if _, err := client.Score(ctx, "Choose a tool for checking service health", []toolmodel.KevTool{{Name: "health", Description: "Check the health of a service"}}); err != nil {
@@ -297,9 +347,23 @@ func saveInstallToolRouting(flags installFlags, stateDir string) error {
 		if flags.decisionService == "install" {
 			decisionURL = fmt.Sprintf("http://127.0.0.1:%d", flags.kevPort)
 		}
+		if flags.decisionService == "install-laya" {
+			decisionURL = fmt.Sprintf("http://127.0.0.1:%d", flags.layaPort)
+		}
+		settings["PRISM_DECISION_URL"] = decisionURL
+		settings["PRISM_DECISION_API_KEY_ENV"] = flags.decisionKeyEnv
+		settings["PRISM_DECISION_MODEL"] = decisionModel(flags)
+		// Clear legacy settings when switching to Laya; preserve old clients for Kev/Jev.
+		if decisionModel(flags) == "laya-english" {
+			decisionURL = ""
+		}
 		settings["PRISM_KEV_URL"] = decisionURL
 		settings["PRISM_KEV_API_KEY_ENV"] = flags.decisionKeyEnv
 		settings["PRISM_KEV_MODEL"] = decisionModel(flags)
+		if decisionModel(flags) == "laya-english" {
+			settings["PRISM_KEV_MODEL"] = ""
+			settings["PRISM_KEV_API_KEY_ENV"] = ""
+		}
 	}
 	if len(settings) == 0 {
 		return nil
@@ -333,7 +397,7 @@ func saveInstallToolRouting(flags installFlags, stateDir string) error {
 			seen[key] = true
 		}
 	}
-	for _, key := range []string{"PRISM_TOOL_RECOMMEND_MODEL", "PRISM_TOOL_RECOMMEND_AGENTS", "PRISM_MODEL_RUNTIME_ENGINE", "PRISM_MODEL_RUNTIME_BASE_URL", "PRISM_MODEL_RUNTIME_MODEL", "PRISM_MODEL_RUNTIME_API_KEY_ENV", "PRISM_KEV_URL", "PRISM_KEV_API_KEY_ENV", "PRISM_KEV_MODEL"} {
+	for _, key := range []string{"PRISM_TOOL_RECOMMEND_MODEL", "PRISM_TOOL_RECOMMEND_AGENTS", "PRISM_MODEL_RUNTIME_ENGINE", "PRISM_MODEL_RUNTIME_BASE_URL", "PRISM_MODEL_RUNTIME_MODEL", "PRISM_MODEL_RUNTIME_API_KEY_ENV", "PRISM_DECISION_URL", "PRISM_DECISION_API_KEY_ENV", "PRISM_DECISION_MODEL", "PRISM_KEV_URL", "PRISM_KEV_API_KEY_ENV", "PRISM_KEV_MODEL"} {
 		if value, ok := settings[key]; ok && !seen[key] {
 			lines = append(lines, key+"="+strconv.Quote(value))
 		}
