@@ -134,7 +134,7 @@ func registerTools(srv *mcpsdk.Server, runner app.AgentRunner, cfg Config) {
 
 	mcpsdk.AddTool(srv, &mcpsdk.Tool{
 		Name:        "call_mcp_tool",
-		Description: "Call one tool on a configured downstream MCP server and return a bounded result.",
+		Description: "Call one tool on a configured downstream MCP server and return a bounded result. Set max_bytes to override the server's response budget for this call; when truncated is true, content is incomplete.",
 	}, callMCPToolHandler(cfg.DownstreamMCP))
 
 	// Compatibility tools for MCP hosts that do not yet support native prompts/resources.
@@ -665,6 +665,7 @@ type CallMCPToolInput struct {
 	Server    string         `json:"server"`
 	Tool      string         `json:"tool"`
 	Arguments map[string]any `json:"arguments,omitempty"`
+	MaxBytes  int            `json:"max_bytes,omitempty" jsonschema:"Response byte budget for this call; zero uses the server default"`
 }
 
 func callMCPToolHandler(client *downstreammcp.Client) func(context.Context, *mcpsdk.CallToolRequest, CallMCPToolInput) (*mcpsdk.CallToolResult, downstreammcp.CallResult, error) {
@@ -681,7 +682,7 @@ func callMCPToolHandler(client *downstreammcp.Client) func(context.Context, *mcp
 		if input.Arguments == nil {
 			input.Arguments = map[string]any{}
 		}
-		res, err := client.CallTool(ctx, input.Server, input.Tool, input.Arguments)
+		res, err := client.CallToolWithOptions(ctx, input.Server, input.Tool, input.Arguments, downstreammcp.CallToolOptions{MaxBytes: input.MaxBytes})
 		if err != nil {
 			return nil, downstreammcp.CallResult{}, err
 		}

@@ -2,6 +2,9 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -9,7 +12,57 @@ import (
 	"github.com/bryanbarton525/prism/internal/downstreammcp"
 	"github.com/bryanbarton525/prism/internal/extensions"
 	"github.com/bryanbarton525/prism/internal/graphify"
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+func TestMCPCallResponseBudgetOverride(t *testing.T) {
+	orig := gf.stateDir
+	gf.stateDir = t.TempDir()
+	t.Cleanup(func() { gf.stateDir = orig })
+	payload := strings.Repeat("CVE ", 250) + "FINAL_CVE"
+	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "fixture"}, nil)
+	mcpsdk.AddTool(server, &mcpsdk.Tool{Name: "vulnerabilities"}, func(context.Context, *mcpsdk.CallToolRequest, struct{}) (*mcpsdk.CallToolResult, struct{}, error) {
+		return &mcpsdk.CallToolResult{Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: payload}}}, struct{}{}, nil
+	})
+	httpServer := httptest.NewServer(mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server { return server }, nil))
+	defer httpServer.Close()
+	if err := downstreammcp.Save(mcpServersPath(), downstreammcp.State{Servers: []downstreammcp.Server{{Name: "kubescape", Transport: downstreammcp.TransportStreamableHTTP, URL: httpServer.URL, MaxBytes: 100}}}); err != nil {
+		t.Fatal(err)
+	}
+	for _, override := range []bool{false, true, false} {
+		cmd := newMCPServerCallCmd()
+		args := []string{"kubescape", "vulnerabilities"}
+		if override {
+			args = append(args, "--max-bytes", "2000")
+		}
+		cmd.SetArgs(args)
+		output, err := captureStdout(t, cmd.Execute)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var result downstreammcp.CallResult
+		if err := json.Unmarshal([]byte(output), &result); err != nil {
+			t.Fatal(err)
+		}
+		if override {
+			if result.Truncated || result.Content != payload {
+				t.Fatal("CLI override lost CVEs")
+			}
+		} else if !result.Truncated {
+			t.Fatal("server default was not respected")
+		}
+	}
+}
+
+func TestMCPCallRejectsInvalidResponseBudget(t *testing.T) {
+	for _, value := range []string{"0", "-1"} {
+		cmd := newMCPServerCallCmd()
+		cmd.SetArgs([]string{"kubescape", "vulnerabilities", "--max-bytes", value})
+		if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "--max-bytes must be > 0") {
+			t.Fatalf("budget %s: %v", value, err)
+		}
+	}
+}
 
 func TestPrintDownstreamMCPMutationConflict(t *testing.T) {
 	err := printDownstreamMCPMutation("linear", downstreammcp.OutcomeConflict)

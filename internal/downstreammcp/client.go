@@ -33,6 +33,12 @@ type ListToolsOptions struct {
 	MaxTools      int
 }
 
+// CallToolOptions overrides the response budget for one call. Zero uses the
+// server's configured max_bytes; it never means an unlimited response.
+type CallToolOptions struct {
+	MaxBytes int
+}
+
 // ListToolsResult reports the bounded tool inventory plus the true total so
 // callers (and the models reading their output) can tell when the list was
 // cut by MaxTools.
@@ -133,9 +139,19 @@ func (c *Client) ListTools(ctx context.Context, serverName string, opts ListTool
 }
 
 func (c *Client) CallTool(ctx context.Context, serverName, toolName string, args map[string]any) (CallResult, error) {
+	return c.CallToolWithOptions(ctx, serverName, toolName, args, CallToolOptions{})
+}
+
+func (c *Client) CallToolWithOptions(ctx context.Context, serverName, toolName string, args map[string]any, opts CallToolOptions) (CallResult, error) {
+	if opts.MaxBytes < 0 {
+		return CallResult{}, fmt.Errorf("max_bytes must be >= 0 (zero uses the server default)")
+	}
 	server, ok := c.state.Get(serverName)
 	if !ok {
 		return CallResult{}, fmt.Errorf("downstream MCP server %q is not configured", serverName)
+	}
+	if opts.MaxBytes > 0 {
+		server.MaxBytes = opts.MaxBytes
 	}
 	ctx, cancel := operationContext(ctx, server)
 	defer cancel()

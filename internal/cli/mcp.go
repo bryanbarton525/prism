@@ -762,11 +762,15 @@ func newMCPServerToolsCmd() *cobra.Command {
 
 func newMCPServerCallCmd() *cobra.Command {
 	var rawArgs string
+	var maxBytes int
 	cmd := &cobra.Command{
 		Use:   "call <name> <tool>",
 		Short: "Call one tool on a downstream MCP server",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("max-bytes") && maxBytes <= 0 {
+				return fmt.Errorf("--max-bytes must be > 0")
+			}
 			state, err := configuredDownstreamMCPState()
 			if err != nil {
 				return err
@@ -775,7 +779,7 @@ func newMCPServerCallCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("parsing --args-json: %w", err)
 			}
-			res, err := downstreammcp.New(state).CallTool(cmd.Context(), args[0], args[1], toolArgs)
+			res, err := downstreammcp.New(state).CallToolWithOptions(cmd.Context(), args[0], args[1], toolArgs, downstreammcp.CallToolOptions{MaxBytes: maxBytes})
 			if err != nil {
 				return err
 			}
@@ -785,5 +789,6 @@ func newMCPServerCallCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&rawArgs, "args-json", "{}", "JSON object of tool arguments")
+	cmd.Flags().IntVar(&maxBytes, "max-bytes", 0, "Response byte budget for this call (default: server configuration)")
 	return cmd
 }

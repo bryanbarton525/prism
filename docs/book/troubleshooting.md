@@ -47,6 +47,20 @@ MCP capability, and its access rule. Registration, recommendations, and executio
 permission are separate checks. Do not broaden access just to suppress an error.
 If discovery is truncated or a server fails, inspect `incomplete` and warnings.
 
+## Downstream CVE lists are cut off
+
+Inspect `truncated` and the server's `max_bytes` in `list_mcp_servers` or
+`prism mcp server list`. The cap is configurable; 50 KB is not a fixed Prism
+limit. Direct MCP callers can set `max_bytes` on `call_mcp_tool`, and CLI callers
+can use `prism mcp server call YOUR_SERVER YOUR_TOOL --max-bytes 1000000`.
+Supply the tool's required arguments and confirm `truncated` is false. See
+[response budgets](../usage.md#downstream-response-budgets).
+
+A Kubernetes `Forbidden` response is a separate downstream authorization
+failure. A larger response budget does not grant the MCP service account RBAC
+access. Verify the server's identity and required permissions before changing
+its access.
+
 ## Automatic suggestions do not appear
 
 Automatic injection is off until selected agent IDs are configured. It has a

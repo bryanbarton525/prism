@@ -1,10 +1,18 @@
 package downstreammcp
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
 )
+
+func TestCallToolRejectsNegativeBudgetBeforeConnecting(t *testing.T) {
+	_, err := New(State{}).CallToolWithOptions(context.Background(), "kubescape", "vulnerabilities", nil, CallToolOptions{MaxBytes: -1})
+	if err == nil || !strings.Contains(err.Error(), "max_bytes") {
+		t.Fatalf("invalid response budget: %v", err)
+	}
+}
 
 func TestReviewStrictConfigurationAndStructuredBounds(t *testing.T) {
 	for _, server := range []Server{

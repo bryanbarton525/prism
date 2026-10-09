@@ -323,6 +323,35 @@ GitHub artifacts are built with the release tag injected through `-ldflags`. The
 
 Add `workspace` only for repository-aware work or when selecting among multiple host roots. `bundle_id` and `bundle_version` are no longer accepted inputs. The old signed registry runtime and the `bundle`/`registry` commands are removed; `install_bundle` and `list_bundles` are not exposed over MCP.
 
+### Downstream response budgets
+
+Direct `call_mcp_tool` responses use the registered server's `max_bytes` (20,000
+bytes when omitted). There is no fixed 50 KB cap. When `truncated` is true, the
+returned content is incomplete; oversized structured content is replaced with
+a truncation marker. For a large read such as a CVE report, set `max_bytes` on
+that call to request a larger response:
+
+```json
+{
+  "server": "kubescape",
+  "tool": "YOUR_TOOL",
+  "arguments": {},
+  "max_bytes": 1000000
+}
+```
+
+The CLI equivalent is:
+
+```bash
+prism mcp server call kubescape YOUR_TOOL --args-json '{}' --max-bytes 1000000
+```
+
+Use the actual tool name and its required arguments. This override applies to
+both text and structured content, separately, without changing the registered
+default. Omitted or zero MCP `max_bytes` uses that default; an explicit CLI
+`--max-bytes` must be positive. Check `truncated` even with a larger budget.
+Specialist runs use their own retained-result and context budgets.
+
 ## Model runtimes and control plane
 
 Ollama is the default. Configure `PRISM_MODEL_RUNTIME_ENGINE`, `PRISM_MODEL_RUNTIME_BASE_URL`, `PRISM_MODEL_RUNTIME_API_KEY`, and `PRISM_MODEL_RUNTIME_MODEL` for another compatible runtime. See [model-runtime.md](model-runtime.md).
