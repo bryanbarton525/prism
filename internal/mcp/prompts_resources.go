@@ -300,7 +300,7 @@ Optional:
 Related downstream MCP tools:
 - list_mcp_servers: see MCP servers Prism can call on behalf of specialists
 - list_mcp_server_tools: inspect compact downstream tool inventory
-- call_mcp_tool: execute one bounded downstream tool call through Prism
+- call_mcp_tool: execute one bounded downstream tool call through Prism; optional max_bytes overrides the response budget for this call, and truncated means content is incomplete
 
 Rules:
 - skill_names must be allowed by the selected agent.
