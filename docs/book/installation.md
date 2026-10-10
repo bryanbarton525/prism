@@ -81,6 +81,26 @@ before opting agent identities into injection.
 
 ## Upgrade and remove
 
+Standalone macOS and Linux release binaries can update themselves:
+
+```bash
+prism update --check             # inspect the latest stable release
+prism update                     # install the latest stable release
+prism update --version v0.1.27   # select a release, including rollback
+prism update --check --json      # machine-readable result
+```
+
+The updater downloads the official GitHub asset for this OS and architecture,
+verifies its GitHub SHA-256 digest, and atomically replaces the executable after
+staging it in the same directory. It preserves symlinks and executable permissions.
+Failed downloads or verification leave the installed binary intact. It requires
+write access to the executable directory and never elevates privileges.
+Development builds require an explicit `--version` to replace them. Without that
+flag, newer installed releases are never downgraded. Use the owning package
+manager for package-managed installations, and your installer on Windows.
+Updates run only when requested with the CLI. Reconnect running MCP sessions
+afterward. Updating the binary does not refresh host skills or specialist wrappers.
+
 Build or download the chosen Prism executable, then rerun your selected host
 installation. The installer updates recorded paths and refuses unmanaged
 collisions. Keep the prior binary if you need local rollback. Long-lived MCP
