@@ -61,6 +61,11 @@ HTTP is allowed only on loopback; use HTTPS for remote endpoints. For a token,
 use `--decision-key-env LAYA_API_KEY` after exporting `LAYA_API_KEY`.
 See the optional settings in [examples/config.env](../../examples/config.env).
 
+For the homelab GPU endpoint, hosted Jev, and optional downstream MCP wrappers,
+see [configure Laya or Jev: HTTP and MCP](../decision-services.md). Prism's
+built-in reranker uses HTTP directly; an MCP wrapper exposes separate tools
+that an authorized agent can call.
+
 ## Migrate from Kev
 
 1. Install Laya and run the checks in [chapter 5](testing.md).

@@ -79,6 +79,9 @@ unattended setup never grants a capability.
 
 ### Laya tool recommendations
 
+For cluster GPU setup, hosted Jev, and optional MCP registrations, see
+[configure Laya or Jev: HTTP and MCP](decision-services.md).
+
 Prism retrieves candidate tools from the agent's authorized catalog using local
 embeddings, then optionally reranks at most 20 candidates with Laya. The offload
 model still chooses and executes tools through the existing access checks.
