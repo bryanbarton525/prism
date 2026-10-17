@@ -2,7 +2,8 @@
 name: prism-mcp-orchestrator
 description: >-
   Auto-use for context-heavy prompts (logs, CI failures, Kubernetes issues,
-  runbooks, docs lookup, PR triage, codegen subtasks). Decide when to delegate
+  runbooks, docs lookup, PR triage, codegen subtasks) and bounded Laya/Jev
+  decisions through downstream MCP. Decide when to delegate
   via Prism MCP and execute the required call order — list_agents, list_resources,
   get_resource, optional list_prompts/get_prompt, run_agent, then parent synthesis.
 compatibility: Requires Prism MCP server availability, local repository context, and an MCP-capable host editor/agent.
@@ -12,11 +13,11 @@ metadata:
 
 # Prism MCP orchestrator skill
 
-Use this skill for orchestration only (not domain diagnosis). If the task is evidence-heavy or specialist-shaped, delegate via Prism MCP.
+Use this skill for orchestration and bounded typed decisions. Delegate evidence-heavy specialist work via Prism MCP; use the decision workflow below for configured Laya/Jev tools.
 
 ## Activation rule
 
-Activate when prompts mention things like: CI failures, PR blockers, Kubernetes incidents, Argo drift/workflow failures, release notes/docs lookup, large logs/JSON, or "delegate/run_agent/MCP".
+Activate when prompts mention things like: CI failures, PR blockers, Kubernetes incidents, Argo drift/workflow failures, release notes/docs lookup, large logs/JSON, bounded Laya/Jev decisions, or "delegate/run_agent/MCP".
 
 Do **not** activate for tiny single-step tasks where delegation overhead is not worth it.
 
@@ -45,7 +46,7 @@ If a first-party source exists but is not available in the current environment,
 callback to parent with `insufficient_evidence` and request permission/inputs to
 access the first-party source.
 
-## Required sequence (must follow)
+## Required sequence for specialist delegation (must follow)
 
 1. Call `list_agents` first.
 2. Call `list_resources`, then `get_resource` for:
@@ -69,6 +70,57 @@ If evidence is insufficient at any step, callback to parent with:
   "reason": "Identifiers required for evidence-backed delegation are missing."
 }
 ```
+
+## Typed decisions through downstream MCP
+
+Use a configured Laya or Jev MCP tool for a bounded classification, a choice
+among explicit alternatives, or a rubric score when that judgment helps the
+task. The parent model supplies the question and options, interprets the result,
+and produces any subsequent general tool-call arguments. Prism executes calls.
+
+1. Call `list_mcp_servers` to discover configured decision servers. If none is
+   configured, continue the task without a decision call. Registration and agent
+   access setup are described in `docs/decision-services.md` in the Prism repo.
+2. Call `list_mcp_server_tools` with `include_schema: true` for the selected
+   server. Use its actual tool schema; Laya and Jev wrappers differ.
+3. Call `call_mcp_tool` with the discovered server and tool. For Laya's
+   `laya_predict`, an example is:
+
+   ```json
+   {
+     "server": "laya",
+     "tool": "laya_predict",
+     "arguments": {
+       "model": "english",
+       "state": {"body": "I was charged twice."},
+       "questions": {
+         "department": {
+           "type": "choice",
+           "instructions": "Which team should handle this request?",
+           "criteria": {
+             "billing": "Invoices and refunds",
+             "technical": "Bugs and outages"
+           }
+         }
+       }
+     }
+   }
+   ```
+
+4. Check `is_error` and `truncated` before interpreting the result. Laya's
+   decision JSON may be encoded in `content` or in `structured_content.result`;
+   decode that JSON to read `answers`. Report uncertainty or continue with parent
+   reasoning if the call fails. A decision does not grant permission for an action.
+
+Laya custom questions include choices on each call; `laya_preset` supplies only
+its built-in question sets. The remote Laya wrapper forwards inference to its
+HTTP server and does not support `laya_shortlist` or `laya_tournament`. Keep
+finite choices small (at most 20), narrowing them first when needed.
+
+This downstream MCP path is separate from `recommend_tools`, whose built-in
+reranker uses `PRISM_DECISION_*` over HTTP. Reconnect a running Prism MCP host
+after changing registrations. A CLI probe tests transport; a specialist also
+needs access to the server through its configured MCP allowlist.
 
 ## run_agent shaping
 

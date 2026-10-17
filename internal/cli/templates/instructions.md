@@ -19,6 +19,14 @@ Prism also runs as an MCP server (`prism mcp serve`, stdio). Core tools:
 - `suggest_route`, `run_graph`, `explain_policy`, `list_policies`
 - `list_mcp_servers`, `list_mcp_server_tools`, `call_mcp_tool`
 
+For a bounded classification or finite choice, discover a configured Laya/Jev
+server with `list_mcp_servers`, inspect its tool schema, then call it through
+`call_mcp_tool`. The parent model supplies the question/options and interprets
+the typed answer; it still produces general tool-call arguments. See the
+`prism-mcp-orchestrator` skill for the calling pattern and
+`docs/decision-services.md` for setup. Built-in `recommend_tools` reranking uses
+the separate direct HTTP adapter.
+
 ### Workflow
 
 1. Paste a short brief — do not paste every skill and all evidence into chat.
