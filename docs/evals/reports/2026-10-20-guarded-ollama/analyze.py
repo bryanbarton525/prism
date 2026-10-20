@@ -36,6 +36,8 @@ def csv_file(name, rows):
 def savefig(fig, name):
     fig.savefig(IMAGES / (name + '.png'), dpi=180, bbox_inches='tight', facecolor=fig.get_facecolor())
     fig.savefig(IMAGES / (name + '.svg'), bbox_inches='tight', facecolor=fig.get_facecolor(), metadata={'Date': None})
+    svg = IMAGES / (name + '.svg')
+    svg.write_text('\n'.join(line.rstrip() for line in svg.read_text().splitlines()) + '\n')
     plt.close(fig)
 
 
