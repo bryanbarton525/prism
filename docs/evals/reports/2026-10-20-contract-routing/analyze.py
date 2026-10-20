@@ -29,10 +29,14 @@ def main():
             if path.exists():
                 (data / f'{directory.name}-{name}').write_bytes(path.read_bytes())
     rows = []
+    builds = set()
+    memory = []
     failures = collections.Counter()
     latencies = []
-    for path in sorted(data.glob('*.json.gz')):
+    for path in sorted(data.glob('*.json.gz'), key=lambda p: ('laya' in p.name, p.name)):
         report = json.loads(gzip.decompress(path.read_bytes()))
+        builds.add(report['build'].get('revision', 'unknown'))
+        assert report['repeat'] == 1
         trials = report['trials']
         mode = report.get('laya_mode', 'original')
         passed = sum(t['grade']['passed'] for t in trials)
@@ -43,6 +47,10 @@ def main():
             for check, ok in trial['grade']['checks'].items():
                 if not ok:
                     failures[(label.replace('\n', ' / '), check)] += 1
+    assert len(builds) <= 1, 'comparison arms must use the same build'
+    for path in data.glob('*-execution.json'):
+        for block in json.loads(path.read_text()):
+            memory.extend(block['memory'])
     if not rows:
         raise SystemExit('No retained reports')
     fig, ax = plt.subplots(figsize=(9, 4.8), layout='constrained')
@@ -80,13 +88,32 @@ def main():
         'its pass rates are not a controlled before/after comparison.', '', '## Failed checks', '',
         '| Model and mode | Check | Failed trials |', '|---|---|---:|']
     lines += [f'| {label} | `{check}` | {count} |' for (label, check), count in sorted(failures.items())]
+    lines += ['', '## Laya findings', '',
+        'The bound path passed issue lookup, conflicting history, and injection-evidence probes.',
+        'It abstained on a valid empty-search task. Access denial was retrieved correctly,',
+        'but the model placed `access_denied` in the issue-status field instead of null.',
+        'For the linked-project task, Laya selected the issue tool again; the model tried',
+        'to switch to the project tool, and the runtime rejected that route bypass.',
+        'These failures block baseline approval. They distinguish routing selection,',
+        'response semantics, and execution enforcement; the small suite does not establish',
+        'general ranking quality. Laya remains optional and is not recommended as a default',
+        'configuration based on this smoke run.']
     lines += ['', '## Reproduction and provenance', '',
+        'Build revision: `' + next(iter(builds)) + '`.',
+        f'Minimum sampled free memory: {min(m["free_percent"] for m in memory)}%; peak Ollama resident memory: {max(m["resident_bytes"] for m in memory)/2**30:.2f} GiB.', '',
         'See [the guarded runner guide](../../../../evals/README.md). Exact commands,',
         'binary revisions, model digests, generation settings, memory samples, and',
         'The agent also has a 60-second per-invocation latency budget.',
         'CLI-validated raw reports are retained in `data/`. Runs use one resident',
         'small model at a time, unload between blocks, and stop at guard thresholds.', '',
-        'Regenerate this page and graph with:', '', '```sh',
+        'Exact smoke commands (use a binary built from the revision above):', '',
+        '```sh',
+        'python3 evals/run_matrix.py --prism /path/to/prism --model qwen3.5:9b --model qwen2.5-coder:7b --model llama3.1:8b --repeat 1 --max-tokens 4096 --output-dir "$HOME/prism-eval-results/new-original"',
+        'python3 evals/run_matrix.py --prism /path/to/prism --model llama3.1:8b --repeat 1 --max-tokens 4096 --laya-url https://laya-gpu.iambarton.com --laya-mode first --output-dir "$HOME/prism-eval-results/new-laya"',
+        '```', '',
+        'Use new output directories, and run these sequentially. For consistency validation,',
+        'increase `--repeat` to at least 3; approve a baseline only when all checks pass.', '',
+        'Regenerate this page and graphs with:', '', '```sh',
         'python3 -m pip install matplotlib',
         'python3 docs/evals/reports/2026-10-20-contract-routing/analyze.py', '```', '']
     (ROOT / 'README.md').write_text('\n'.join(lines))

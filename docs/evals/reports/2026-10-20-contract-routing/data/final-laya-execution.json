@@ -1,0 +1,122 @@
+[
+  {
+    "model": "llama3.1:8b",
+    "command": [
+      "/Users/bbarton/prism-eval-results/fixed-routing/prism-final",
+      "eval",
+      "run",
+      "--model",
+      "llama3.1:8b",
+      "--repeat",
+      "1",
+      "--max-tokens",
+      "4096",
+      "--temperature",
+      "0.1",
+      "--timeout",
+      "180s",
+      "--output",
+      "/Users/bbarton/prism-eval-results/fixed-routing/final-laya/01.json",
+      "--laya-url",
+      "https://laya-gpu.iambarton.com",
+      "--laya-mode",
+      "first"
+    ],
+    "memory": [
+      {
+        "at": 1792467606.5815501,
+        "free_percent": 91,
+        "resident_bytes": 0
+      },
+      {
+        "at": 1792467608.593149,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467610.6019578,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467612.6126678,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467614.618382,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467616.622169,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467618.6337879,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467620.645303,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467622.658327,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467624.665986,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467626.675624,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467628.683597,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467630.696518,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467632.7075799,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467634.716427,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467636.724541,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467638.737644,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467640.749731,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      }
+    ],
+    "passed": 3,
+    "trials": 6,
+    "validated": true,
+    "unloaded": true
+  }
+]
