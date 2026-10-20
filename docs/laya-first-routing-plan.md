@@ -12,10 +12,13 @@ not a description of functionality already implemented.
    an additional root-level `decision`. The agent, constitution, and skill also
    specify `linear_actions` and `next_action`. They need a single explicit
    response contract that the runtime preserves and the grader validates.
-3. The current Laya path is a pre-generation advisory shortlist. The score
+3. The normalized result parser discards `decision`, `linear_actions`, and
+   `next_action` as structured fields, retaining them only in `raw_output`.
+   Grading the raw string does not test the contract delivered to the orchestrator.
+4. The current Laya path is a pre-generation advisory shortlist. The score
    `laya_applied` establishes that a suggestion reached the prompt; it does not
    establish that Laya chose the executed route or made the best decision.
-4. The response suite names the intended tool and exposes one or two choices.
+5. The response suite names the intended tool and exposes one or two choices.
    It is not a meaningful routing-quality dataset.
 
 Keep the existing traces and failed checks unchanged. Treat them as diagnostic

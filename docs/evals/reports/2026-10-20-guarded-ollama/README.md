@@ -36,7 +36,12 @@ The same system prompt ends with a JSON envelope containing `summary`, `findings
 `artifacts`, and `confidence`. It does not define `decision`, while every suite
 case requires particular root-level `/decision/...` paths. The task requests an
 extra decision object, but there is no unified typed output contract across the
-agent, skill, runtime parser, and grader. Missing-field failures therefore mix
+agent, skill, runtime parser, and grader. The runtime parser also does not
+preserve `decision`, `linear_actions`, or `next_action` as structured result
+fields; they remain only in `raw_output` when emitted. The evaluator checks
+that raw string, so it does not establish structured-field delivery to the
+orchestrator. See [result parsing](../../../../internal/result/parse.go).
+Missing-field failures therefore mix
 instruction/contract design with model behavior.
 
 The advisory Laya path runs before the first generative call, but ranks a tool
