@@ -166,3 +166,11 @@ Release builds inject the tag with:
 ```bash
 go build -ldflags "-X github.com/bryanbarton525/prism/internal/buildinfo.Version=v1.2.3" ./cmd/prism
 ```
+
+### Model response evaluations
+
+Use `prism eval run` for repeated MCP response comparisons, explicitly approve a
+passing run with `prism eval baseline create`, then use `prism eval test` to catch
+functional and semantic consistency regressions before switching models. Export
+all trial traces and scores with `prism eval export`. See the
+[model evaluation guide](docs/evals/README.md) for commands and scoring details.
