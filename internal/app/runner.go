@@ -145,6 +145,7 @@ type Config struct {
 	// RuntimeTarget describes the effective process runtime. Model may be empty
 	// when the process has no global model override.
 	RuntimeTarget            extensions.RuntimeTarget
+	ModelRuntimeConfig       llmruntime.Config // diagnostic model discovery, including authentication
 	ToolModelStateDir        string
 	ToolRecommendationAgents []string
 	ToolRecommendationModel  string

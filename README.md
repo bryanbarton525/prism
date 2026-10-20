@@ -21,6 +21,21 @@ Release builds report the GitHub tag as both the Prism and bundle version. The b
 
 Prism uses Ollama by default at `http://127.0.0.1:11434`; SGLang, vLLM, and other OpenAI-compatible endpoints can be selected with `PRISM_MODEL_RUNTIME_*` settings.
 
+Select the shared offload model with a keyboard picker or an explicit command:
+
+```bash
+prism model set                                     # ↑/↓, Enter; Ctrl-C cancels
+prism model set qwen3.6:27b --engine ollama
+prism model status                                 # saved and effective settings
+prism model status --check                         # advertised model availability
+```
+
+`agent list` shows both declared and effective models. `prism agent model set`
+updates managed agents only; bundled agents follow the shared runtime selection.
+`prism models` (plural) manages tool embeddings. See
+[model configuration](docs/model-runtime.md#select-and-inspect-the-offload-model)
+for endpoints, overrides, offline setup, and runtime scope.
+
 ## Install into an agent host
 
 ```bash

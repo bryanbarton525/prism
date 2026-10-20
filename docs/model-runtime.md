@@ -42,6 +42,84 @@ endpoints and it is a strong general-purpose serving runtime.
 
 ## Configuration
 
+### Select and inspect the offload model
+
+```bash
+prism model set
+prism model set qwen3.6:27b --engine ollama
+prism model set my-served-model --engine sglang --url http://server:30000/v1
+prism model set my-served-model --engine vllm --url http://server:8000/v1 \
+  --api-key-env LOCAL_MODEL_API_KEY
+prism model status
+prism model status --check
+prism model status --json
+```
+
+Without a model argument, `set` opens a terminal picker for the engine, endpoint,
+and advertised models. Use ↑/↓ and Enter, or choose **Other** to type a model ID.
+Review the target and select Save; Ctrl-C or Cancel leaves configuration unchanged.
+The picker requires terminal input/output and never opens with `--json`. Scripts
+must provide a model argument. Authentication can be selected with `--api-key-env`.
+
+`set` saves the shared target to the selected runtime's `config.env`. The default
+is `~/.prism/config.env`; `--state-dir /path/to/state` selects isolated runtime
+state. It preserves unrelated settings and fallback configuration. If
+`PRISM_CONFIG_FILE` selects another file, align it with that state before saving.
+
+Omitting `--engine` and `--url` keeps the current target. Without an explicit
+runtime, Prism defaults to Ollama and the configured Ollama host. Changing to
+Ollama defaults to that Ollama host; changing to SGLang or vLLM requires `--url`.
+Model names do not infer an engine. On an engine or endpoint change, previous
+saved primary credentials are cleared; pass `--api-key-env` for the new target.
+The CLI stores the environment variable name, never the supplied secret value.
+
+Before saving, Prism queries `/api/tags` for Ollama or `/v1/models` for
+SGLang/vLLM. The check verifies advertised availability, not inference readiness;
+it does not generate text or download weights. Missing models, bad responses,
+authorization failures, and unreachable servers leave configuration unchanged.
+
+```bash
+prism model set future-model --engine ollama --skip-check  # offline, unverified
+prism model set qwen3.6:27b --engine ollama --dry-run       # preview; no write/probe
+```
+
+An interactive dry run may fetch the model list to populate the picker, but
+never saves. `--skip-check` skips discovery and lets you type the model ID.
+
+`status` reports effective settings, their sources, saved settings hidden by
+overrides, the selected state/configuration path, and fallback configuration.
+It is offline unless `--check` is supplied. Check failures return nonzero.
+Environment variables take precedence over workspace `.env`, followed by saved
+runtime configuration and defaults. Saving does not remove higher-priority
+overrides, and neither command edits Codex or Claude configuration. A terminal
+process cannot see overrides supplied only by its host's MCP registration.
+Reconnect running Prism MCP servers after changing saved settings.
+
+`agent list` and `agent show` distinguish the **declared model** in the agent
+specification from the **effective model** selected by runtime configuration.
+Existing JSON `model`/`spec.model` fields retain their declared meaning; new fields
+describe the effective target, source, and runtime conflicts. Managed agents with
+runtime drift remain blocked until explicitly reconciled, for example:
+
+```bash
+prism agent model set my-imported-agent --use-configured-model
+```
+
+That command requires a managed agent ID, not a model ID; it cannot edit bundled
+agents. `prism models setup/status` manages tool embeddings rather than the
+offload model. `prism config doctor` checks the selected runtime and effective
+model requirements, so an inactive Ollama instance is not required for SGLang.
+
+The installer remains available for broader runtime setup:
+
+```bash
+prism install --runtime-only --runtime-scope user \
+  --primary-engine ollama --primary-url http://127.0.0.1:11434 \
+  --primary-model qwen3.6:27b
+```
+
+### Environment configuration
+
 Explicit Ollama runtime:
 
 ```bash

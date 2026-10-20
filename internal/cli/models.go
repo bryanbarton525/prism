@@ -9,7 +9,7 @@ import (
 )
 
 func newModelsCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "models", Short: "Manage local tool recommendation models"}
+	cmd := &cobra.Command{Use: "models", Short: "Manage tool embedding models (for offload models use: prism model)", Long: "Manage tool recommendation embeddings. To select the model that executes specialist tasks, use `prism model set` or `prism model status`."}
 	cmd.AddCommand(&cobra.Command{
 		Use: "setup <potion|onnx>", Short: "Install a pinned tool embedding model", Args: cobra.ExactArgs(1),
 		RunE: func(command *cobra.Command, args []string) error {

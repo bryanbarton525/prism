@@ -8,6 +8,14 @@ Prism executes bounded specialist work for an AI editor or MCP host that remains
 A model served locally or on a user-operated self-hosted machine that executes Prism specialist tasks. It is distinct from the parent host's orchestrating model.
 _Avoid_: Translation model, same-machine-only model
 
+**Declared model**:
+The offload model named in an agent specification. A shared runtime selection may take precedence over it.
+_Avoid_: Effective model
+
+**Effective runtime target**:
+The serving engine, endpoint, and offload model selected for the current Prism process after applying configuration precedence. Selection does not establish model availability or satisfy a managed agent's recorded runtime requirements.
+_Avoid_: Declared model, installed model
+
 **Skill**:
 A portable package of task instructions and optional resources in the Agent Skills open format. A skill describes a capability an agent can use, rather than defining the agent itself.
 _Avoid_: Agent specification

@@ -31,7 +31,7 @@ var cfg config.Settings
 var rootCmd = &cobra.Command{
 	Use:   "prism",
 	Short: "Prism — local specialist agent runner",
-	Long: `Prism delegates focused subtasks to local Ollama specialist agents.
+	Long: `Prism delegates focused subtasks to specialist agents using local or self-hosted model runtimes.
 
 Each agent is defined by a Markdown+frontmatter spec and a constitution.
 Skills are attached per invocation to control scope.`,
@@ -118,6 +118,7 @@ func init() {
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newUpdateCmd())
 	rootCmd.AddCommand(newModelsCmd())
+	rootCmd.AddCommand(newModelCmd())
 	rootCmd.AddCommand(newInstallCmd())
 	rootCmd.AddCommand(newUninstallCmd())
 }

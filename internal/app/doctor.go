@@ -6,47 +6,42 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/bryanbarton525/prism/internal/llm"
+	"github.com/bryanbarton525/prism/internal/llm/runtime"
 	"github.com/bryanbarton525/prism/internal/result"
 	"github.com/bryanbarton525/prism/internal/skill"
 )
 
-// Doctor implements AgentRunner. It checks Ollama connectivity, model availability,
+// Doctor implements AgentRunner. It checks selected-runtime model availability,
 // agent registry state, and skill directory structure.
 func (r *Runner) Doctor(ctx context.Context) (result.DoctorResult, error) {
 	dr := result.DoctorResult{
-		OllamaHost: r.ollama.Host(),
+		OllamaHost: llm.PublicConfig(runtime.Config{BaseURL: r.ollama.Host()}).BaseURL,
 		AgentDir:   r.cfg.agentDirLabel(),
 		SkillsDir:  r.cfg.skillsDirLabel(),
 		AgentCount: len(r.registry.List()),
 		Status:     "ok",
 	}
 
-	if err := r.ollama.Ping(ctx); err != nil {
-		dr.Checks = append(dr.Checks, result.DoctorCheck{
-			Name: "ollama_connectivity", Status: "fail", Message: err.Error(),
-		})
-		dr.Status = "degraded"
-	} else {
-		dr.Checks = append(dr.Checks, result.DoctorCheck{
-			Name:    "ollama_connectivity",
-			Status:  "ok",
-			Message: fmt.Sprintf("reachable at %s", r.ollama.Host()),
-		})
+	primary := r.cfg.ModelRuntimeConfig
+	if primary.Engine == "" {
+		primary.Engine = runtime.EngineOllama
 	}
-
-	models, err := r.ollama.ListModels(ctx)
+	if primary.BaseURL == "" && primary.Engine == runtime.EngineOllama {
+		primary.BaseURL = r.ollama.Host()
+	}
+	dr.RuntimeEngine, dr.RuntimeEndpoint, dr.RuntimeModel = string(primary.Engine), llm.PublicConfig(primary).BaseURL, primary.Model
+	models, err := llm.ListModels(ctx, primary)
+	checkName := "runtime_models"
+	if primary.Engine == runtime.EngineOllama {
+		checkName = "ollama_models"
+	}
 	if err != nil {
-		dr.Checks = append(dr.Checks, result.DoctorCheck{
-			Name: "ollama_models", Status: "fail", Message: err.Error(),
-		})
+		dr.Checks = append(dr.Checks, result.DoctorCheck{Name: checkName, Status: "fail", Message: err.Error()})
 		dr.Status = "degraded"
 	} else {
-		dr.Checks = append(dr.Checks, result.DoctorCheck{
-			Name:    "ollama_models",
-			Status:  "ok",
-			Message: fmt.Sprintf("%d model(s): %s", len(models), strings.Join(models, ", ")),
-		})
-		r.checkAgentModels(&dr, models)
+		dr.Checks = append(dr.Checks, result.DoctorCheck{Name: checkName, Status: "ok", Message: fmt.Sprintf("%d advertised model(s) at %s: %s (inference not tested)", len(models), primary.BaseURL, strings.Join(models, ", "))})
+		r.checkAgentModels(&dr, primary, models)
 	}
 
 	agents := r.registry.List()
@@ -145,28 +140,36 @@ func (r *Runner) Doctor(ctx context.Context) (result.DoctorResult, error) {
 	return dr, nil
 }
 
-func (r *Runner) checkAgentModels(dr *result.DoctorResult, available []string) {
-	set := make(map[string]struct{}, len(available))
-	for _, m := range available {
-		set[m] = struct{}{}
-	}
+func (r *Runner) checkAgentModels(dr *result.DoctorResult, primary runtime.Config, available []string) {
 	var missing []string
+	status := "warn"
 	for _, spec := range r.registry.List() {
 		full, err := r.registry.Get(spec.ID)
 		if err != nil {
 			continue
 		}
-		if _, ok := set[full.Model]; !ok {
-			missing = append(missing, fmt.Sprintf("%s needs %q", spec.ID, full.Model))
+		target := primary
+		if target.Model == "" {
+			target.Model = full.Model
+		}
+		if !llm.ModelAvailable(target, available) {
+			missing = append(missing, fmt.Sprintf("%s needs effective model %q", spec.ID, target.Model))
+			status = "fail"
+		}
+		if recorded := r.managedRuntimeTarget(spec.ID); recorded != nil {
+			current := r.cfg.RuntimeTarget
+			if current.Model == "" {
+				current.Model = recorded.Model
+			}
+			if recorded.Drifted(current) {
+				missing = append(missing, fmt.Sprintf("%s blocked by runtime drift; reconcile with prism agent model set %s --use-configured-model", spec.ID, spec.ID))
+			}
 		}
 	}
 	if len(missing) == 0 {
 		return
 	}
 	sort.Strings(missing)
-	dr.Checks = append(dr.Checks, result.DoctorCheck{
-		Name:    "agent_models",
-		Status:  "warn",
-		Message: strings.Join(missing, "; "),
-	})
+	dr.Checks = append(dr.Checks, result.DoctorCheck{Name: "agent_models", Status: status, Message: strings.Join(missing, "; ")})
+	dr.Status = "degraded"
 }

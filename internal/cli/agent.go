@@ -606,9 +606,31 @@ func newAgentModelCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "model", Short: "Manage a managed agent runtime target"}
 	var model string
 	var useConfigured, dryRun bool
-	set := &cobra.Command{Use: "set <agent-id>", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+	set := &cobra.Command{Use: "set <agent-id>", Short: "Set a managed agent's recorded runtime target", Example: "  prism agent model set my-agent --use-configured-model\n  prism agent model set my-agent --model qwen3.6:27b\n\n  # Shared model for bundled specialists:\n  prism model set qwen3.6:27b --engine ollama", Args: func(_ *cobra.Command, args []string) error {
+		if len(args) != 1 {
+			return fmt.Errorf("expected one managed agent ID: prism agent model set <agent-id> --model <model>; for the shared runtime use: prism model set <model> --engine ollama")
+		}
+		return nil
+	}, RunE: func(cmd *cobra.Command, args []string) error {
+		if model != "" && useConfigured {
+			return fmt.Errorf("choose exactly one of --model <model> or --use-configured-model; for the shared runtime use prism model set <model>")
+		}
 		if (model == "") == !useConfigured {
-			return fmt.Errorf("select exactly one of --model or --use-configured-model")
+			return fmt.Errorf("%q is the agent ID, not the model; select --model <model> or --use-configured-model; to change the shared offload model use: prism model set <model> --engine ollama", args[0])
+		}
+		manifest, err := extensions.NewStore(gf.stateDir).LoadManifest()
+		if err != nil {
+			return err
+		}
+		managed := false
+		for _, entry := range manifest.Entries {
+			if entry.Kind == "agent" && strings.EqualFold(entry.Identity, args[0]) {
+				managed = true
+				break
+			}
+		}
+		if !managed {
+			return fmt.Errorf("%q is not a managed agent; bundled agents use the shared runtime: prism model set <model> --engine ollama", args[0])
 		}
 		if useConfigured {
 			model = strings.TrimSpace(cfg.ModelRuntime.Primary.Model)
@@ -781,17 +803,24 @@ func agentList(ctx context.Context, jsonOut bool) error {
 		return err
 	}
 	activeManaged := map[string]bool{}
+	recordedTargets := map[string]*extensions.RuntimeTarget{}
 	for _, item := range runner.CatalogSnapshot().Agents {
 		if item.Origin == "managed" && item.Active {
 			activeManaged[strings.ToLower(item.ID)] = true
+			recordedTargets[strings.ToLower(item.ID)] = item.Runtime
 		}
 	}
 	type listedAgent struct {
 		agentpkg.Summary
-		Origin      string                            `json:"origin"`
-		Active      bool                              `json:"active"`
-		Reason      string                            `json:"reason,omitempty"`
-		Diagnostics []extensions.ActivationDiagnostic `json:"diagnostics,omitempty"`
+		Origin          string                            `json:"origin"`
+		Active          bool                              `json:"active"`
+		Reason          string                            `json:"reason,omitempty"`
+		Diagnostics     []extensions.ActivationDiagnostic `json:"diagnostics,omitempty"`
+		EffectiveModel  string                            `json:"effective_model,omitempty"`
+		RuntimeEngine   string                            `json:"runtime_engine,omitempty"`
+		RuntimeEndpoint string                            `json:"runtime_endpoint,omitempty"`
+		ModelSource     string                            `json:"model_source,omitempty"`
+		RuntimeConflict bool                              `json:"runtime_conflict"`
 	}
 	listed := make([]listedAgent, 0, len(summaries))
 	for _, summary := range summaries {
@@ -802,7 +831,8 @@ func agentList(ctx context.Context, jsonOut bool) error {
 		if activeManaged[strings.ToLower(summary.ID)] {
 			origin = "managed"
 		}
-		listed = append(listed, listedAgent{Summary: summary, Origin: origin, Active: true})
+		target, source := agentEffectiveModel(summary.Model)
+		listed = append(listed, listedAgent{Summary: summary, Origin: origin, Active: true, EffectiveModel: target.Model, RuntimeEngine: string(target.Engine), RuntimeEndpoint: target.BaseURL, ModelSource: source, RuntimeConflict: runtimeTargetConflicts(recordedTargets[strings.ToLower(summary.ID)], effectivePrimary())})
 	}
 	for _, item := range runner.CatalogSnapshot().Agents {
 		if item.Active {
@@ -820,7 +850,7 @@ func agentList(ctx context.Context, jsonOut bool) error {
 		return nil
 	}
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tORIGIN\tSTATE\tNAME\tMODEL\tDESCRIPTION/RECOVERY")
+	fmt.Fprintln(w, "ID\tORIGIN\tSTATE\tNAME\tDECLARED MODEL\tEFFECTIVE MODEL\tMODEL SOURCE\tDESCRIPTION/RECOVERY")
 	for _, item := range listed {
 		s := item.Summary
 		desc := s.Description
@@ -828,6 +858,10 @@ func agentList(ctx context.Context, jsonOut bool) error {
 			desc = desc[:69] + "..."
 		}
 		state := "active"
+		if item.RuntimeConflict {
+			state = "runtime-drift"
+			desc = "Blocked: prism agent model set " + s.ID + " --use-configured-model"
+		}
 		if !item.Active {
 			state = "inactive"
 			if len(item.Diagnostics) > 0 {
@@ -836,7 +870,7 @@ func agentList(ctx context.Context, jsonOut bool) error {
 				desc = item.Reason
 			}
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", s.ID, item.Origin, state, s.Name, s.Model, desc)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", s.ID, item.Origin, state, s.Name, s.Model, item.EffectiveModel, item.ModelSource, desc)
 	}
 	return w.Flush()
 }
@@ -911,7 +945,9 @@ func agentShow(ctx context.Context, agentID string, jsonOut bool) error {
 				inactive = append(inactive, item)
 			}
 		}
-		data, _ := json.MarshalIndent(map[string]any{"spec": spec, "origin": origin, "active": true, "managed_entry": managed, "inactive_variants": inactive}, "", "  ")
+		target, source := agentEffectiveModel(spec.Model)
+		conflict := managed != nil && runtimeTargetConflicts(managed.Runtime, effectivePrimary())
+		data, _ := json.MarshalIndent(map[string]any{"spec": spec, "origin": origin, "active": true, "managed_entry": managed, "inactive_variants": inactive, "effective_runtime": target, "model_source": source, "runtime_conflict": conflict}, "", "  ")
 		fmt.Println(string(data))
 		return nil
 	}
@@ -938,7 +974,11 @@ func agentShow(ctx context.Context, agentID string, jsonOut bool) error {
 	fmt.Printf("ID:              %s\n", spec.ID)
 	fmt.Printf("Name:            %s\n", spec.Name)
 	fmt.Printf("Description:     %s\n", spec.Description)
-	fmt.Printf("Model:           %s\n", spec.Model)
+	target, source := agentEffectiveModel(spec.Model)
+	fmt.Printf("Declared model:  %s\nEffective model: %s [%s]\nRuntime:         %s %s\n", spec.Model, target.Model, source, target.Engine, target.BaseURL)
+	if managed != nil && runtimeTargetConflicts(managed.Runtime, effectivePrimary()) {
+		fmt.Printf("Execution:       blocked by runtime drift; reconcile with prism agent model set %s --use-configured-model\n", spec.ID)
+	}
 	fmt.Printf("Context budget:  %d\n", spec.ContextBudget)
 	fmt.Printf("Latency budget:  %d ms\n", spec.LatencyBudgetMS)
 	if spec.Temperature != nil {
@@ -1136,6 +1176,7 @@ func newRunnerWithControls(ctx context.Context, sink observe.Sink, policyEngine 
 		MCPAccessConfigured:      mcpAccessConfigured,
 		Graphify:                 graphifyConfig,
 		RuntimeTarget:            effectiveRuntimeTarget(""),
+		ModelRuntimeConfig:       effectivePrimary(),
 		ToolModelStateDir:        gf.stateDir,
 		ToolRecommendationAgents: cfg.ToolRecommendAgents,
 		ToolRecommendationModel:  cfg.ToolRecommendModel,
@@ -1160,7 +1201,7 @@ func effectiveRuntimeTarget(model string) extensions.RuntimeTarget {
 	if engine == "" {
 		engine = "ollama"
 	}
-	if baseURL == "" {
+	if baseURL == "" && engine == "ollama" {
 		baseURL = gf.ollamaHost
 	}
 	if model == "" {
