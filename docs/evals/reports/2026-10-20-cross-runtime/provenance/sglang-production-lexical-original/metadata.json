@@ -1,0 +1,98 @@
+{
+  "arguments": {
+    "prism": "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/prism-controls",
+    "engine": "sglang",
+    "url": "http://10.42.6.78:8000/v1",
+    "model": "Qwen3-8B-AWQ",
+    "suite": "evals/mcp-response-v2/suite.yaml",
+    "warm_model": false,
+    "repeat": 3,
+    "arms": [
+      "lexical"
+    ],
+    "laya_url": "https://laya-gpu.iambarton.com",
+    "output_dir": "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/sglang-production-lexical-original"
+  },
+  "identity": "Prism:  devel+0ec7084a7bbd\nBundle: devel+0ec7084a7bbd\nDigest: 7266bc265add02a83eab3a55b9d10c319915846486a31b0de19e04987b0e0b3c\nCommit: 0ec7084a7bbd3ebaa4597130f2968d0be93b33c2\n",
+  "started": 1792472094.4092858,
+  "blocks": [
+    {
+      "name": "01-lexical",
+      "command": [
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/prism-controls",
+        "eval",
+        "run",
+        "--model",
+        "Qwen3-8B-AWQ",
+        "--repeat",
+        "1",
+        "--max-tokens",
+        "4096",
+        "--temperature",
+        "0.1",
+        "--timeout",
+        "180s",
+        "--output",
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/sglang-production-lexical-original/01-lexical.json",
+        "--suite",
+        "/tmp/prism-laya-evals/evals/mcp-response-v2/suite.yaml",
+        "--lexical-advice"
+      ],
+      "started": 1792472094.4094477,
+      "returncode": 0,
+      "completed": 1792472108.5547476
+    },
+    {
+      "name": "02-lexical",
+      "command": [
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/prism-controls",
+        "eval",
+        "run",
+        "--model",
+        "Qwen3-8B-AWQ",
+        "--repeat",
+        "1",
+        "--max-tokens",
+        "4096",
+        "--temperature",
+        "0.1",
+        "--timeout",
+        "180s",
+        "--output",
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/sglang-production-lexical-original/02-lexical.json",
+        "--suite",
+        "/tmp/prism-laya-evals/evals/mcp-response-v2/suite.yaml",
+        "--lexical-advice"
+      ],
+      "started": 1792472108.566711,
+      "returncode": 0,
+      "completed": 1792472122.680779
+    },
+    {
+      "name": "03-lexical",
+      "command": [
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/prism-controls",
+        "eval",
+        "run",
+        "--model",
+        "Qwen3-8B-AWQ",
+        "--repeat",
+        "1",
+        "--max-tokens",
+        "4096",
+        "--temperature",
+        "0.1",
+        "--timeout",
+        "180s",
+        "--output",
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/sglang-production-lexical-original/03-lexical.json",
+        "--suite",
+        "/tmp/prism-laya-evals/evals/mcp-response-v2/suite.yaml",
+        "--lexical-advice"
+      ],
+      "started": 1792472122.6911623,
+      "returncode": 0,
+      "completed": 1792472136.8028116
+    }
+  ]
+}

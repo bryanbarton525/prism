@@ -1,0 +1,8 @@
+{
+  "requests": 39,
+  "decision_requests": 38,
+  "status_counts": {
+    "200": 39
+  },
+  "note": "Unmodified proxy capture of independent cohort only; inspect retained response usage for truncation."
+}

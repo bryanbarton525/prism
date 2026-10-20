@@ -1,0 +1,8 @@
+{
+  "server": "laya",
+  "tool": "laya_status",
+  "content": "{\n  \"mode\": \"remote\",\n  \"base_url\": \"https://laya-gpu.iambarton.com\",\n  \"router_preload\": false,\n  \"router_ready\": true,\n  \"package_versions\": {\n    \"laya\": \"0.4.8\"\n  },\n  \"server\": {\n    \"status\": \"ok\",\n    \"loaded\": [\n      \"english\"\n    ],\n    \"revisions\": {\n      \"english\": \"55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851\"\n    },\n    \"device\": \"cuda\",\n    \"device_is_preference\": false,\n    \"checkpoint_devices\": {\n      \"english\": \"cuda\"\n    },\n    \"cpu_fallbacks\": {\n      \"english\": {\n        \"count\": 0,\n        \"last_reason\": null\n      }\n    }\n  },\n  \"loaded\": [\n    \"english\"\n  ],\n  \"device\": \"cuda\",\n  \"device_is_preference\": false,\n  \"checkpoint_devices\": {\n    \"english\": \"cuda\"\n  }\n}",
+  "structured_content": {
+    "result": "{\n  \"mode\": \"remote\",\n  \"base_url\": \"https://laya-gpu.iambarton.com\",\n  \"router_preload\": false,\n  \"router_ready\": true,\n  \"package_versions\": {\n    \"laya\": \"0.4.8\"\n  },\n  \"server\": {\n    \"status\": \"ok\",\n    \"loaded\": [\n      \"english\"\n    ],\n    \"revisions\": {\n      \"english\": \"55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851\"\n    },\n    \"device\": \"cuda\",\n    \"device_is_preference\": false,\n    \"checkpoint_devices\": {\n      \"english\": \"cuda\"\n    },\n    \"cpu_fallbacks\": {\n      \"english\": {\n        \"count\": 0,\n        \"last_reason\": null\n      }\n    }\n  },\n  \"loaded\": [\n    \"english\"\n  ],\n  \"device\": \"cuda\",\n  \"device_is_preference\": false,\n  \"checkpoint_devices\": {\n    \"english\": \"cuda\"\n  }\n}"
+  }
+}

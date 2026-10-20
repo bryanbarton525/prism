@@ -1,0 +1,20 @@
+{
+  "arguments": {
+    "prism": "prism",
+    "engine": "ollama",
+    "url": "http://10.43.128.253:11434",
+    "model": "llama3.1:8b",
+    "suite": "evals/mcp-response-v2/suite.yaml",
+    "repeat": 3,
+    "arms": [
+      "off",
+      "first",
+      "advisory"
+    ],
+    "laya_url": "https://laya-gpu.iambarton.com",
+    "output_dir": "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/ollama-llama-contract"
+  },
+  "identity": "Prism:  v0.1.35\nBundle: v0.1.35\nDigest: 288b3f5c459b38b2ce561f28f49ea88ef57960e0a331693407f83a56b4164da6\nCommit: 83a9727986fa1c65ecf4a956f5b5c7ef2762eff4\n",
+  "started": 1792469191.5213032,
+  "blocks": []
+}

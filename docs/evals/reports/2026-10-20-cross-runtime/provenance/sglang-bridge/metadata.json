@@ -1,0 +1,170 @@
+{
+  "arguments": {
+    "prism": "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/prism-protocol-candidate",
+    "engine": "sglang",
+    "url": "http://10.42.6.243:8000/v1",
+    "model": "Qwen3-8B-AWQ",
+    "suite": null,
+    "repeat": 3,
+    "arms": [
+      "off",
+      "advisory"
+    ],
+    "laya_url": "https://laya-gpu.iambarton.com",
+    "output_dir": "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/sglang-bridge"
+  },
+  "identity": "Prism:  devel+c331792ea89b\nBundle: devel+c331792ea89b\nDigest: d8057279d217bf361b6277f0c2c22445c5a358fc0d465c1d02e89e05b4098369\nCommit: c331792ea89bdbbbc9d86aab1acc8f2ab51052b6\n",
+  "started": 1792469014.9746249,
+  "blocks": [
+    {
+      "name": "01-off",
+      "command": [
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/prism-protocol-candidate",
+        "eval",
+        "run",
+        "--model",
+        "Qwen3-8B-AWQ",
+        "--repeat",
+        "1",
+        "--max-tokens",
+        "4096",
+        "--temperature",
+        "0.1",
+        "--timeout",
+        "180s",
+        "--output",
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/sglang-bridge/01-off.json"
+      ],
+      "started": 1792469014.974785,
+      "returncode": 0,
+      "completed": 1792469035.134735
+    },
+    {
+      "name": "01-advisory",
+      "command": [
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/prism-protocol-candidate",
+        "eval",
+        "run",
+        "--model",
+        "Qwen3-8B-AWQ",
+        "--repeat",
+        "1",
+        "--max-tokens",
+        "4096",
+        "--temperature",
+        "0.1",
+        "--timeout",
+        "180s",
+        "--output",
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/sglang-bridge/01-advisory.json",
+        "--laya-url",
+        "https://laya-gpu.iambarton.com",
+        "--laya-mode",
+        "advisory"
+      ],
+      "started": 1792469035.1461823,
+      "returncode": 0,
+      "completed": 1792469053.288007
+    },
+    {
+      "name": "02-advisory",
+      "command": [
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/prism-protocol-candidate",
+        "eval",
+        "run",
+        "--model",
+        "Qwen3-8B-AWQ",
+        "--repeat",
+        "1",
+        "--max-tokens",
+        "4096",
+        "--temperature",
+        "0.1",
+        "--timeout",
+        "180s",
+        "--output",
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/sglang-bridge/02-advisory.json",
+        "--laya-url",
+        "https://laya-gpu.iambarton.com",
+        "--laya-mode",
+        "advisory"
+      ],
+      "started": 1792469053.2985585,
+      "returncode": 0,
+      "completed": 1792469071.4430668
+    },
+    {
+      "name": "02-off",
+      "command": [
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/prism-protocol-candidate",
+        "eval",
+        "run",
+        "--model",
+        "Qwen3-8B-AWQ",
+        "--repeat",
+        "1",
+        "--max-tokens",
+        "4096",
+        "--temperature",
+        "0.1",
+        "--timeout",
+        "180s",
+        "--output",
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/sglang-bridge/02-off.json"
+      ],
+      "started": 1792469071.454211,
+      "returncode": 0,
+      "completed": 1792469087.5820534
+    },
+    {
+      "name": "03-off",
+      "command": [
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/prism-protocol-candidate",
+        "eval",
+        "run",
+        "--model",
+        "Qwen3-8B-AWQ",
+        "--repeat",
+        "1",
+        "--max-tokens",
+        "4096",
+        "--temperature",
+        "0.1",
+        "--timeout",
+        "180s",
+        "--output",
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/sglang-bridge/03-off.json"
+      ],
+      "started": 1792469087.5935135,
+      "returncode": 0,
+      "completed": 1792469105.7363424
+    },
+    {
+      "name": "03-advisory",
+      "command": [
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/prism-protocol-candidate",
+        "eval",
+        "run",
+        "--model",
+        "Qwen3-8B-AWQ",
+        "--repeat",
+        "1",
+        "--max-tokens",
+        "4096",
+        "--temperature",
+        "0.1",
+        "--timeout",
+        "180s",
+        "--output",
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/sglang-bridge/03-advisory.json",
+        "--laya-url",
+        "https://laya-gpu.iambarton.com",
+        "--laya-mode",
+        "advisory"
+      ],
+      "started": 1792469105.7475238,
+      "returncode": 0,
+      "completed": 1792469123.889226
+    }
+  ]
+}

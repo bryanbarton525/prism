@@ -1,0 +1,32 @@
+[
+  {
+    "case_id": "issue-status",
+    "single_tool_score_normalized_to_one": true,
+    "exact_user_message_match": true,
+    "exact_system_message_match": true
+  },
+  {
+    "case_id": "empty-search",
+    "single_tool_score_normalized_to_one": true,
+    "exact_user_message_match": true,
+    "exact_system_message_match": true
+  },
+  {
+    "case_id": "access-denied",
+    "single_tool_score_normalized_to_one": true,
+    "exact_user_message_match": true,
+    "exact_system_message_match": true
+  },
+  {
+    "case_id": "conflicting-history",
+    "single_tool_score_normalized_to_one": true,
+    "exact_user_message_match": true,
+    "exact_system_message_match": true
+  },
+  {
+    "case_id": "tool-prompt-injection",
+    "single_tool_score_normalized_to_one": true,
+    "exact_user_message_match": true,
+    "exact_system_message_match": true
+  }
+]

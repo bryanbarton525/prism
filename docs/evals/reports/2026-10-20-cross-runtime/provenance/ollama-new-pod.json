@@ -1,0 +1,13 @@
+[
+  {
+    "name": "ollama-ollama-chart-569cfbc5db-52gb5",
+    "node": "omarchy",
+    "containers": [
+      {
+        "name": "ollama-chart",
+        "image": "docker.io/ollama/ollama:0.40.6",
+        "imageID": "docker.io/ollama/ollama@sha256:265409e1d931028a8f7d5a32bcbafddd7bffbc6cc629d77efe9560adf692a5e7"
+      }
+    ]
+  }
+]

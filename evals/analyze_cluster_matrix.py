@@ -60,13 +60,13 @@ def main():
                          semantic_consistency=round(consistency, 4)))
     (args.output_dir / "summary.json").write_text(json.dumps(rows, indent=2) + "\n")
     with (args.output_dir / "summary.csv").open("w") as f:
-        w = csv.DictWriter(f, fieldnames=list(rows[0])); w.writeheader(); w.writerows(rows)
+        w = csv.DictWriter(f, fieldnames=list(rows[0]), lineterminator="\n"); w.writeheader(); w.writerows(rows)
     with (args.output_dir / "failures.csv").open("w") as f:
-        w = csv.writer(f); w.writerow(["cohort", "mode", "metric", "failed_trials"])
+        w = csv.writer(f, lineterminator="\n"); w.writerow(["cohort", "mode", "metric", "failed_trials"])
         for key, count in sorted(failures.items()):
             w.writerow([*key, count])
     with (args.output_dir / "error-taxonomy.csv").open("w") as f:
-        w = csv.writer(f); w.writerow(["cohort", "mode", "first_matching_category", "trials"])
+        w = csv.writer(f, lineterminator="\n"); w.writerow(["cohort", "mode", "first_matching_category", "trials"])
         for key, count in sorted(taxonomy.items()):
             w.writerow([*key, count])
     table = ["| Cohort | Mode | Full passes | Required calls | Median trial |", "|---|---|---:|---:|---:|"]
@@ -85,7 +85,8 @@ def main():
             values[names.index(r["cohort"]), modes.index(r["mode"])] = r["passed"] / r["trials"]
         fig, ax = plt.subplots(figsize=(10, max(4, len(names) * .55)))
         im = ax.imshow(values, vmin=0, vmax=1, cmap="viridis", aspect="auto")
-        ax.set_xticks(range(len(modes)), modes); ax.set_yticks(range(len(names)), names)
+        labels = [n.replace("sglang-lexical-", "sglang-task-hints-") for n in names]
+        ax.set_xticks(range(len(modes)), modes); ax.set_yticks(range(len(names)), labels)
         for y, name in enumerate(names):
             for x, mode in enumerate(modes):
                 match = next((r for r in rows if r["cohort"] == name and r["mode"] == mode), None)

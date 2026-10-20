@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Append production-shaped tool hints using word overlap, never answer keys."""
+"""Task-position ablation; use --lexical-advice for the production control."""
 import argparse
 import json
 import re

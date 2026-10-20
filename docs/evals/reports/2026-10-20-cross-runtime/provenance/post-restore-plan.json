@@ -1,0 +1,32 @@
+[
+  [
+    "sglang-independent",
+    "evals/mcp-independent-routing-v1/suite.yaml",
+    [
+      "off",
+      "first",
+      "advisory"
+    ]
+  ],
+  [
+    "sglang-lexical-original",
+    "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/lexical-original-suite.yaml",
+    [
+      "off"
+    ]
+  ],
+  [
+    "sglang-lexical-protocol",
+    "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/lexical-suite.yaml",
+    [
+      "off"
+    ]
+  ],
+  [
+    "sglang-lexical-independent",
+    "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/lexical-independent-final-suite.yaml",
+    [
+      "off"
+    ]
+  ]
+]

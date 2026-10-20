@@ -1,0 +1,1 @@
+{"models":[{"name":"llama3.1:8b","model":"llama3.1:8b","size":5284393123,"digest":"46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e","details":{"parent_model":"","format":"gguf","family":"llama","families":["llama"],"parameter_size":"8.0B","quantization_level":"Q4_K_M"},"expires_at":"2026-10-20T04:38:31.577363037Z","size_vram":5284393123,"context_length":6144}]}

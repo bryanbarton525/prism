@@ -1,0 +1,19 @@
+{
+  "request": {
+    "model": "llama3.1:8b",
+    "keep_alive": "30m",
+    "stream": false,
+    "options": {
+      "num_ctx": 6144
+    }
+  },
+  "response": {
+    "model": "llama3.1:8b",
+    "created_at": "2026-10-20T04:28:24.990089204Z",
+    "response": "",
+    "done": true,
+    "done_reason": "load"
+  },
+  "started": 1792470462.3879995,
+  "completed": 1792470504.990389
+}

@@ -1,0 +1,95 @@
+{
+  "arguments": {
+    "prism": "prism",
+    "engine": "sglang",
+    "url": "http://10.42.6.78:8000/v1",
+    "model": "Qwen3-8B-AWQ",
+    "suite": "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/lexical-original-suite.yaml",
+    "warm_model": false,
+    "repeat": 3,
+    "arms": [
+      "off"
+    ],
+    "laya_url": "http://127.0.0.1:18011",
+    "output_dir": "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/sglang-lexical-original"
+  },
+  "identity": "Prism:  v0.1.35\nBundle: v0.1.35\nDigest: 288b3f5c459b38b2ce561f28f49ea88ef57960e0a331693407f83a56b4164da6\nCommit: 83a9727986fa1c65ecf4a956f5b5c7ef2762eff4\n",
+  "started": 1792471347.3811667,
+  "blocks": [
+    {
+      "name": "01-off",
+      "command": [
+        "prism",
+        "eval",
+        "run",
+        "--model",
+        "Qwen3-8B-AWQ",
+        "--repeat",
+        "1",
+        "--max-tokens",
+        "4096",
+        "--temperature",
+        "0.1",
+        "--timeout",
+        "180s",
+        "--output",
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/sglang-lexical-original/01-off.json",
+        "--suite",
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/lexical-original-suite.yaml"
+      ],
+      "started": 1792471347.3816624,
+      "returncode": 0,
+      "completed": 1792471359.5049233
+    },
+    {
+      "name": "02-off",
+      "command": [
+        "prism",
+        "eval",
+        "run",
+        "--model",
+        "Qwen3-8B-AWQ",
+        "--repeat",
+        "1",
+        "--max-tokens",
+        "4096",
+        "--temperature",
+        "0.1",
+        "--timeout",
+        "180s",
+        "--output",
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/sglang-lexical-original/02-off.json",
+        "--suite",
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/lexical-original-suite.yaml"
+      ],
+      "started": 1792471359.5164695,
+      "returncode": 0,
+      "completed": 1792471371.610426
+    },
+    {
+      "name": "03-off",
+      "command": [
+        "prism",
+        "eval",
+        "run",
+        "--model",
+        "Qwen3-8B-AWQ",
+        "--repeat",
+        "1",
+        "--max-tokens",
+        "4096",
+        "--temperature",
+        "0.1",
+        "--timeout",
+        "180s",
+        "--output",
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/sglang-lexical-original/03-off.json",
+        "--suite",
+        "/home/bbarton/prism-eval-results/2026-10-20-cross-runtime/lexical-original-suite.yaml"
+      ],
+      "started": 1792471371.6212308,
+      "returncode": 0,
+      "completed": 1792471381.698427
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+[
+  {
+    "path": "docs/acceptance-matrix.md",
+    "sha256": "3ebf6304c45deb2340eebe24d0195e1bcbc80ce099ff6b706c3f307247ff1c4a",
+    "bytes": 8062
+  },
+  {
+    "path": "docs/benchmark-homelab-incident.md",
+    "sha256": "8708560a14dff12d0792be38499f80743be19b6ff4f81017a1a802b66f5e1a32",
+    "bytes": 5381
+  },
+  {
+    "path": "docs/benchmark-scale.md",
+    "sha256": "66800a18a6d930e027337d79deba73849c7f2037efc1f4c16e279370ebb8ed53",
+    "bytes": 8366
+  },
+  {
+    "path": "docs/benchmark-showcase.md",
+    "sha256": "75cf00123b30243d3dbf649195124cc49e1f9a292eec6df925eaf15722fb5533",
+    "bytes": 1624
+  },
+  {
+    "path": "docs/evals/README.md",
+    "sha256": "da523fafefa1eec984df854b3bc0b77d97ed580e529b246205f81e248f8a7ca7",
+    "bytes": 6933
+  },
+  {
+    "path": "docs/evals/framework-review.md",
+    "sha256": "0afdff00f1c8ab95740683bf84269bb7bc964571a43ce1f3e39f320cceec66ab",
+    "bytes": 4706
+  },
+  {
+    "path": "docs/evals/reports/2026-10-20-contract-routing/README.md",
+    "sha256": "87a4476dbaf50b2710b2916f7e4bf92fd4e5093f92105dd8a216162577a05d6d",
+    "bytes": 6105
+  },
+  {
+    "path": "docs/evals/reports/2026-10-20-contract-routing/diagnostics/README.md",
+    "sha256": "910375796b3aadedff49fa354885b514891abb123207b4d0cf44db33fce46982",
+    "bytes": 570
+  },
+  {
+    "path": "docs/evals/reports/2026-10-20-guarded-ollama/README.md",
+    "sha256": "813f323a276602242acd3023451c4e55708251ae7c87553119c4a7a596d68918",
+    "bytes": 9986
+  },
+  {
+    "path": "docs/evals/reports/2026-10-20-memory-and-laya/README.md",
+    "sha256": "1b526fb60f3be7deeaaeae723c7bc21315e26f9b59ef7ae489260c5fa600318b",
+    "bytes": 2811
+  },
+  {
+    "path": "docs/laya-evaluation.md",
+    "sha256": "82aeaa00263770d70be80341047becd5d5d25437c58947b3e0d4bbd8e47a6c6a",
+    "bytes": 10274
+  },
+  {
+    "path": "docs/laya-first-routing-plan.md",
+    "sha256": "3cbeb0fd2740ff263b1cf6baeaad6addfd7fd6e419f4fcba72974fd2c3d600a9",
+    "bytes": 6967
+  },
+  {
+    "path": "docs/laya-source-assessment.md",
+    "sha256": "15ba2ff83b79a6774870c8cfc8d68013beefc19ea2e9488509b595340e3af166",
+    "bytes": 6932
+  },
+  {
+    "path": "evals/README.md",
+    "sha256": "d2d849e14e796fb8833d88d5007e481d9ad89c6021b019100cd02c67dc65132f",
+    "bytes": 6167
+  }
+]

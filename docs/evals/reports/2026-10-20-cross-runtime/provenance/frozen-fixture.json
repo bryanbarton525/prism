@@ -1,0 +1,6 @@
+{
+  "file": "evals/mcp-independent-routing-v1/suite.yaml",
+  "sha256": "cce780c93ad5d0767f2dcd576d1338913d80248c904cb7f9fe8be020739b0f3b",
+  "frozen_before_first_live_run": true,
+  "revision": "c1ab37b7515039f400a7ad4e010a49b424a74f30"
+}

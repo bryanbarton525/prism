@@ -1,0 +1,7 @@
+{
+  "model": "llama3.1:8b",
+  "created_at": "2026-10-20T04:14:20.99634367Z",
+  "response": "",
+  "done": true,
+  "done_reason": "unload"
+}

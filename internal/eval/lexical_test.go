@@ -40,6 +40,11 @@ func TestLexicalControlUsesProductionHintsAndCannotMixBaselines(t *testing.T) {
 	if err != nil || base.ControlMode != "lexical" || base.Version == Version {
 		t.Fatalf("control baseline provenance lost: %v", err)
 	}
+	legacyDecoded := base
+	legacyDecoded.ControlMode = "" // Simulate an older JSON reader ignoring it.
+	if err := CheckBaseline(legacyDecoded, suite, opts.Generation, opts.Repeat); err == nil {
+		t.Fatal("artifact version did not protect older readers from mixing modes")
+	}
 	plain := runScript(t, suite, &scriptedRuntime{}, "candidate")
 	plainRequest := plain.Trials[0].Calls[0].Request
 	controlRequest := report.Trials[0].Calls[0].Request
@@ -63,7 +68,7 @@ func TestLexicalControlUsesProductionHintsAndCannotMixBaselines(t *testing.T) {
 		t.Fatal("missing control trace was accepted")
 	}
 	opts.LayaURL = "http://127.0.0.1:1"
-	if _, err := Run(context.Background(), suite, &scriptedRuntime{}, opts); err == nil {
+	if _, err := Run(context.Background(), suite, &scriptedRuntime{}, opts); err == nil || !strings.Contains(err.Error(), "separate evaluation modes") {
 		t.Fatal("combined lexical/Laya mode accepted")
 	}
 }

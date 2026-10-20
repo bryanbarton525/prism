@@ -1,0 +1,16 @@
+{
+  "model_path": "Qwen/Qwen3-8B-AWQ",
+  "revision": null,
+  "context_length": 65536,
+  "dtype": "auto",
+  "quantization": null,
+  "kv_cache_dtype": "fp8_e4m3",
+  "mem_fraction_static": 0.8,
+  "max_running_requests": 1,
+  "max_total_tokens": 65536,
+  "default_chat_template_kwargs": {
+    "enable_thinking": false
+  },
+  "tool_call_parser": "qwen",
+  "version": "0.5.19"
+}

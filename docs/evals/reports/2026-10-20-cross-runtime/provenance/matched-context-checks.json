@@ -1,0 +1,128 @@
+[
+  {
+    "case": "issue-status",
+    "base": "sglang-contract",
+    "control": "sglang-production-lexical-original",
+    "system_tools_generation_equal": true,
+    "user_changed_only_by_appended_hints": true
+  },
+  {
+    "case": "empty-search",
+    "base": "sglang-contract",
+    "control": "sglang-production-lexical-original",
+    "system_tools_generation_equal": true,
+    "user_changed_only_by_appended_hints": true
+  },
+  {
+    "case": "access-denied",
+    "base": "sglang-contract",
+    "control": "sglang-production-lexical-original",
+    "system_tools_generation_equal": true,
+    "user_changed_only_by_appended_hints": true
+  },
+  {
+    "case": "conflicting-history",
+    "base": "sglang-contract",
+    "control": "sglang-production-lexical-original",
+    "system_tools_generation_equal": true,
+    "user_changed_only_by_appended_hints": true
+  },
+  {
+    "case": "tool-prompt-injection",
+    "base": "sglang-contract",
+    "control": "sglang-production-lexical-original",
+    "system_tools_generation_equal": true,
+    "user_changed_only_by_appended_hints": true
+  },
+  {
+    "case": "linked-project",
+    "base": "sglang-contract",
+    "control": "sglang-production-lexical-original",
+    "system_tools_generation_equal": true,
+    "user_changed_only_by_appended_hints": true
+  },
+  {
+    "case": "issue-status",
+    "base": "sglang-protocol",
+    "control": "sglang-production-lexical-protocol",
+    "system_tools_generation_equal": true,
+    "user_changed_only_by_appended_hints": true
+  },
+  {
+    "case": "empty-search",
+    "base": "sglang-protocol",
+    "control": "sglang-production-lexical-protocol",
+    "system_tools_generation_equal": true,
+    "user_changed_only_by_appended_hints": true
+  },
+  {
+    "case": "access-denied",
+    "base": "sglang-protocol",
+    "control": "sglang-production-lexical-protocol",
+    "system_tools_generation_equal": true,
+    "user_changed_only_by_appended_hints": true
+  },
+  {
+    "case": "conflicting-history",
+    "base": "sglang-protocol",
+    "control": "sglang-production-lexical-protocol",
+    "system_tools_generation_equal": true,
+    "user_changed_only_by_appended_hints": true
+  },
+  {
+    "case": "tool-prompt-injection",
+    "base": "sglang-protocol",
+    "control": "sglang-production-lexical-protocol",
+    "system_tools_generation_equal": true,
+    "user_changed_only_by_appended_hints": true
+  },
+  {
+    "case": "linked-project",
+    "base": "sglang-protocol",
+    "control": "sglang-production-lexical-protocol",
+    "system_tools_generation_equal": true,
+    "user_changed_only_by_appended_hints": true
+  },
+  {
+    "case": "ops-owner",
+    "base": "sglang-independent",
+    "control": "sglang-production-lexical-independent",
+    "system_tools_generation_equal": true,
+    "user_changed_only_by_appended_hints": true
+  },
+  {
+    "case": "nonempty-storage-search",
+    "base": "sglang-independent",
+    "control": "sglang-production-lexical-independent",
+    "system_tools_generation_equal": true,
+    "user_changed_only_by_appended_hints": true
+  },
+  {
+    "case": "project-permission",
+    "base": "sglang-independent",
+    "control": "sglang-production-lexical-independent",
+    "system_tools_generation_equal": true,
+    "user_changed_only_by_appended_hints": true
+  },
+  {
+    "case": "linked-cycle",
+    "base": "sglang-independent",
+    "control": "sglang-production-lexical-independent",
+    "system_tools_generation_equal": true,
+    "user_changed_only_by_appended_hints": true
+  },
+  {
+    "case": "nullable-owner",
+    "base": "sglang-independent",
+    "control": "sglang-production-lexical-independent",
+    "system_tools_generation_equal": true,
+    "user_changed_only_by_appended_hints": true
+  },
+  {
+    "case": "project-current-record",
+    "base": "sglang-independent",
+    "control": "sglang-production-lexical-independent",
+    "system_tools_generation_equal": true,
+    "user_changed_only_by_appended_hints": true
+  }
+]

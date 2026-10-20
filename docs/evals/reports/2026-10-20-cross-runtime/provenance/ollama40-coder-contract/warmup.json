@@ -1,0 +1,19 @@
+{
+  "request": {
+    "model": "qwen2.5-coder:7b",
+    "keep_alive": "30m",
+    "stream": false,
+    "options": {
+      "num_ctx": 6144
+    }
+  },
+  "response": {
+    "model": "qwen2.5-coder:7b",
+    "created_at": "2026-10-20T04:31:11.124214834Z",
+    "response": "",
+    "done": true,
+    "done_reason": "load"
+  },
+  "started": 1792470623.0896606,
+  "completed": 1792470671.124585
+}

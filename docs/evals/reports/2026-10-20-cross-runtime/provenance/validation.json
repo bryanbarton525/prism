@@ -1,0 +1,758 @@
+[
+  {
+    "report": "ollama-llama-warm-contract/01-advisory.json",
+    "sha256": "f0d4c89dcf36a197114ece028c4b17f46b34dcaf1df7945219736a33e1256744",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama-llama-warm-contract/01-first.json",
+    "sha256": "1054cbfce7c45855949ef90f4b3cd2acb0a68e1406058ab8254dd5524bbd4f21",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama-llama-warm-contract/01-off.json",
+    "sha256": "46bf367f85f95e48e1449a39debdf845a72597e5b5d826d0558aa74cd79472df",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama-llama-warm-contract/02-advisory.json",
+    "sha256": "0f2cc0c2e0a6776b588627e28c0b4885846dae124acc29b585634523bb210d35",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama-llama-warm-contract/02-first.json",
+    "sha256": "6288ba946d69005923da23601ee46e73e0e2b8078620c13efecfc6c546619194",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama-llama-warm-contract/02-off.json",
+    "sha256": "74b299fe6f5f0d06a665c502c5ba3363bcd9e24290fadc55c7a432e512e4b8df",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama-llama-warm-contract/03-advisory.json",
+    "sha256": "d6fcf6479734f26a08ccc3d88cdf4f0279a6afbc3948534312f377bdef129ffe",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama-llama-warm-contract/03-first.json",
+    "sha256": "0ec4531a8b402bc5a43f8153f9fb9c27d42f5aa5be9f2015a6d890ef6d720780",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama-llama-warm-contract/03-off.json",
+    "sha256": "5cb3552cebea0fcba06b48d31be5f6553d3cdaa4dcafb971d74b955d7439d31d",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-coder-contract/01-advisory.json",
+    "sha256": "046f92e1beeb27a74b200be8b806822c7c20e444e533e933487af7e20ee6330b",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-coder-contract/01-off.json",
+    "sha256": "b0145a663873457a3663f890a7dcaa98885129e3924a7bbfbb30bb6b41be65fe",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-coder-contract/02-advisory.json",
+    "sha256": "f8bcf080b5e6de0a465869227fb6b10221d506abf0620dc06aab1d9002e61412",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-coder-contract/02-off.json",
+    "sha256": "cb72367769c27cd96dcf98e345af4d4e0911dfe9c4cfd7695781ebe288de1387",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-coder-contract/03-advisory.json",
+    "sha256": "7278b8cd6c5429ae34d5835c63adc1fda1c9f774698b00a51d72504d49fd0df4",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-coder-contract/03-off.json",
+    "sha256": "8675ee225626d51df234f10b8ba7e3fae53ff1e3daa23894f291573107495c3d",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-coder-protocol/01-advisory.json",
+    "sha256": "b5881b1981fcb31eafd29af2207398e87fd1cd8a58304a338701268918d09bf0",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-coder-protocol/01-off.json",
+    "sha256": "0fce4320b1e211395d94201258f9886c50019019957fd13752a651a9d22e5e0e",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-coder-protocol/02-advisory.json",
+    "sha256": "fb034142b27bd379f640a781a4195da1a9d3372f27f0faa4d502b5dfcd19322e",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-coder-protocol/02-off.json",
+    "sha256": "25dc817e059dc901091f4aac7c7e5e48e061d4273ae617710f8710e090d90057",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-coder-protocol/03-advisory.json",
+    "sha256": "8fae1e8ba08c073015f652560ff38dd2cfcd0ccc21a80cbd645b3b41c2898049",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-coder-protocol/03-off.json",
+    "sha256": "077839d505542cacdc4f2ac388f9339edbaaed472159a7f68a4e0cf6c26c4d62",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-llama-contract/01-advisory.json",
+    "sha256": "4a775c2272c49f566f6a816bb3b6a657de8c58f3bf52d947f51284c19883cd55",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-llama-contract/01-first.json",
+    "sha256": "762cb3006a6821be242a1d6f03b058125412026bd7446cea347b215d4e51aa2b",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-llama-contract/01-off.json",
+    "sha256": "60802afdffda67c15c5a348d0940fb853f506f1889b4e2ad33407d7aec2f86dd",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-llama-contract/02-advisory.json",
+    "sha256": "d414c4ac198e4730f2512bfc05916ca1345c7892830bb536da21843c05e3477a",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-llama-contract/02-first.json",
+    "sha256": "97e97c849299a42a764dcfcf7bc686d3886e25a9c2f7ed5cda086437ae7c1a0a",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-llama-contract/02-off.json",
+    "sha256": "3227f43e1bd0056668cacdf776fcd17c2d3e9a9154da156f8d709010b7464c2b",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-llama-contract/03-advisory.json",
+    "sha256": "c814276f1c32ea3a137615d412fb7ff13eddd903ee6b75752fd119fb382bf190",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-llama-contract/03-first.json",
+    "sha256": "8330ce6d2dcac3da6d1e7c20723a46fd95ccbaf3a8f5a236ec4b7ab4f65bbebd",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-llama-contract/03-off.json",
+    "sha256": "187f310856344c413138fc86de3eb279a6fac7c50172fc0bf7424f1de2b4a0c5",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-llama-protocol/01-advisory.json",
+    "sha256": "42610a14fdb721b8b28d67e84a4c89388977401ec8ba0dd1b6aa503a66109680",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-llama-protocol/01-off.json",
+    "sha256": "1ec654e4e23919e912a15c163806a39d396f6956a198811775d111b5d410c1cd",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-llama-protocol/02-advisory.json",
+    "sha256": "80542ed51292e8db0af1c2d8fe6e72e51485a94c43505850515d34de24c3236e",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-llama-protocol/02-off.json",
+    "sha256": "424460835b1f42f7a0f6e2f869f3236649570fc9c24b728810e9c7b7cf68dd61",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-llama-protocol/03-advisory.json",
+    "sha256": "e63e2695a86d868104371812bf477fd26e00f70aec7befc3d289539b5b06eaa5",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "ollama40-llama-protocol/03-off.json",
+    "sha256": "fa90eb5630ca62076bf1dae7046270ee9ad533557ff959e31016070064780d6d",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-bridge/01-advisory.json",
+    "sha256": "9b71d80da5896195216d76c81c5e438bb5fe0ccfa272607d8a55af204245d902",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-bridge/01-off.json",
+    "sha256": "52138cfa54a5009f1bba0afd0e251f6291c9698be29da75411138d2cb076c2f4",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-bridge/02-advisory.json",
+    "sha256": "6791b614779fe27bb2ea7d44c4aa2701bb3e4b9af63946ec0e19116c1f2ed806",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-bridge/02-off.json",
+    "sha256": "22c19600f905e02dc50391816f3c7cb07a2e7cf8879676ecddf4f6099765d600",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-bridge/03-advisory.json",
+    "sha256": "255dcd60a158082e3a7ae5b7b943b0b4b7d1dc31f5445747d3a5826ec5712228",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-bridge/03-off.json",
+    "sha256": "547824321c0e198030b198152ff3da9738bfbafcdd74ccbc1a4812532d7587f6",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-contract/01-advisory.json",
+    "sha256": "151a16f696d6f65c877eebd304fece0d13fbda60ee8c43b9ff2672962f05ae79",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-contract/01-first.json",
+    "sha256": "96500d3e8f37be819dff7fa6e482f099add9e58b35d2b42fbed5fa538765577c",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-contract/01-off.json",
+    "sha256": "47f36919ccde2c5c57d38fce4070b31272d45a2790064d1467d712dc4e847eaa",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-contract/02-advisory.json",
+    "sha256": "87203a244437cacee92b12f371b00106e1bec1000ad8f86cc895f642af6eb080",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-contract/02-first.json",
+    "sha256": "f181f1ffb5e4348957bd8a30df9739bab99c397496aba209d49a4081112be445",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-contract/02-off.json",
+    "sha256": "a0f2295ed9aaae66dd8f9c7e74fe7a82692d3cda5d4f3d6b2021e34384a30046",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-contract/03-advisory.json",
+    "sha256": "9221d77ffb8c3defcbd09243ef96b30bee8c411011b3e21178403bc656e3ee6f",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-contract/03-first.json",
+    "sha256": "b282f6fe18bd3319abf34ca94dead977643d5ee94b80f752b7c655cacaf73222",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-contract/03-off.json",
+    "sha256": "6e9524ffcbb3fe10eb372668983cd20b6e0d583f1f2ce87aa5ec92d3dd8ff691",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-holdout/01-advisory.json",
+    "sha256": "f7feca4fe179380b374ba73c4c84018593650fa070c0bfbd4aa018ebbb2d7e38",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-holdout/01-first.json",
+    "sha256": "9f362b53b6a6661f899a622568ee9f096b9f214403be77355d257cbb0f1c5774",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-holdout/01-off.json",
+    "sha256": "ad6144407fb832c16e69d4a589a6e0dc463b25a8011ebd679cbd8ce36b4eb023",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-holdout/02-advisory.json",
+    "sha256": "28b518b64112d3f82a57378d822da3120dabc712b8e4ab4bad43804eb7fcb355",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-holdout/02-first.json",
+    "sha256": "db317eb3da3c78078e37cd1e8b2be85ab98448a56d1355c8835085a63fdd95e8",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-holdout/02-off.json",
+    "sha256": "8e104b02226c3b8dd4b08564d1766ed6847fe15f5867bffe789875c950ddd228",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-holdout/03-advisory.json",
+    "sha256": "f0333e91dca4ee14de63b7cb46bc655cc3e2743fc150f0fd2aa6cff793e9444a",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-holdout/03-first.json",
+    "sha256": "4519754008fedc07dd09d9ddf8f1530fe2457d7444d82220c113483d425cfc35",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-holdout/03-off.json",
+    "sha256": "69e2898807b4d675e23d8d364e74d03b619aa7849784ed63d264f11eacc90eac",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-independent/01-advisory.json",
+    "sha256": "83d9f2ec559875d6609d1a183113d2f722a8a8c428d90738550009639108a020",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-independent/01-first.json",
+    "sha256": "b1b7ee808b3cc1c307e7caff92c7474e4557d390bba255cfcef920c4cb306fe0",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-independent/01-off.json",
+    "sha256": "12b2cf116498af18bd93d48ed2325346298dda27cbf2527e2c1c1c1382cec2c2",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-independent/02-advisory.json",
+    "sha256": "610084e04cec857e846b37dca0449728e0ca26d4ad585fb2021a10bf8f4be240",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-independent/02-first.json",
+    "sha256": "dfca3e7a8809859c898426bbde2a194ba38959ac1ac9dd75f5ae05e807b91a91",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-independent/02-off.json",
+    "sha256": "d86a6009f208130488f253c8617be281e1cab8b7f40835a7fa89632b4bdefb03",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-independent/03-advisory.json",
+    "sha256": "ddb1ffc29ab048b37565170252467be114fe5c92ba7b206c8a95da33655d1797",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-independent/03-first.json",
+    "sha256": "7e901fdcc91ea7a41d309ba2f41aefb419904d1897865965f426ea1e080b6e2d",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-independent/03-off.json",
+    "sha256": "07dfb34c210752fda35edf7d32d293173a4b89a0958b7947b27dd1bf18a485f8",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-lexical-independent/01-off.json",
+    "sha256": "10bec32193b5a65677911c752d4800ee2ef20392b005b0a894cdda6761a87d63",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-lexical-independent/02-off.json",
+    "sha256": "57ef08f76330b151554e69e67edf25eda83df7bf9b332afff3a4e5a08431808c",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-lexical-independent/03-off.json",
+    "sha256": "1ee166a853100c8cb41c783ddb1d9917fd28443af37030509c03fbcf1d7b4cf1",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-lexical-original/01-off.json",
+    "sha256": "82f5ad8feb9d24473b45eee087c50802c6b883022df7ab78223a04d9312b4694",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-lexical-original/02-off.json",
+    "sha256": "06af7fcde614ce65d8b97f67e8debc83197a1a5deaaff3761e309b8adadf541b",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-lexical-original/03-off.json",
+    "sha256": "579801743559ab5f03237a4cc1187a4b7c44d8d6eaf401c365f7de0cff8d2cfa",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-lexical-protocol/01-off.json",
+    "sha256": "cb9ae61de0b8aab6a747361452fc7236d09fce76e22f4aa33a2d3c6c63b90bf9",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-lexical-protocol/02-off.json",
+    "sha256": "dbad7d1d5b53fc77ab2b8b1eee366b90cff027c2f11c8de03caf075be26dd1f3",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-lexical-protocol/03-off.json",
+    "sha256": "dd168cdf6f1f3f6ed368882d375c63954bc9c2322a2f0c43cee3cb274886838d",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-production-lexical-independent/01-lexical.json",
+    "sha256": "a23eec26901f7581ab402d22347bcbb8c043eeb065fc4578652146ca7d38f956",
+    "trials": 6,
+    "artifact_version": 2,
+    "validated": true
+  },
+  {
+    "report": "sglang-production-lexical-independent/02-lexical.json",
+    "sha256": "0cb5730dcb2adc00097a197c42ebaf9fd221465d38666c2282f810ec8b61d345",
+    "trials": 6,
+    "artifact_version": 2,
+    "validated": true
+  },
+  {
+    "report": "sglang-production-lexical-independent/03-lexical.json",
+    "sha256": "3a58f44d01ba55d60a9a86d36f86b6cf3de4f73be2d7e35ff1a565fe000fc2db",
+    "trials": 6,
+    "artifact_version": 2,
+    "validated": true
+  },
+  {
+    "report": "sglang-production-lexical-original/01-lexical.json",
+    "sha256": "ab3099faf4bbf247b2479367fcc6f74ea22c873cb4682446be155866c43e784f",
+    "trials": 6,
+    "artifact_version": 2,
+    "validated": true
+  },
+  {
+    "report": "sglang-production-lexical-original/02-lexical.json",
+    "sha256": "1aa37df82948969749b47f2d035234bfb2e3f7b905fb68fa92e4b04a10351753",
+    "trials": 6,
+    "artifact_version": 2,
+    "validated": true
+  },
+  {
+    "report": "sglang-production-lexical-original/03-lexical.json",
+    "sha256": "5910ee2654bc2a5b92de86dcc9708457769d7bc8ea01960a8ebaa7a015376727",
+    "trials": 6,
+    "artifact_version": 2,
+    "validated": true
+  },
+  {
+    "report": "sglang-production-lexical-protocol/01-lexical.json",
+    "sha256": "9ef9df83bb39c040e278f052e9555ba54108ec54aa001fd6adf4861363d6d452",
+    "trials": 6,
+    "artifact_version": 2,
+    "validated": true
+  },
+  {
+    "report": "sglang-production-lexical-protocol/02-lexical.json",
+    "sha256": "990539bd483c065876a6ea8fbe5a24c7379e4c84bc0933d3c496cf1e2027f125",
+    "trials": 6,
+    "artifact_version": 2,
+    "validated": true
+  },
+  {
+    "report": "sglang-production-lexical-protocol/03-lexical.json",
+    "sha256": "72f11ac8caedad426b519b0a39673c7efce1d33572d04818cb5bac536d5f54ee",
+    "trials": 6,
+    "artifact_version": 2,
+    "validated": true
+  },
+  {
+    "report": "sglang-protocol/01-advisory.json",
+    "sha256": "916df5f93d2f40596081168c746f81e5d743ae5cdd537cc56b704079eb363e27",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-protocol/01-first.json",
+    "sha256": "90d9b5a2bd09124144ce1459e9a2449da71afee982676fd9cb2a957d5b75c616",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-protocol/01-off.json",
+    "sha256": "4d54859a08820ba3ad7729aeb914b231dc7e52107cc04d86eaffd0b932ae43da",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-protocol/02-advisory.json",
+    "sha256": "eeabea55ea0d4308cde94bd7f2e412d9693d1b614abc45676eae9a5857ddeb72",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-protocol/02-first.json",
+    "sha256": "3583041575faa5827a220c5c1e637fbabc1327182b16e32c99ebd7e812f6cea0",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-protocol/02-off.json",
+    "sha256": "c7eb1f7fc809cc4c108ff9455e679b59ac61bbaa2e93d515584737ec2c6ea90c",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-protocol/03-advisory.json",
+    "sha256": "5f8ef817bee3c5ab15b5ca2169053ba5dea4739dad5e1de8543bd3770be3e3e2",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-protocol/03-first.json",
+    "sha256": "a198f15bb8080af780c2217ae5f86100d4e1d8f5351ba9bdb415cfe09da03c61",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-protocol/03-off.json",
+    "sha256": "dcec1f457f2bd3f461b54e6d909c9cbd2497aad65ac491c380bb7630c3a3a0c6",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-skill/01-advisory.json",
+    "sha256": "24218d19b161dc0e24ba5882dfa5482c79b547bc3b4aca9250743d7ba6906ad3",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-skill/01-off.json",
+    "sha256": "a39b0f6e42a9b14ce2d86666abcc9e23acee5b33e4a5bd192daf9a3315a93577",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-skill/02-advisory.json",
+    "sha256": "7f995a2c7901d297f373fb455168234af8f53ae387ce34bc9d7bc1fd8bb6812e",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-skill/02-off.json",
+    "sha256": "36ba18119e05f36fbc974aa0f86e2fa2eaea05a8354e1143b39f02abfe630f22",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-skill/03-advisory.json",
+    "sha256": "14978cb35bafe4de1d222770901fdf041072024393b15f387f344055dfb88811",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-skill/03-off.json",
+    "sha256": "804e3e2ebce0b7e5d8ab873a8863ef405afa1d8c2b99f88e0ed8c01a452e29b2",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-skill-holdout/01-advisory.json",
+    "sha256": "f07852bf4405e397f8307bcb252dab9a08e3e945058cc556a00f96a746d48248",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-skill-holdout/01-off.json",
+    "sha256": "82a5c610c43ddada91256d285a3523cdfe64b555794fbef080fb9c0a96344a2c",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-skill-holdout/02-advisory.json",
+    "sha256": "0febe3a8f34fbd701681bf2deb8622b76a0deea1bc44c5720a82de0b4b9c10d0",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-skill-holdout/02-off.json",
+    "sha256": "8aabcfb5a13fb42c9f89224dbbd228c03507169215f1eb2e18f00789a95bed59",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-skill-holdout/03-advisory.json",
+    "sha256": "ab1dc3254d1c26dbf0ff3ddea0d45f063bbe46de71a741dc2d8bc11c28589bf4",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  },
+  {
+    "report": "sglang-skill-holdout/03-off.json",
+    "sha256": "4ea81b23e008f0217b34f58604d6574eadda11028580a2cef5e6210db55dd801",
+    "trials": 6,
+    "artifact_version": 1,
+    "validated": true
+  }
+]
