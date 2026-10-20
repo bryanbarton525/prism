@@ -48,12 +48,17 @@ type Config struct {
 }
 
 func ServeWithConfig(ctx context.Context, runner app.AgentRunner, cfg Config) error {
+	return NewServer(runner, cfg).Run(ctx, &mcpsdk.StdioTransport{})
+}
+
+// NewServer registers the same Prism MCP surface for stdio and replay evaluations.
+func NewServer(runner app.AgentRunner, cfg Config) *mcpsdk.Server {
 	srv := mcpsdk.NewServer(&mcpsdk.Implementation{
 		Name:    serverName,
 		Version: buildinfo.Current().Version,
 	}, nil)
 	registerTools(srv, runner, cfg)
-	return srv.Run(ctx, &mcpsdk.StdioTransport{})
+	return srv
 }
 
 func registerTools(srv *mcpsdk.Server, runner app.AgentRunner, cfg Config) {
