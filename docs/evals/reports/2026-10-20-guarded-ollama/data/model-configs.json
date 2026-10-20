@@ -1,0 +1,258 @@
+{
+  "qwen3.5:9b": {
+    "details": {
+      "parent_model": "",
+      "format": "gguf",
+      "family": "qwen35",
+      "families": [
+        "qwen35"
+      ],
+      "parameter_size": "9.7B",
+      "quantization_level": "Q4_K_M"
+    },
+    "model_info": {
+      "general.architecture": "qwen35",
+      "general.file_type": 15,
+      "general.parameter_count": 9653104368,
+      "general.quantization_version": 2,
+      "qwen35.attention.head_count": 16,
+      "qwen35.attention.head_count_kv": [
+        0,
+        0,
+        0,
+        4,
+        0,
+        0,
+        0,
+        4,
+        0,
+        0,
+        0,
+        4,
+        0,
+        0,
+        0,
+        4,
+        0,
+        0,
+        0,
+        4,
+        0,
+        0,
+        0,
+        4,
+        0,
+        0,
+        0,
+        4,
+        0,
+        0,
+        0,
+        4
+      ],
+      "qwen35.attention.key_length": 256,
+      "qwen35.attention.layer_norm_rms_epsilon": 1e-06,
+      "qwen35.attention.value_length": 256,
+      "qwen35.block_count": 32,
+      "qwen35.context_length": 262144,
+      "qwen35.embedding_length": 4096,
+      "qwen35.feed_forward_length": 12288,
+      "qwen35.full_attention_interval": 4,
+      "qwen35.image_token_id": 248056,
+      "qwen35.mrope_sections": [
+        11,
+        11,
+        10
+      ],
+      "qwen35.rope.dimension_count": 64,
+      "qwen35.rope.dimension_sections": [
+        11,
+        11,
+        10
+      ],
+      "qwen35.rope.freq_base": 10000000,
+      "qwen35.rope.mrope_interleaved": true,
+      "qwen35.rope.mrope_section": [
+        11,
+        11,
+        10
+      ],
+      "qwen35.ssm.conv_kernel": 4,
+      "qwen35.ssm.group_count": 16,
+      "qwen35.ssm.inner_size": 4096,
+      "qwen35.ssm.state_size": 128,
+      "qwen35.ssm.time_step_rank": 32,
+      "qwen35.ssm.v_head_reordered": true,
+      "qwen35.vision.attention.head_count": 16,
+      "qwen35.vision.block_count": 27,
+      "qwen35.vision.deepstack_visual_indexes": [],
+      "qwen35.vision.embedding_length": 1152,
+      "qwen35.vision.image_mean": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "qwen35.vision.image_std": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "qwen35.vision.longest_edge": 16777216,
+      "qwen35.vision.num_channels": 3,
+      "qwen35.vision.patch_size": 16,
+      "qwen35.vision.shortest_edge": 65536,
+      "qwen35.vision.spatial_merge_size": 2,
+      "qwen35.vision.temporal_patch_size": 2,
+      "qwen35.vision_end_token_id": 248054,
+      "qwen35.vision_start_token_id": 248053,
+      "tokenizer.ggml.add_eos_token": false,
+      "tokenizer.ggml.add_padding_token": false,
+      "tokenizer.ggml.eos_token_id": 248046,
+      "tokenizer.ggml.merges": [],
+      "tokenizer.ggml.model": "gpt2",
+      "tokenizer.ggml.padding_token_id": 248044,
+      "tokenizer.ggml.pre": "qwen35",
+      "tokenizer.ggml.scores": [],
+      "tokenizer.ggml.token_type": [],
+      "tokenizer.ggml.tokens": []
+    },
+    "parameters": "top_k                          20\ntop_p                          0.95\npresence_penalty               1.5\ntemperature                    1",
+    "capabilities": [
+      "completion",
+      "vision",
+      "tools",
+      "thinking"
+    ],
+    "template_sha256": "b507b9c2f6ca642bffcd06665ea7c91f235fd32daeefdf875a0f938db05fb315",
+    "system_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "qwen2.5-coder:7b": {
+    "details": {
+      "parent_model": "",
+      "format": "gguf",
+      "family": "qwen2",
+      "families": [
+        "qwen2"
+      ],
+      "parameter_size": "7.6B",
+      "quantization_level": "Q4_K_M"
+    },
+    "model_info": {
+      "general.architecture": "qwen2",
+      "general.base_model.0.name": "Qwen2.5 Coder 7B",
+      "general.base_model.0.organization": "Qwen",
+      "general.base_model.0.repo_url": "https://huggingface.co/Qwen/Qwen2.5-Coder-7B",
+      "general.base_model.count": 1,
+      "general.basename": "Qwen2.5-Coder",
+      "general.file_type": 15,
+      "general.finetune": "Instruct",
+      "general.languages": [
+        "en"
+      ],
+      "general.license": "apache-2.0",
+      "general.license.link": "https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct/blob/main/LICENSE",
+      "general.parameter_count": 7615616512,
+      "general.quantization_version": 2,
+      "general.size_label": "7B",
+      "general.tags": [
+        "code",
+        "codeqwen",
+        "chat",
+        "qwen",
+        "qwen-coder",
+        "text-generation"
+      ],
+      "general.type": "model",
+      "qwen2.attention.head_count": 28,
+      "qwen2.attention.head_count_kv": 4,
+      "qwen2.attention.layer_norm_rms_epsilon": 1e-06,
+      "qwen2.block_count": 28,
+      "qwen2.context_length": 32768,
+      "qwen2.embedding_length": 3584,
+      "qwen2.feed_forward_length": 18944,
+      "qwen2.rope.freq_base": 1000000,
+      "tokenizer.ggml.add_bos_token": false,
+      "tokenizer.ggml.bos_token_id": 151643,
+      "tokenizer.ggml.eos_token_id": 151645,
+      "tokenizer.ggml.merges": [],
+      "tokenizer.ggml.model": "gpt2",
+      "tokenizer.ggml.padding_token_id": 151643,
+      "tokenizer.ggml.pre": "qwen2",
+      "tokenizer.ggml.token_type": [],
+      "tokenizer.ggml.tokens": []
+    },
+    "parameters": null,
+    "capabilities": [
+      "completion",
+      "tools",
+      "insert"
+    ],
+    "template_sha256": "1e65450c30670713aa47fe23e8b9662bdf4065e81cc8e3cbfaa98924fcc0d320",
+    "system_sha256": "66b9ea09bd5b7099cbb4fc820f31b575c0366fa439b08245566692c6784e281e"
+  },
+  "llama3.1:8b": {
+    "details": {
+      "parent_model": "",
+      "format": "gguf",
+      "family": "llama",
+      "families": [
+        "llama"
+      ],
+      "parameter_size": "8.0B",
+      "quantization_level": "Q4_K_M"
+    },
+    "model_info": {
+      "general.architecture": "llama",
+      "general.basename": "Meta-Llama-3.1",
+      "general.file_type": 15,
+      "general.finetune": "Instruct",
+      "general.languages": [
+        "en",
+        "de",
+        "fr",
+        "it",
+        "pt",
+        "hi",
+        "es",
+        "th"
+      ],
+      "general.license": "llama3.1",
+      "general.parameter_count": 8030261312,
+      "general.quantization_version": 2,
+      "general.size_label": "8B",
+      "general.tags": [
+        "facebook",
+        "meta",
+        "pytorch",
+        "llama",
+        "llama-3",
+        "text-generation"
+      ],
+      "general.type": "model",
+      "llama.attention.head_count": 32,
+      "llama.attention.head_count_kv": 8,
+      "llama.attention.layer_norm_rms_epsilon": 1e-05,
+      "llama.block_count": 32,
+      "llama.context_length": 131072,
+      "llama.embedding_length": 4096,
+      "llama.feed_forward_length": 14336,
+      "llama.rope.dimension_count": 128,
+      "llama.rope.freq_base": 500000,
+      "llama.vocab_size": 128256,
+      "tokenizer.ggml.bos_token_id": 128000,
+      "tokenizer.ggml.eos_token_id": 128009,
+      "tokenizer.ggml.merges": [],
+      "tokenizer.ggml.model": "gpt2",
+      "tokenizer.ggml.pre": "llama-bpe",
+      "tokenizer.ggml.token_type": [],
+      "tokenizer.ggml.tokens": []
+    },
+    "parameters": "stop                           \"<|start_header_id|>\"\nstop                           \"<|end_header_id|>\"\nstop                           \"<|eot_id|>\"",
+    "capabilities": [
+      "completion",
+      "tools"
+    ],
+    "template_sha256": "948af2743fc78a328dcb3b0f5a31b3d75f415840fdb699e8b1235978392ecf85",
+    "system_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

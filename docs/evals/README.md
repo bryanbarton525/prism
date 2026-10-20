@@ -112,3 +112,7 @@ Each check also records a score, threshold, and diagnostic reason; exported
 `metrics.jsonl` makes these available for comparison analysis. See the
 [Eino and DeepEval review](framework-review.md) for the design ideas applied here
 and follow-up improvements.
+
+## Captured results
+
+- [Guarded Ollama and Laya comparison, v0.1.32](reports/2026-10-20-guarded-ollama/README.md): 72 retained trials, full traces, reproducible charts, and memory telemetry.

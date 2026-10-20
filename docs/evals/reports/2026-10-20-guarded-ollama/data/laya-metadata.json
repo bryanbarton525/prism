@@ -1,0 +1,59 @@
+{
+  "started": "2026-10-20T03:06:44.114341+00:00",
+  "cli": {
+    "prism_version": "v0.1.32",
+    "bundle_version": "v0.1.32",
+    "bundle_digest": "caece9dbb7e8f91fa41c2238dd6051dcdf5e89418c0443c6743aa131cb047af6",
+    "revision": "0cbacf6a250948fb1984e5c6d3911acebf7f3064",
+    "dirty": false
+  },
+  "ollama": {
+    "version": "0.40.6"
+  },
+  "models": [
+    {
+      "name": "llama3.1:8b",
+      "model": "llama3.1:8b",
+      "modified_at": "2026-05-28T23:13:07.181180684-04:00",
+      "size": 4920753328,
+      "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "llama",
+        "families": [
+          "llama"
+        ],
+        "parameter_size": "8.0B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 131072,
+        "embedding_length": 4096,
+        "runner": "ggml"
+      },
+      "capabilities": [
+        "completion",
+        "tools"
+      ]
+    }
+  ],
+  "settings": {
+    "model": [
+      "llama3.1:8b"
+    ],
+    "output_dir": "/Users/bbarton/prism-eval-results/2026-10-20-release32/laya",
+    "prism": "prism",
+    "suite": null,
+    "laya_url": "https://laya-gpu.iambarton.com",
+    "repeat": 3,
+    "max_tokens": 4096,
+    "max_model_gib": 8,
+    "max_resident_gib": 12,
+    "min_free_percent": 40
+  },
+  "temperature": 0.1,
+  "trial_timeout": "180s",
+  "warmup": false,
+  "retries": 0,
+  "order": "sequential model blocks; unload after every block",
+  "memory_guard": "host memory_pressure and total Ollama resident size, sampled every 2 seconds; not a hard OS limit"
+}

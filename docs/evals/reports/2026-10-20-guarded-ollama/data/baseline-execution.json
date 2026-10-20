@@ -1,0 +1,945 @@
+[
+  {
+    "model": "qwen3.5:9b",
+    "command": [
+      "prism",
+      "eval",
+      "run",
+      "--model",
+      "qwen3.5:9b",
+      "--repeat",
+      "3",
+      "--max-tokens",
+      "4096",
+      "--temperature",
+      "0.1",
+      "--timeout",
+      "180s",
+      "--output",
+      "/Users/bbarton/prism-eval-results/2026-10-20-release32/baseline/01.json"
+    ],
+    "memory": [
+      {
+        "at": 1792465235.842467,
+        "free_percent": 92,
+        "resident_bytes": 0
+      },
+      {
+        "at": 1792465237.851135,
+        "free_percent": 78,
+        "resident_bytes": 0
+      },
+      {
+        "at": 1792465239.864094,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465241.876971,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465243.8872588,
+        "free_percent": 77,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465245.8938491,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465247.905209,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465249.918112,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465251.927755,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465253.939702,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465255.94783,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465257.957033,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465259.9647412,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465261.9758039,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465263.9872289,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465266.000714,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465268.008994,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465270.021784,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465272.0341089,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465274.04686,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465276.059171,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465278.06741,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465280.080348,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465282.089346,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465284.101069,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465286.1103702,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465288.123484,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465290.136262,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465292.148919,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465294.161775,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465296.169805,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465298.182581,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465300.195252,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465302.203886,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465304.2132301,
+        "free_percent": 79,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465306.221385,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465308.234719,
+        "free_percent": 77,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465310.2430341,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465312.252317,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465314.264817,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465316.273268,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465318.284532,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465320.295965,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465322.309439,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465324.3216891,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465326.333397,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465328.3461661,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465330.35532,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465332.3632371,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465334.3755221,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465336.386594,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465338.399352,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465340.413229,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465342.426383,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465344.439868,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465346.4522939,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465348.465169,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465350.4788322,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465352.498095,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465354.516872,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465356.527359,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465358.5457878,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465360.5632472,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465362.5736058,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465364.594384,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465366.613313,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465368.632319,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465370.6525419,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465372.6713338,
+        "free_percent": 77,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465374.689877,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465376.705083,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465378.721277,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465380.7304902,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465382.747891,
+        "free_percent": 79,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465384.766836,
+        "free_percent": 79,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465386.7779431,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465388.7978969,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465390.813997,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465392.832799,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465394.8489962,
+        "free_percent": 77,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465396.864757,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465398.88132,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465400.8967838,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465402.9073448,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465404.926819,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465406.94641,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465408.963705,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465410.9789639,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465412.9953668,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465415.005335,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465417.02021,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465419.0389,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465421.047748,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465423.066805,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465425.083188,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465427.09503,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465429.1058078,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465431.1189408,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465433.129877,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792465435.1431239,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      }
+    ],
+    "passed": 2,
+    "trials": 18,
+    "validated": true,
+    "unloaded": true
+  },
+  {
+    "model": "qwen2.5-coder:7b",
+    "command": [
+      "prism",
+      "eval",
+      "run",
+      "--model",
+      "qwen2.5-coder:7b",
+      "--repeat",
+      "3",
+      "--max-tokens",
+      "4096",
+      "--temperature",
+      "0.1",
+      "--timeout",
+      "180s",
+      "--output",
+      "/Users/bbarton/prism-eval-results/2026-10-20-release32/baseline/02.json"
+    ],
+    "memory": [
+      {
+        "at": 1792465437.301286,
+        "free_percent": 91,
+        "resident_bytes": 0
+      },
+      {
+        "at": 1792465439.310501,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792465441.322578,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792465443.333724,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792465445.346883,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792465447.3567822,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792465449.365453,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792465451.37869,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792465453.38743,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792465455.399244,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792465457.412547,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792465459.4205592,
+        "free_percent": 82,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792465461.4317598,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792465463.443659,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792465465.453808,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792465467.463122,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792465469.473927,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792465471.486231,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792465473.4934988,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      }
+    ],
+    "passed": 0,
+    "trials": 18,
+    "validated": true,
+    "unloaded": true
+  },
+  {
+    "model": "llama3.1:8b",
+    "command": [
+      "prism",
+      "eval",
+      "run",
+      "--model",
+      "llama3.1:8b",
+      "--repeat",
+      "3",
+      "--max-tokens",
+      "4096",
+      "--temperature",
+      "0.1",
+      "--timeout",
+      "180s",
+      "--output",
+      "/Users/bbarton/prism-eval-results/2026-10-20-release32/baseline/03.json"
+    ],
+    "memory": [
+      {
+        "at": 1792465475.590731,
+        "free_percent": 91,
+        "resident_bytes": 0
+      },
+      {
+        "at": 1792465477.6035771,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465479.6163762,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465481.6241128,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465483.636251,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465485.644754,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465487.657332,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465489.6708941,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465491.6827898,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465493.695343,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465495.703922,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465497.717799,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465499.7319272,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465501.745512,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465503.759167,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465505.772602,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465507.786217,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465509.7972422,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465511.8102689,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465513.8238451,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465515.8377159,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465517.850247,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465519.862974,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465521.8756878,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465523.8888881,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465525.896998,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465527.910418,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465529.920619,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465531.9334989,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465533.9438028,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465535.955998,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465537.9690921,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465539.982466,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465541.9958441,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465544.0100338,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465546.020556,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465548.031683,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465550.040629,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465552.0521889,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465554.065053,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465556.078173,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465558.086012,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465560.098655,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465562.11257,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465564.123696,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465566.135659,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465568.1476321,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465570.157722,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465572.171186,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465574.1812649,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465576.1941838,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465578.2077281,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465580.2212532,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792465582.231623,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      }
+    ],
+    "passed": 5,
+    "trials": 18,
+    "validated": true,
+    "unloaded": true
+  }
+]

@@ -1,0 +1,15 @@
+{
+  "version": {
+    "prism_version": "v0.1.32",
+    "bundle_version": "v0.1.32",
+    "bundle_digest": "caece9dbb7e8f91fa41c2238dd6051dcdf5e89418c0443c6743aa131cb047af6",
+    "revision": "0cbacf6a250948fb1984e5c6d3911acebf7f3064",
+    "dirty": false
+  },
+  "release": "https://github.com/bryanbarton525/prism/releases/tag/v0.1.32",
+  "pipeline": "https://github.com/bryanbarton525/prism/actions/runs/39361693913",
+  "asset": "prism_v0.1.32_darwin_arm64.tar.gz",
+  "asset_sha256": "f7bbe490f61b21d18f1384e229b25dc91514973a0032be84d1bcb2f7f9bb02bb",
+  "verified": true,
+  "binary_sha256": "3c5299ae260ae20977c929b7eb33ee0e7ebfd3f6017c9b83cf63a241c566d95f"
+}
