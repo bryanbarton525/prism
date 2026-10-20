@@ -18,6 +18,10 @@ const DefaultOllamaHost = "http://127.0.0.1:11434"
 
 // Settings holds process-level configuration read from defaults, .env, and env.
 type Settings struct {
+	ConfigFile          string
+	RuntimeSources      map[string]string
+	RuntimeKeyEnv       string
+	OllamaHostSource    string
 	RootDir             string
 	AgentDir            string
 	SkillsDir           string
@@ -70,6 +74,20 @@ func load(selectedStateDir string) (Settings, error) {
 		return Settings{}, err
 	}
 	settings := settingsFrom(v, fileEnv)
+	settings.ConfigFile = prismConfigPath(v, selectedStateDir)
+	settings.RuntimeSources = map[string]string{}
+	for _, key := range []string{"engine", "base_url", "model", "api_key", "api_key_env", "fallback_engine", "fallback_base_url", "fallback_model"} {
+		_, source := resolveValue(v, fileEnv, "model_runtime_"+key, "PRISM_MODEL_RUNTIME_"+strings.ToUpper(key))
+		if source == "saved config" {
+			source = settings.ConfigFile
+		}
+		settings.RuntimeSources[key] = source
+	}
+	settings.RuntimeKeyEnv = configValue(v, fileEnv, "model_runtime_api_key_env", "PRISM_MODEL_RUNTIME_API_KEY_ENV")
+	_, settings.OllamaHostSource = resolveValue(v, fileEnv, "ollama_host", "PRISM_OLLAMA_HOST")
+	if settings.OllamaHostSource == "saved config" {
+		settings.OllamaHostSource = settings.ConfigFile
+	}
 	if selectedStateDir != "" {
 		settings.StateDir = selectedStateDir
 	}
@@ -164,25 +182,31 @@ func modelRuntimeFrom(v *viper.Viper, fileEnv map[string]string) runtime.Runtime
 }
 
 func configValue(v *viper.Viper, fileEnv map[string]string, key string, envNames ...string) string {
+	value, _ := resolveValue(v, fileEnv, key, envNames...)
+	return value
+}
+
+// resolveValue mirrors the loader's precedence while retaining provenance.
+func resolveValue(v *viper.Viper, fileEnv map[string]string, key string, envNames ...string) (string, string) {
 	for _, name := range envNames {
 		if value := os.Getenv(name); value != "" {
-			return value
+			return value, "environment: " + name
 		}
 	}
 	for _, name := range envNames {
 		if value := v.GetString(name); value != "" {
-			return value
+			return value, ".env"
 		}
 	}
 	if value := v.GetString(key); value != "" && !isDefaultOnly(key, value) {
-		return value
+		return value, ".env"
 	}
 	for _, name := range envNames {
 		if value := fileEnv[name]; value != "" {
-			return value
+			return value, "saved config"
 		}
 	}
-	return v.GetString(key)
+	return v.GetString(key), "default"
 }
 
 func isDefaultOnly(key, value string) bool {

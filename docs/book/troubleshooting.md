@@ -70,11 +70,23 @@ Use explicit recommendations to check the service before changing routing.
 
 ## Setup selects another model or state
 
+Run `prism model status` for effective and saved settings with their sources;
+add `--check` to verify advertised availability. `prism agent list` shows both
+declared and effective models. Use `prism model set` for the keyboard picker or
+`prism model set qwen3.6:27b --engine ollama` for an explicit shared selection.
+The singular `model` command selects the offload model; plural `models` manages
+tool embeddings. `prism agent model set` expects a managed agent ID followed by
+`--model <model>` or `--use-configured-model` and does not edit bundled agents.
+
 Explicit environment values override saved configuration. Inspect the named
 settings and the `--state-dir` passed to your host's Prism command. A global
 model override can conflict with an imported agent's requested target; choose
 the configured model explicitly with `--use-configured-model` when appropriate.
 If `PRISM_CONFIG_FILE` points elsewhere, align it before installation.
+
+Changing saved runtime configuration does not edit host MCP registrations.
+Check Codex/Claude's Prism environment overrides if the host differs from the
+terminal, and reconnect running MCP servers to load updated settings.
 
 ## Scores look confident but the selected tool is wrong
 

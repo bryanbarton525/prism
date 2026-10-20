@@ -20,8 +20,8 @@ func newConfigCmd() *cobra.Command {
 func newDoctorCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "doctor",
-		Short: "Check Ollama connectivity and Prism configuration",
-		Long:  "Reports agent and skill registry state and probes the local Ollama server.",
+		Short: "Check the selected model runtime and Prism configuration",
+		Long:  "Reports agent and skill registry state and checks models on the selected Ollama, SGLang, or vLLM endpoint.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			runner, cleanup, err := newRunner(cmd.Context())
 			if err != nil {
@@ -39,7 +39,7 @@ func newDoctorCmd() *cobra.Command {
 				return enc.Encode(dr)
 			}
 
-			fmt.Printf("Ollama host:  %s\n", dr.OllamaHost)
+			fmt.Printf("Runtime:      %s\nEndpoint:     %s\nShared model: %s\n", dr.RuntimeEngine, dr.RuntimeEndpoint, dr.RuntimeModel)
 			fmt.Printf("Agent dir:    %s\n", dr.AgentDir)
 			fmt.Printf("Skills dir:   %s\n", dr.SkillsDir)
 			fmt.Printf("Agents:       %d\n", dr.AgentCount)

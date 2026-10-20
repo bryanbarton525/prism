@@ -14,8 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/bryanbarton525/prism/internal/fileatomic"
-	"github.com/bryanbarton525/prism/internal/filelock"
+	"github.com/bryanbarton525/prism/internal/config"
 	"github.com/bryanbarton525/prism/internal/llm"
 	"github.com/bryanbarton525/prism/internal/llm/runtime"
 	"github.com/bryanbarton525/prism/internal/toolmodel"
@@ -365,58 +364,5 @@ func saveInstallToolRouting(flags installFlags, stateDir string) error {
 			settings["PRISM_KEV_API_KEY_ENV"] = ""
 		}
 	}
-	if len(settings) == 0 {
-		return nil
-	}
-	if err := os.MkdirAll(stateDir, 0o700); err != nil {
-		return err
-	}
-	unlock, err := filelock.Acquire(context.Background(), filepath.Join(stateDir, "runtime-config.lock"), 5*time.Second)
-	if err != nil {
-		return err
-	}
-	defer unlock()
-	path := filepath.Join(stateDir, "config.env")
-	data, err := os.ReadFile(path)
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	lines := strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
-	if len(data) == 0 {
-		lines = nil
-	}
-	seen := map[string]bool{}
-	for i, line := range lines {
-		key, _, ok := strings.Cut(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "export ")), "=")
-		key = strings.TrimSpace(key)
-		if !ok || strings.HasPrefix(strings.TrimSpace(line), "#") {
-			continue
-		}
-		if value, found := settings[key]; found {
-			lines[i] = key + "=" + strconv.Quote(value)
-			seen[key] = true
-		}
-	}
-	for _, key := range []string{"PRISM_TOOL_RECOMMEND_MODEL", "PRISM_TOOL_RECOMMEND_AGENTS", "PRISM_MODEL_RUNTIME_ENGINE", "PRISM_MODEL_RUNTIME_BASE_URL", "PRISM_MODEL_RUNTIME_MODEL", "PRISM_MODEL_RUNTIME_API_KEY_ENV", "PRISM_DECISION_URL", "PRISM_DECISION_API_KEY_ENV", "PRISM_DECISION_MODEL", "PRISM_KEV_URL", "PRISM_KEV_API_KEY_ENV", "PRISM_KEV_MODEL"} {
-		if value, ok := settings[key]; ok && !seen[key] {
-			lines = append(lines, key+"="+strconv.Quote(value))
-		}
-	}
-	tmp, err := os.CreateTemp(stateDir, ".config-env-")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(tmp.Name())
-	if err := tmp.Chmod(0o600); err != nil {
-		tmp.Close()
-		return err
-	}
-	if _, err := tmp.WriteString(strings.Join(lines, "\n") + "\n"); err != nil {
-		tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	return fileatomic.Replace(tmp.Name(), path)
+	return config.WriteEnv(context.Background(), stateDir, settings)
 }
