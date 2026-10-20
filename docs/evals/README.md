@@ -1,5 +1,7 @@
 # Model response evaluations
 
+Latest fixed-contract smoke results, raw data, and graphs: [optional routing comparison](reports/2026-10-20-contract-routing/README.md). These single-pass runs are not approved consistency baselines.
+
 For a memory-guarded Ollama runner and recorded Laya off/on commands, see
 [the reproducible evaluation guide](../../evals/README.md).
 

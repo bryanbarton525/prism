@@ -22,6 +22,11 @@ func (r *orderedRuntime) Chat(ctx context.Context, req runtime.ChatRequest) (*ru
 	if *r.requests == 0 {
 		panic("generation before Laya")
 	}
+	for _, message := range req.Messages[1:] {
+		if message.Role == "system" {
+			panic("routing injected a system message after the conversation began")
+		}
+	}
 	out, err := r.fixtureRuntime.Chat(ctx, req)
 	if r.bypass && len(out.Message.ToolCalls) > 0 {
 		out.Message.ToolCalls[0].Function.Arguments["server"] = "unauthorized"

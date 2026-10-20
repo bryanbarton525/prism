@@ -1,0 +1,405 @@
+[
+  {
+    "model": "qwen3.5:9b",
+    "command": [
+      "/Users/bbarton/prism-eval-results/fixed-routing/prism-final",
+      "eval",
+      "run",
+      "--model",
+      "qwen3.5:9b",
+      "--repeat",
+      "1",
+      "--max-tokens",
+      "4096",
+      "--temperature",
+      "0.1",
+      "--timeout",
+      "180s",
+      "--output",
+      "/Users/bbarton/prism-eval-results/fixed-routing/final-original/01.json"
+    ],
+    "memory": [
+      {
+        "at": 1792467653.661953,
+        "free_percent": 92,
+        "resident_bytes": 0
+      },
+      {
+        "at": 1792467655.677702,
+        "free_percent": 78,
+        "resident_bytes": 0
+      },
+      {
+        "at": 1792467657.687825,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467659.7002308,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467661.7127528,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467663.725205,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467665.733418,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467667.741835,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467669.75396,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467671.765826,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467673.776766,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467675.789508,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467677.797916,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467679.8073559,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467681.820949,
+        "free_percent": 77,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467683.831987,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467685.84192,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467687.854122,
+        "free_percent": 77,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467689.866922,
+        "free_percent": 77,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467691.8794901,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467693.892307,
+        "free_percent": 77,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467695.905422,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467697.914308,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467699.92448,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467701.937182,
+        "free_percent": 77,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467703.949507,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467705.960521,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467707.973303,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467709.981934,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467711.989908,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467714.002916,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467716.0159528,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467718.0249221,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467720.0364318,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      },
+      {
+        "at": 1792467722.0500119,
+        "free_percent": 78,
+        "resident_bytes": 5708206570
+      }
+    ],
+    "passed": 5,
+    "trials": 6,
+    "validated": true,
+    "unloaded": true
+  },
+  {
+    "model": "qwen2.5-coder:7b",
+    "command": [
+      "/Users/bbarton/prism-eval-results/fixed-routing/prism-final",
+      "eval",
+      "run",
+      "--model",
+      "qwen2.5-coder:7b",
+      "--repeat",
+      "1",
+      "--max-tokens",
+      "4096",
+      "--temperature",
+      "0.1",
+      "--timeout",
+      "180s",
+      "--output",
+      "/Users/bbarton/prism-eval-results/fixed-routing/final-original/02.json"
+    ],
+    "memory": [
+      {
+        "at": 1792467724.204198,
+        "free_percent": 91,
+        "resident_bytes": 0
+      },
+      {
+        "at": 1792467726.2152479,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792467728.225205,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792467730.237858,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792467732.246379,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792467734.25907,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792467736.2721689,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792467738.280458,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792467740.291261,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      },
+      {
+        "at": 1792467742.298804,
+        "free_percent": 81,
+        "resident_bytes": 5026999172
+      }
+    ],
+    "passed": 1,
+    "trials": 6,
+    "validated": true,
+    "unloaded": true
+  },
+  {
+    "model": "llama3.1:8b",
+    "command": [
+      "/Users/bbarton/prism-eval-results/fixed-routing/prism-final",
+      "eval",
+      "run",
+      "--model",
+      "llama3.1:8b",
+      "--repeat",
+      "1",
+      "--max-tokens",
+      "4096",
+      "--temperature",
+      "0.1",
+      "--timeout",
+      "180s",
+      "--output",
+      "/Users/bbarton/prism-eval-results/fixed-routing/final-original/03.json"
+    ],
+    "memory": [
+      {
+        "at": 1792467744.398578,
+        "free_percent": 92,
+        "resident_bytes": 0
+      },
+      {
+        "at": 1792467746.4086459,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467748.421346,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467750.4278631,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467752.4406872,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467754.453592,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467756.461489,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467758.480139,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467760.491627,
+        "free_percent": 79,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467762.507751,
+        "free_percent": 79,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467764.518771,
+        "free_percent": 79,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467766.5273101,
+        "free_percent": 79,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467768.538165,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467770.546188,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467772.559961,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467774.568171,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467776.579108,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467778.591593,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467780.6051111,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      },
+      {
+        "at": 1792467782.617663,
+        "free_percent": 80,
+        "resident_bytes": 5678584299
+      }
+    ],
+    "passed": 3,
+    "trials": 6,
+    "validated": true,
+    "unloaded": true
+  }
+]

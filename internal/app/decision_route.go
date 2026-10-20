@@ -123,6 +123,7 @@ func (r *Runner) chatWithDecisionRouting(ctx context.Context, req llmruntime.Cha
 	if original := req.Metadata["routing_task"]; original != "" {
 		task = original
 	}
+	baseSystem := req.Messages[0].Content
 	results := newRunToolResults()
 	out := &chatToolResult{}
 	evidence := ""
@@ -151,10 +152,19 @@ func (r *Runner) chatWithDecisionRouting(ctx context.Context, req llmruntime.Cha
 				record(trace)
 				return out, fmt.Errorf("%s", trace.Error)
 			}
-			req.Tools = []llmruntime.Tool{functionTool("call_selected_mcp_tool", "Execute the runtime-selected route "+trace.Selected.Server+"."+trace.Selected.Name+". Supply only arguments matching this schema; the runtime binds the destination.", schema)}
-			req.Messages = append(req.Messages, llmruntime.Message{Role: "system", Content: "Laya selected " + trace.Selected.Server + "." + trace.Selected.Name + ". Call call_selected_mcp_tool with its arguments before answering. Do not select a different destination."})
+			boundSchema := map[string]any{
+				"type": "object", "additionalProperties": false,
+				"required": []string{"server", "tool", "arguments"},
+				"properties": map[string]any{
+					"server":    map[string]any{"type": "string", "enum": []string{trace.Selected.Server}},
+					"tool":      map[string]any{"type": "string", "enum": []string{trace.Selected.Name}},
+					"arguments": schema,
+				},
+			}
+			req.Tools = []llmruntime.Tool{functionTool("call_mcp_tool", "Execute the runtime-selected route "+trace.Selected.Server+"."+trace.Selected.Name+". The destination is fixed; supply the required arguments.", boundSchema)}
+			req.Messages[0].Content = baseSystem + "\n\n# Runtime-selected route\nLaya selected " + trace.Selected.Server + "." + trace.Selected.Name + ". Call call_mcp_tool now with this destination and its arguments before answering. Discovery is complete. Do not select a different destination or invent tool results."
 		} else {
-			req.Messages = append(req.Messages, llmruntime.Message{Role: "system", Content: "Laya determined evidence collection is complete. Answer from retained tool evidence using the required response contract. Do not invent missing facts."})
+			req.Messages[0].Content = baseSystem + "\n\n# Runtime-selected route\nLaya determined evidence collection is complete. Answer from retained tool evidence using the required response contract. Do not invent missing facts."
 		}
 		if results.bytes > 0 {
 			req.Tools = append(req.Tools, resultReadTool())
@@ -167,7 +177,7 @@ func (r *Runner) chatWithDecisionRouting(ctx context.Context, req llmruntime.Cha
 		}
 		out.promptTokens += resp.Usage.PromptTokens
 		out.completionTokens += resp.Usage.CompletionTokens
-		offered := map[string]bool{"call_selected_mcp_tool": trace.Kind == "call", "read_tool_result": results.bytes > 0}
+		offered := map[string]bool{"call_mcp_tool": trace.Kind == "call", "read_tool_result": results.bytes > 0}
 		if len(resp.Message.ToolCalls) == 0 {
 			if call, ok := parseTextToolCall(resp.Message.Content, offered); ok {
 				resp.Message.ToolCalls = []llmruntime.ToolCall{call}
@@ -195,7 +205,7 @@ func (r *Runner) chatWithDecisionRouting(ctx context.Context, req llmruntime.Cha
 			name = "call_mcp_tool"
 			args = map[string]any{"server": trace.Selected.Server, "tool": trace.Selected.Name, "arguments": args}
 		} else if name == "call_mcp_tool" && trace.Kind == "call" {
-			// Accept a legacy bridge spelling only when it matches the bound route.
+			// Enforce the selected destination independently of the advertised schema.
 			if args["server"] != trace.Selected.Server || args["tool"] != trace.Selected.Name {
 				trace.Error = "model attempted to bypass the selected route"
 				record(trace)
