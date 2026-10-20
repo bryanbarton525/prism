@@ -119,3 +119,50 @@ func TestDecisionContractSurvivesProductionMCPAndCannotBeSpoofed(t *testing.T) {
 		}
 	}
 }
+
+func TestDecisionRoutingUsesEvidenceForNextRoute(t *testing.T) {
+	suite, err := LoadSuite("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	suite.Cases = suite.Cases[len(suite.Cases)-1:]
+	suite.Cases[0].Task = "Find the health and name of the project linked to issue EVAL-81."
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request struct {
+			State     string `json:"state"`
+			Questions map[string]struct {
+				Criteria map[string]string `json:"criteria"`
+			} `json:"questions"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Error(err)
+		}
+		selected := "tracker.get_issue:"
+		if strings.Contains(request.State, "PROJ-8") {
+			selected = "projects.get_project:"
+		}
+		if strings.Contains(request.State, "Release Readiness") {
+			selected = "finish:"
+		}
+		scores := map[string]float64{}
+		for key, description := range request.Questions["tool"].Criteria {
+			scores[key] = 0
+			if strings.HasPrefix(description, selected) {
+				scores[key] = 1
+			}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"answers": map[string]any{"tool": map[string]any{"type": "choice", "probabilities": scores}}})
+	}))
+	defer server.Close()
+	report, err := Run(context.Background(), suite, &fixtureRuntime{fixture: suite.Cases[0]}, Options{Models: []string{"test"}, Repeat: 1, Timeout: 10 * time.Second, Generation: Generation{MaxTokens: 1024}, LayaURL: server.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	trial := report.Trials[0]
+	if !trial.Grade.Passed || len(trial.Routes) != 3 || len(trial.ToolCalls) != 2 {
+		t.Fatalf("multi-step route failed: %+v", trial)
+	}
+	if trial.Routes[0].Selected.Server != "tracker" || trial.Routes[1].Selected.Server != "projects" || trial.Routes[2].Kind != "finish" {
+		t.Fatalf("wrong route sequence: %+v", trial.Routes)
+	}
+}
