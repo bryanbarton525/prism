@@ -122,7 +122,7 @@ def main():
     for y, row in enumerate(rows[::-1]):
         ax.text(row['passed'] + .25, y, f"{row['passed']}/18", va='center', fontweight='bold')
     ax.set_xlim(0, 20); ax.set_xticks(range(0, 19, 3)); ax.set_xlabel('Trials passing the complete contract')
-    ax.set_title('MCP response consistency: guarded Ollama collection', loc='left', fontweight='bold', pad=20)
+    ax.set_title('Diagnostic contract outcomes: guarded Ollama collection', loc='left', fontweight='bold', pad=20)
     ax.text(0, -.23, '3 repetitions × 6 cases per arm · Laya arm includes successful-application requirement', transform=ax.transAxes, fontsize=10)
     savefig(fig, 'pass-counts')
     matrix = np.array([[sum(t['grade']['passed'] for t in report['trials'] if t['case_id'] == case) for case in case_ids] for report in reports])
@@ -153,7 +153,12 @@ def main():
     table = '\n'.join(f"| {r['label']} | {r['passed']}/18 | {100*r['consistency']:.1f}% | {r['median_seconds']:.2f}s | {r['peak_resident_gib']:.2f} GiB | {r['minimum_free_percent']}% |" for r in rows)
     dimensions = '\n'.join(f"| {r['label']} | {r['required_tool_calls']}/18 | {r['observed_argument_passes']}/{r['trials_with_tool_calls']} | {r['decision_fields']}/18 | {r['response_schema']}/18 |" for r in rows)
     eligible = ', '.join(r['label'] for r in rows if r['baseline_eligible']) or 'None'
-    text = f'''# Guarded Ollama evaluation · {reports[0]['build']['version']}
+    text = f'''# Diagnostic Ollama evaluation · {reports[0]['build']['version']}
+
+> **Contract conflicts confirmed. Do not use these scores to select a model.**
+> The attached skill hard-codes a different server alias from the fixtures, and
+> the system envelope omits the root `decision` required by the evaluator.
+> These traces diagnose harness/agent integration, not isolated model capability.
 
 Three local models, six synthetic MCP workflows, three repetitions per case,
 and a separate Laya-assisted Llama arm. **72 trials are retained, including failures.**
@@ -168,6 +173,29 @@ none of its earlier observations are pooled into these results.
 
 Baseline-eligible arms under the all-pass/all-consistent policy: **{eligible}**.
 No baseline is approved automatically by this report.
+
+## Confirmed harness and instruction conflicts
+
+The skill's read workflow hard-codes `linear`, while this suite exposes `tracker`
+and `projects`. The skill is supplied in the system prompt; task instructions
+naming fixture servers appear in the user prompt. Qwen Coder's `issue-status`
+repetition 1 attempted server `linear`, received an authorization error, and
+reported that error. That behavior cannot fairly be attributed solely to model
+selection. See [the skill](../../../../skills/linear-issue-management/SKILL.md)
+and [prompt assembly](../../../../internal/app/prompt.go).
+
+The same system prompt ends with a JSON envelope containing `summary`, `findings`,
+`artifacts`, and `confidence`. It does not define `decision`, while every suite
+case requires particular root-level `/decision/...` paths. The task requests an
+extra decision object, but there is no unified typed output contract across the
+agent, skill, runtime parser, and grader. Missing-field failures therefore mix
+instruction/contract design with model behavior.
+
+The advisory Laya path runs before the first generative call, but ranks a tool
+shortlist and injects suggestions. It does not enforce a selected server/tool or
+route subsequent steps. These cases explicitly name the tools and provide tiny
+catalogs. They establish delivery of suggestions, not the quality of a Laya-first
+MCP decision system. See [the corrective design and test plan](../../../laya-first-routing-plan.md).
 
 ## What these scores mean
 

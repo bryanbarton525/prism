@@ -1,4 +1,9 @@
-# Guarded Ollama evaluation · v0.1.32
+# Diagnostic Ollama evaluation · v0.1.32
+
+> **Contract conflicts confirmed. Do not use these scores to select a model.**
+> The attached skill hard-codes a different server alias from the fixtures, and
+> the system envelope omits the root `decision` required by the evaluator.
+> These traces diagnose harness/agent integration, not isolated model capability.
 
 Three local models, six synthetic MCP workflows, three repetitions per case,
 and a separate Laya-assisted Llama arm. **72 trials are retained, including failures.**
@@ -16,6 +21,29 @@ none of its earlier observations are pooled into these results.
 
 Baseline-eligible arms under the all-pass/all-consistent policy: **None**.
 No baseline is approved automatically by this report.
+
+## Confirmed harness and instruction conflicts
+
+The skill's read workflow hard-codes `linear`, while this suite exposes `tracker`
+and `projects`. The skill is supplied in the system prompt; task instructions
+naming fixture servers appear in the user prompt. Qwen Coder's `issue-status`
+repetition 1 attempted server `linear`, received an authorization error, and
+reported that error. That behavior cannot fairly be attributed solely to model
+selection. See [the skill](../../../../skills/linear-issue-management/SKILL.md)
+and [prompt assembly](../../../../internal/app/prompt.go).
+
+The same system prompt ends with a JSON envelope containing `summary`, `findings`,
+`artifacts`, and `confidence`. It does not define `decision`, while every suite
+case requires particular root-level `/decision/...` paths. The task requests an
+extra decision object, but there is no unified typed output contract across the
+agent, skill, runtime parser, and grader. Missing-field failures therefore mix
+instruction/contract design with model behavior.
+
+The advisory Laya path runs before the first generative call, but ranks a tool
+shortlist and injects suggestions. It does not enforce a selected server/tool or
+route subsequent steps. These cases explicitly name the tools and provide tiny
+catalogs. They establish delivery of suggestions, not the quality of a Laya-first
+MCP decision system. See [the corrective design and test plan](../../../laya-first-routing-plan.md).
 
 ## What these scores mean
 
