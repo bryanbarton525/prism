@@ -267,7 +267,9 @@ not judge every prose claim or establish capability across other Prism agents.
 
 `data/` holds all complete reports with prompts, tool-call traces, grading inputs,
 model responses, and build identities. `provenance/` holds runtime/model metadata,
-per-block resource telemetry and logs, validation records, and final health.
+per-block resource telemetry and logs (inside `cohort-runtime.tar.gz`), validation
+records, and final health. Extract that archive under `provenance/` to restore
+the original cohort directories.
 `diagnostics/` holds the classifier probes, HTTP capture, cold-start partial
 journal, task-position suite variants, and rejected prompt patches. Expected
 values occur only in evaluation fixtures and graders, never in recommendation
