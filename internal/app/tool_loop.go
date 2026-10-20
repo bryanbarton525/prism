@@ -517,16 +517,6 @@ You may call Prism bridge tools during this run:
 - read_tool_result: inspect a bounded portion of a retained result by result_id.
 
 Use these tools when the task requires live downstream MCP evidence or action.
-For external-record questions, first emit actual MCP bridge tool calls using the
-authorized inventory's schemas. During evidence collection, emit a tool call
-rather than a simulated result or an answer claiming retrieval succeeded.
-Read linked records after obtaining their identifiers from earlier results.
-After each result, collect any remaining evidence. Once the evidence is complete,
-populate the supplied decision schema and return the final envelope, preserving
-JSON field types and nulls. Empty lists and explicit access denials are final
-evidence about that lookup, not invitations to invent records or status values.
-The final JSON envelope applies after evidence collection; it does not replace
-the tool calls needed to obtain that evidence.
 After tool results are returned, produce the final Prism result envelope for the parent.
 Do not claim a downstream mutation succeeded unless a call_mcp_tool result proves it.
 `

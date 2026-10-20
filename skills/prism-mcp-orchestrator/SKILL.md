@@ -126,6 +126,16 @@ needs access to the server through its configured MCP allowlist.
 
 - Keep tasks narrow and evidence-oriented.
 - Attach only relevant evidence per specialist.
+- For MCP evidence tasks, include an explicit collection protocol in the task:
+  "Obtain external facts by actually calling the MCP bridge before producing the
+  final envelope. During collection emit a tool call, not a simulated result.
+  Use the inventory schemas; obtain linked record IDs from earlier results.
+  Once evidence is complete, populate the supplied decision schema, preserving
+  field types and nulls. Empty lists and access denials are final evidence."
+  Specify required answer fields or pass `decision_schema` when available;
+  keep expected values out of the task. Inspect actual call evidence before
+  accepting external facts. This protocol helped the recorded SGLang probes;
+  a skill-only rewrite did not reproduce that improvement.
 - Prefer multiple focused calls over one mixed-domain call.
 - Keep final judgment/tradeoffs/recommendation in parent synthesis.
 - For tool-specific tasks, include first-party source preference in the task

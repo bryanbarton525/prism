@@ -26,19 +26,6 @@ metadata:
 6. For triage work, search before mutating: dedupe likely duplicates, summarize current state, then propose comments/status/label changes.
 7. If Linear MCP response evidence is supplied from `call_mcp_tool`, summarize the actual result and include the response artifact. Otherwise, mark write actions as proposed.
 
-### Evidence collection and final response
-
-For requests about external records, emit actual MCP bridge tool calls before
-the final JSON envelope. During evidence collection, supply a tool call rather
-than a simulated result or an answer claiming retrieval succeeded. Use the
-authorized inventory's schemas for each call.
-
-Read linked records after obtaining their identifiers from earlier results.
-After each result, collect any remaining evidence; when the evidence is complete,
-populate the supplied decision schema and return the final envelope. Preserve
-JSON field types and nulls. Empty lists and explicit access denials are final
-evidence about that lookup; report them without inventing records or statuses.
-
 ## Linear MCP call artifact shape
 
 When a write still needs approval or exact schema resolution, return proposed MCP operations as artifacts with this JSON shape:

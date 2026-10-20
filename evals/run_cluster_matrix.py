@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Sequential Linux/cluster evaluation with durable journals and GPU telemetry."""
 import argparse
+import atexit
 import json
 import os
 import subprocess
+import signal
 import time
+import urllib.request
 from pathlib import Path
 
 
@@ -26,11 +29,14 @@ def main():
     p.add_argument("--url", required=True)
     p.add_argument("--model", required=True)
     p.add_argument("--suite", type=Path)
+    p.add_argument("--warm-model", action="store_true", help="Ollama only: recorded 6144-context warm-up, unload at exit")
     p.add_argument("--repeat", type=int, default=3)
     p.add_argument("--arms", nargs="+", choices=["off", "first", "advisory"], default=["off", "first"])
     p.add_argument("--laya-url", default="https://laya-gpu.iambarton.com")
     p.add_argument("--output-dir", type=Path, required=True)
     args = p.parse_args()
+    if args.warm_model and args.engine != "ollama":
+        p.error("--warm-model requires --engine ollama")
     args.output_dir.mkdir(parents=True, exist_ok=False)
     env = dict(os.environ, PRISM_MODEL_RUNTIME_ENGINE=args.engine,
                PRISM_MODEL_RUNTIME_BASE_URL=args.url, PRISM_MODEL_RUNTIME_API_KEY="",
@@ -39,6 +45,33 @@ def main():
     metadata = dict(arguments=vars(args), identity=identity, started=time.time(), blocks=[])
     metadata["arguments"] = {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()}
     (args.output_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
+    if args.warm_model:
+        with urllib.request.urlopen(args.url.rstrip("/") + "/api/version", timeout=10) as r:
+            (args.output_dir / "server-version.json").write_text(json.dumps(json.load(r), indent=2))
+        def generate(payload):
+            req = urllib.request.Request(args.url.rstrip("/") + "/api/generate", data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=300) as r:
+                return json.load(r)
+
+        def unload():
+            try:
+                response = generate(dict(model=args.model, keep_alive=0, stream=False))
+                (args.output_dir / "unload.json").write_text(json.dumps(response, indent=2))
+            except Exception as e:
+                (args.output_dir / "unload-error.txt").write_text(str(e))
+
+        atexit.register(unload)
+        signal.signal(signal.SIGTERM, lambda *_: exit(143))
+        with urllib.request.urlopen(args.url.rstrip("/") + "/api/tags", timeout=10) as r:
+            tags = json.load(r)
+        selected = next(m for m in tags["models"] if m["name"] == args.model)
+        if selected["size"] > 8 * 1024**3:
+            raise RuntimeError("Model artifact exceeds the 8GiB evaluation cap")
+        (args.output_dir / "model.json").write_text(json.dumps(selected, indent=2))
+        request = dict(model=args.model, keep_alive="30m", stream=False, options=dict(num_ctx=6144))
+        start = time.time()
+        response = generate(request)
+        (args.output_dir / "warmup.json").write_text(json.dumps(dict(request=request, response=response, started=start, completed=time.time()), indent=2))
     for rep in range(1, args.repeat + 1):
         arms = args.arms if rep % 2 else list(reversed(args.arms))
         for arm in arms:

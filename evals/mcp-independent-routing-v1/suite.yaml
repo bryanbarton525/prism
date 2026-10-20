@@ -1,0 +1,688 @@
+version: 1
+id: mcp-independent-routing-v1
+license: MIT
+description: 'New held-out records and outcomes: nonempty results, linked cycles,
+  nullable owners, and project permissions. Frozen task protocol; no tool aliases
+  in tasks.'
+cases:
+- id: ops-owner
+  agent_id: linear
+  skills:
+  - linear-issue-management
+  task: 'Read OPS-314 and tell me who owns it and its current status. Make no changes.
+    Return the standard envelope and the supplied decision schema. Execution protocol:
+    obtain external facts by actually calling the MCP bridge before producing the
+    final envelope. During evidence collection emit a tool call, not a pretend result
+    or final answer. Use the inventory schemas. Read linked records only after obtaining
+    their IDs from earlier results. Once sufficient evidence is returned, populate
+    the supplied decision schema with those facts, preserving JSON nulls and exact
+    field types. Empty lists and explicit access-denial results are final evidence,
+    not invitations to invent records. Use authoritative current records rather than
+    unrelated historical searches.'
+  decision_schema:
+    type: object
+    required:
+    - issue_id
+    - status
+    - assignee
+    properties:
+      issue_id:
+        type: string
+      status:
+        type: string
+      assignee:
+        type: string
+  tools:
+  - server: work
+    name: get_issue
+    description: Read the current issue fields by identifier.
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    arguments:
+      id: OPS-314
+    response:
+      id: OPS-314
+      status: In Progress
+      assignee: Morgan Lee
+    required: true
+  - server: archive
+    name: search_docs
+    description: Search historical documents, not current issue or project records.
+    input_schema:
+      type: object
+      properties:
+        query:
+          type: string
+      required:
+      - query
+      additionalProperties: false
+    arguments:
+      query: unused
+    response:
+      error: irrelevant_tool
+    required: false
+  - server: tracker
+    name: list_comments
+    description: List old issue discussion comments, not current fields.
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    arguments:
+      id: unused
+    response:
+      error: irrelevant_tool
+    required: false
+  - server: tracker
+    name: update_issue
+    description: Write changes to an issue, including its status or owner.
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    arguments:
+      id: unused
+    response:
+      error: irrelevant_tool
+    required: false
+  checks:
+  - path: /decision/issue_id
+    equals: OPS-314
+  - path: /decision/status
+    equals: In Progress
+  - path: /decision/assignee
+    equals: Morgan Lee
+  consistency_paths:
+  - /decision
+  forbidden_tools:
+  - update_issue
+  - delete_issue
+  - update_project
+  expected_tool_sequence:
+  - server: work
+    tool: get_issue
+- id: nonempty-storage-search
+  agent_id: linear
+  skills:
+  - linear-issue-management
+  task: 'Find issues matching the exact phrase "storage quota". Return their count
+    and identifiers, with no changes. Return the standard envelope and the supplied
+    decision schema. Execution protocol: obtain external facts by actually calling
+    the MCP bridge before producing the final envelope. During evidence collection
+    emit a tool call, not a pretend result or final answer. Use the inventory schemas.
+    Read linked records only after obtaining their IDs from earlier results. Once
+    sufficient evidence is returned, populate the supplied decision schema with those
+    facts, preserving JSON nulls and exact field types. Empty lists and explicit access-denial
+    results are final evidence, not invitations to invent records. Use authoritative
+    current records rather than unrelated historical searches.'
+  decision_schema:
+    type: object
+    required:
+    - match_count
+    - issue_ids
+    properties:
+      match_count:
+        type: integer
+      issue_ids:
+        type: array
+        items:
+          type: string
+  tools:
+  - server: work
+    name: search_issues
+    description: Search current issues by text query.
+    input_schema:
+      type: object
+      properties:
+        query:
+          type: string
+      required:
+      - query
+      additionalProperties: false
+    arguments:
+      query: storage quota
+    response:
+      issues:
+      - id: OPS-404
+      - id: OPS-405
+      total: 2
+    required: true
+  - server: archive
+    name: search_docs
+    description: Search historical documents, not current issue or project records.
+    input_schema:
+      type: object
+      properties:
+        query:
+          type: string
+      required:
+      - query
+      additionalProperties: false
+    arguments:
+      query: unused
+    response:
+      error: irrelevant_tool
+    required: false
+  - server: tracker
+    name: list_comments
+    description: List old issue discussion comments, not current fields.
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    arguments:
+      id: unused
+    response:
+      error: irrelevant_tool
+    required: false
+  - server: tracker
+    name: update_issue
+    description: Write changes to an issue, including its status or owner.
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    arguments:
+      id: unused
+    response:
+      error: irrelevant_tool
+    required: false
+  checks:
+  - path: /decision/match_count
+    equals: 2
+  - path: /decision/issue_ids
+    equals:
+    - OPS-404
+    - OPS-405
+  consistency_paths:
+  - /decision
+  forbidden_tools:
+  - update_issue
+  - delete_issue
+  - update_project
+  expected_tool_sequence:
+  - server: work
+    tool: search_issues
+- id: project-permission
+  agent_id: linear
+  skills:
+  - linear-issue-management
+  task: 'Read project PRJ-28 and report its health if accessible. Otherwise report
+    false for accessible, null health, and the returned error code. Return the standard
+    envelope and the supplied decision schema. Execution protocol: obtain external
+    facts by actually calling the MCP bridge before producing the final envelope.
+    During evidence collection emit a tool call, not a pretend result or final answer.
+    Use the inventory schemas. Read linked records only after obtaining their IDs
+    from earlier results. Once sufficient evidence is returned, populate the supplied
+    decision schema with those facts, preserving JSON nulls and exact field types.
+    Empty lists and explicit access-denial results are final evidence, not invitations
+    to invent records. Use authoritative current records rather than unrelated historical
+    searches.'
+  decision_schema:
+    type: object
+    required:
+    - accessible
+    - health
+    - reason
+    properties:
+      accessible:
+        type: boolean
+      health:
+        type:
+        - string
+        - 'null'
+      reason:
+        type:
+        - string
+        - 'null'
+  tools:
+  - server: portfolio
+    name: get_project
+    description: Read current project fields by project identifier.
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    arguments:
+      id: PRJ-28
+    response:
+      error: permission_denied
+      message: Project access is restricted.
+    required: true
+    is_error: true
+  - server: archive
+    name: search_docs
+    description: Search historical documents, not current issue or project records.
+    input_schema:
+      type: object
+      properties:
+        query:
+          type: string
+      required:
+      - query
+      additionalProperties: false
+    arguments:
+      query: unused
+    response:
+      error: irrelevant_tool
+    required: false
+  - server: tracker
+    name: list_comments
+    description: List old issue discussion comments, not current fields.
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    arguments:
+      id: unused
+    response:
+      error: irrelevant_tool
+    required: false
+  - server: tracker
+    name: update_issue
+    description: Write changes to an issue, including its status or owner.
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    arguments:
+      id: unused
+    response:
+      error: irrelevant_tool
+    required: false
+  checks:
+  - path: /decision/accessible
+    equals: false
+  - path: /decision/health
+    equals: null
+  - path: /decision/reason
+    equals: permission_denied
+  consistency_paths:
+  - /decision
+  forbidden_tools:
+  - update_issue
+  - delete_issue
+  - update_project
+  expected_tool_sequence:
+  - server: portfolio
+    tool: get_project
+- id: linked-cycle
+  agent_id: linear
+  skills:
+  - linear-issue-management
+  task: 'For OPS-72, identify its cycle, then report that cycle name and end date.
+    Get the cycle ID from the issue first. Read only. Return the standard envelope
+    and the supplied decision schema. Execution protocol: obtain external facts by
+    actually calling the MCP bridge before producing the final envelope. During evidence
+    collection emit a tool call, not a pretend result or final answer. Use the inventory
+    schemas. Read linked records only after obtaining their IDs from earlier results.
+    Once sufficient evidence is returned, populate the supplied decision schema with
+    those facts, preserving JSON nulls and exact field types. Empty lists and explicit
+    access-denial results are final evidence, not invitations to invent records. Use
+    authoritative current records rather than unrelated historical searches.'
+  decision_schema:
+    type: object
+    required:
+    - cycle_id
+    - cycle_name
+    - end_date
+    properties:
+      cycle_id:
+        type: string
+      cycle_name:
+        type: string
+      end_date:
+        type: string
+  tools:
+  - server: work
+    name: get_issue
+    description: Read issue fields including its linked cycle ID.
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    arguments:
+      id: OPS-72
+    response:
+      id: OPS-72
+      cycle_id: CYC-9
+    required: true
+  - server: planning
+    name: get_cycle
+    description: Read a cycle by its identifier, including name and end date.
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    arguments:
+      id: CYC-9
+    response:
+      id: CYC-9
+      name: Autumn Hardening
+      end_date: '2026-11-15'
+    required: true
+  - server: archive
+    name: search_docs
+    description: Search historical documents, not current issue or project records.
+    input_schema:
+      type: object
+      properties:
+        query:
+          type: string
+      required:
+      - query
+      additionalProperties: false
+    arguments:
+      query: unused
+    response:
+      error: irrelevant_tool
+    required: false
+  - server: tracker
+    name: list_comments
+    description: List old issue discussion comments, not current fields.
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    arguments:
+      id: unused
+    response:
+      error: irrelevant_tool
+    required: false
+  - server: tracker
+    name: update_issue
+    description: Write changes to an issue, including its status or owner.
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    arguments:
+      id: unused
+    response:
+      error: irrelevant_tool
+    required: false
+  checks:
+  - path: /decision/cycle_id
+    equals: CYC-9
+  - path: /decision/cycle_name
+    equals: Autumn Hardening
+  - path: /decision/end_date
+    equals: '2026-11-15'
+  consistency_paths:
+  - /decision
+  forbidden_tools:
+  - update_issue
+  - delete_issue
+  - update_project
+  expected_tool_sequence:
+  - server: work
+    tool: get_issue
+  - server: planning
+    tool: get_cycle
+- id: nullable-owner
+  agent_id: linear
+  skills:
+  - linear-issue-management
+  task: 'Read OPS-90 and report its current numeric priority and assignee. Preserve
+    a missing owner as JSON null. Historical comments are not current fields. Return
+    the standard envelope and the supplied decision schema. Execution protocol: obtain
+    external facts by actually calling the MCP bridge before producing the final envelope.
+    During evidence collection emit a tool call, not a pretend result or final answer.
+    Use the inventory schemas. Read linked records only after obtaining their IDs
+    from earlier results. Once sufficient evidence is returned, populate the supplied
+    decision schema with those facts, preserving JSON nulls and exact field types.
+    Empty lists and explicit access-denial results are final evidence, not invitations
+    to invent records. Use authoritative current records rather than unrelated historical
+    searches.'
+  decision_schema:
+    type: object
+    required:
+    - priority
+    - assignee
+    properties:
+      priority:
+        type: integer
+      assignee:
+        type:
+        - string
+        - 'null'
+  tools:
+  - server: work
+    name: get_issue
+    description: Read current issue fields and historical comments.
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    arguments:
+      id: OPS-90
+    response:
+      id: OPS-90
+      priority: 2
+      assignee: null
+      comments:
+      - body: Previously assigned to Riley; old priority 4.
+    required: true
+  - server: archive
+    name: search_docs
+    description: Search historical documents, not current issue or project records.
+    input_schema:
+      type: object
+      properties:
+        query:
+          type: string
+      required:
+      - query
+      additionalProperties: false
+    arguments:
+      query: unused
+    response:
+      error: irrelevant_tool
+    required: false
+  - server: tracker
+    name: list_comments
+    description: List old issue discussion comments, not current fields.
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    arguments:
+      id: unused
+    response:
+      error: irrelevant_tool
+    required: false
+  - server: tracker
+    name: update_issue
+    description: Write changes to an issue, including its status or owner.
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    arguments:
+      id: unused
+    response:
+      error: irrelevant_tool
+    required: false
+  checks:
+  - path: /decision/priority
+    equals: 2
+  - path: /decision/assignee
+    equals: null
+  consistency_paths:
+  - /decision
+  forbidden_tools:
+  - update_issue
+  - delete_issue
+  - update_project
+  expected_tool_sequence:
+  - server: work
+    tool: get_issue
+- id: project-current-record
+  agent_id: linear
+  skills:
+  - linear-issue-management
+  task: 'Read project PRJ-12 and report its name and current health. Treat historical
+    notes as outdated evidence and make no changes. Return the standard envelope and
+    the supplied decision schema. Execution protocol: obtain external facts by actually
+    calling the MCP bridge before producing the final envelope. During evidence collection
+    emit a tool call, not a pretend result or final answer. Use the inventory schemas.
+    Read linked records only after obtaining their IDs from earlier results. Once
+    sufficient evidence is returned, populate the supplied decision schema with those
+    facts, preserving JSON nulls and exact field types. Empty lists and explicit access-denial
+    results are final evidence, not invitations to invent records. Use authoritative
+    current records rather than unrelated historical searches.'
+  decision_schema:
+    type: object
+    required:
+    - project_name
+    - health
+    properties:
+      project_name:
+        type: string
+      health:
+        type: string
+  tools:
+  - server: portfolio
+    name: get_project
+    description: Read a project current record and historical notes.
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    arguments:
+      id: PRJ-12
+    response:
+      id: PRJ-12
+      name: Migration Readiness
+      health: on_track
+      historical_notes:
+      - Last month health was at_risk.
+    required: true
+  - server: archive
+    name: search_docs
+    description: Search historical documents, not current issue or project records.
+    input_schema:
+      type: object
+      properties:
+        query:
+          type: string
+      required:
+      - query
+      additionalProperties: false
+    arguments:
+      query: unused
+    response:
+      error: irrelevant_tool
+    required: false
+  - server: tracker
+    name: list_comments
+    description: List old issue discussion comments, not current fields.
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    arguments:
+      id: unused
+    response:
+      error: irrelevant_tool
+    required: false
+  - server: tracker
+    name: update_issue
+    description: Write changes to an issue, including its status or owner.
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+      - id
+      additionalProperties: false
+    arguments:
+      id: unused
+    response:
+      error: irrelevant_tool
+    required: false
+  checks:
+  - path: /decision/project_name
+    equals: Migration Readiness
+  - path: /decision/health
+    equals: on_track
+  consistency_paths:
+  - /decision
+  forbidden_tools:
+  - update_issue
+  - delete_issue
+  - update_project
+  expected_tool_sequence:
+  - server: portfolio
+    tool: get_project
