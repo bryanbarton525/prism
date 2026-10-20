@@ -28,14 +28,14 @@ def write_json(path, value):
 
 def csv_file(name, rows):
     with (DATA / name).open('w', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0]))
+        writer = csv.DictWriter(f, fieldnames=list(rows[0]), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 
 
 def savefig(fig, name):
     fig.savefig(IMAGES / (name + '.png'), dpi=180, bbox_inches='tight', facecolor=fig.get_facecolor())
-    fig.savefig(IMAGES / (name + '.svg'), bbox_inches='tight', facecolor=fig.get_facecolor())
+    fig.savefig(IMAGES / (name + '.svg'), bbox_inches='tight', facecolor=fig.get_facecolor(), metadata={'Date': None})
     plt.close(fig)
 
 
@@ -87,6 +87,8 @@ def main():
         row = {'label': LABELS[i], 'model': report['models'][0], 'laya': i == 3, 'trials': 18,
                'passed': sum(t['grade']['passed'] for t in ts),
                'required_tool_calls': rate('required_tool:'), 'tool_arguments': rate('tool_arguments'),
+               'trials_with_tool_calls': sum(bool(t.get('tool_calls')) for t in ts),
+               'observed_argument_passes': sum(bool(t.get('tool_calls')) and t['grade']['checks']['tool_arguments'] for t in ts),
                'decision_fields': rate('outcome:'), 'response_schema': rate('response_schema'),
                'consistency': statistics.mean(consistency), 'median_seconds': statistics.median(times),
                'p95_seconds': float(np.percentile(times, 95)), 'completion_tokens': completion,
@@ -102,7 +104,7 @@ def main():
             failed = [k for k,v in t['grade']['checks'].items() if not v]
             trials.append({'label': LABELS[i], 'case': t['case_id'], 'repetition': t['repetition'],
                            'passed': t['grade']['passed'], 'seconds': t['duration_ms'] / 1000,
-                           'model_calls': len(t['calls']), 'mcp_calls': len(t['tool_calls']),
+                           'model_calls': len(t['calls']), 'mcp_calls': len(t.get('tool_calls') or []),
                            'failed_checks': ';'.join(failed), 'error': t.get('error', '')})
             for name in failed:
                 failures.append({'label': LABELS[i], 'case': t['case_id'], 'repetition': t['repetition'], 'check': name, 'reason': next(m['reason'] for m in t['grade']['metrics'] if m['name'] == name)})
@@ -111,7 +113,7 @@ def main():
     if failures:
         csv_file('failed-checks.csv', failures)
     write_json(DATA / 'summary.json', rows)
-    plt.rcParams.update({'font.family': 'DejaVu Sans', 'axes.spines.top': False, 'axes.spines.right': False,
+    plt.rcParams.update({'svg.hashsalt': 'prism-eval-v1', 'font.family': 'DejaVu Sans', 'axes.spines.top': False, 'axes.spines.right': False,
                          'axes.labelcolor': '#334155', 'text.color': '#0f172a', 'font.size': 11})
     fig, ax = plt.subplots(figsize=(11, 4.8))
     ax.barh(LABELS[::-1], [r['passed'] for r in rows][::-1], color=COLORS[::-1], height=.6)
@@ -147,7 +149,7 @@ def main():
     axes[1].set_title('Memory headroom during collection', loc='left', fontweight='bold'); axes[1].legend(fontsize=8, loc='lower right')
     fig.tight_layout(); savefig(fig, 'latency-memory')
     table = '\n'.join(f"| {r['label']} | {r['passed']}/18 | {100*r['consistency']:.1f}% | {r['median_seconds']:.2f}s | {r['peak_resident_gib']:.2f} GiB | {r['minimum_free_percent']}% |" for r in rows)
-    dimensions = '\n'.join(f"| {r['label']} | {r['required_tool_calls']}/18 | {r['tool_arguments']}/18 | {r['decision_fields']}/18 | {r['response_schema']}/18 |" for r in rows)
+    dimensions = '\n'.join(f"| {r['label']} | {r['required_tool_calls']}/18 | {r['observed_argument_passes']}/{r['trials_with_tool_calls']} | {r['decision_fields']}/18 | {r['response_schema']}/18 |" for r in rows)
     eligible = ', '.join(r['label'] for r in rows if r['baseline_eligible']) or 'None'
     text = f'''# Guarded Ollama evaluation · {reports[0]['build']['version']}
 
@@ -173,9 +175,13 @@ requires a successful Laya recommendation that actually entered the prompt.
 Semantic consistency is agreement on declared decision fields, not wording;
 missing signatures contribute zero. Agreement is separate from correctness.
 
-| Arm | Required calls | Arguments | Decision fields | Response schema |
+| Arm | Required calls | Observed arguments valid | Decision fields | Response schema |
 |---|---:|---:|---:|---:|
 {dimensions}
+
+The argument column counts only trials that actually called a downstream tool;
+missing calls are failures in the required-call column. Fast completion without
+retrieving evidence is not a successful latency result.
 
 ![Per-case outcomes](images/case-results.png)
 
@@ -185,6 +191,11 @@ results, not a ranking of general intelligence or factual knowledge. See
 [failed checks](data/failed-checks.csv) and full traces before drawing conclusions. Across all arms, **{sum(r['missing_outcome_checks'] for r in rows)}**
 failed outcome checks had missing JSON paths; **{sum(r['wrong_present_outcome_checks'] for r in rows)}**
 had present but incorrect values. These are check counts, not trial counts.
+Missing fields do not establish that the surrounding prose is factually correct.
+For example, Qwen Coder's `empty-search` repetition 1 claimed three issues without
+any recorded downstream MCP call; the fixture would have returned zero. Qwen
+3.5's `empty-search` repetition 1 correctly described zero results but omitted
+the required `decision` object. Both failed, for materially different reasons.
 
 ## Laya comparison
 
@@ -195,13 +206,21 @@ before collection. Earlier readiness failures remain documented separately.
 
 Actual Laya application: **{rows[3]['laya_applied']}/18 trials**. Complete-contract
 passes changed from **{rows[2]['passed']}/18** without Laya to **{rows[3]['passed']}/18**
-with Laya. This small, fixed-order comparison does not establish causation or
+with Laya. Required-call completion changed from **{rows[2]["required_tool_calls"]}/18**
+to **{rows[3]["required_tool_calls"]}/18**, and response-schema validity from
+**{rows[2]["response_schema"]}/18** to **{rows[3]["response_schema"]}/18**.
+These dimensions improved in this sample while the complete contract did not.
+This small, fixed-order comparison does not establish causation or
 statistical significance. Laya ranks candidates; it does not generate the answer.
 The automatic path uses a lexical shortlist and the production 500 ms budget.
 The six-case response suite has small catalogs; large-catalog ranking quality is
 not measured by these response trials. The separate live catalog test uses MiniLM.
 
 ## Runtime and memory
+
+Host: Apple M5 Pro, 48 GiB unified memory, arm64, macOS 27.0.1 (26A434).
+Ollama version: `{baseline_meta["ollama"]["version"]}`. The bundled Linear agent
+uses a 6,144-token context budget. Generation limits are shared across arms.
 
 ![Latency and memory headroom](images/latency-memory.png)
 
@@ -211,6 +230,16 @@ and local MCP handling; no warmup or retry is excluded. The memory plot uses mac
 from `/api/ps`, and capped at 12 GiB; model artifact size is capped at 8 GiB.
 These are samples, not a hard OS allocation limit or a peak RSS measurement.
 Every model was unloaded after its block. Background activity was not controlled.
+
+## What to do next
+
+Treat this as a failing regression candidate dataset, not an approved baseline.
+First clarify and test the output-contract boundary: the suite requires a
+root-level `decision`, while many responses follow only the standard envelope.
+Preserve this suite and its scores when testing a revised prompt or schema.
+Separately address unsupported answers and missed tool calls; changing JSON
+format alone cannot fix those. A larger, counterbalanced collection should
+follow before making model-switching or Laya performance claims.
 
 ## Reproduce
 

@@ -1,0 +1,5 @@
+label,model,laya,trials,passed,required_tool_calls,tool_arguments,trials_with_tool_calls,observed_argument_passes,decision_fields,response_schema,consistency,median_seconds,p95_seconds,completion_tokens,minimum_free_percent,peak_resident_gib,laya_applied,missing_outcome_checks,wrong_present_outcome_checks,baseline_eligible
+Qwen 3.5 9B,qwen3.5:9b,False,18,2,18,18,18,18,2,17,0.1111111111111111,10.2735,16.205,7967,77,5.31618163920939,0,40,0,False
+Qwen 2.5 Coder 7B,qwen2.5-coder:7b,False,18,0,4,18,4,4,0,12,0.0,1.909,4.180849999999999,1749,81,4.681757811456919,0,45,0,False
+Llama 3.1 8B,llama3.1:8b,False,18,5,15,18,15,15,5,15,0.3333333333333333,2.8804999999999996,22.304299999999994,4730,80,5.288593749515712,0,31,0,False
+Llama 3.1 8B + Laya,llama3.1:8b,True,18,4,18,18,18,18,4,18,0.2222222222222222,2.856,18.425499999999985,4254,80,5.288593749515712,18,34,0,False
