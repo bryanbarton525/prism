@@ -3,6 +3,7 @@
 import argparse
 import collections
 import gzip
+import hashlib
 import json
 from pathlib import Path
 import statistics
@@ -115,8 +116,12 @@ def main():
         'increase `--repeat` to at least 3; approve a baseline only when all checks pass.', '',
         'Regenerate this page and graphs with:', '', '```sh',
         'python3 -m pip install matplotlib',
-        'python3 docs/evals/reports/2026-10-20-contract-routing/analyze.py', '```', '']
+        'python3 docs/evals/reports/2026-10-20-contract-routing/analyze.py',
+        '(cd docs/evals/reports/2026-10-20-contract-routing && shasum -a 256 -c SHA256SUMS)', '```', '']
     (ROOT / 'README.md').write_text('\n'.join(lines))
+    paths = [ROOT / 'README.md', ROOT / 'comparison.png', ROOT / 'latency.png']
+    paths += list(data.glob('*')) + list((ROOT / 'diagnostics').glob('*'))
+    (ROOT / 'SHA256SUMS').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest() + '  ' + str(p.relative_to(ROOT)) + '\n' for p in sorted(paths) if p.is_file()))
 
 if __name__ == '__main__':
     main()

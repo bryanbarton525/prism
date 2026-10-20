@@ -113,4 +113,5 @@ Regenerate this page and graphs with:
 ```sh
 python3 -m pip install matplotlib
 python3 docs/evals/reports/2026-10-20-contract-routing/analyze.py
+(cd docs/evals/reports/2026-10-20-contract-routing && shasum -a 256 -c SHA256SUMS)
 ```
