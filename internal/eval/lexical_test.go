@@ -15,7 +15,7 @@ func TestLexicalControlUsesProductionHintsAndCannotMixBaselines(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.ControlMode != "lexical" || report.LayaURL != "" || report.LayaMode != "" {
+	if report.ControlMode != "lexical" || report.Version == Version || report.LayaURL != "" || report.LayaMode != "" {
 		t.Fatalf("incorrect control provenance: %+v", report)
 	}
 	for _, trial := range report.Trials {
@@ -37,7 +37,7 @@ func TestLexicalControlUsesProductionHintsAndCannotMixBaselines(t *testing.T) {
 		t.Fatal(err)
 	}
 	base, err := CreateBaseline(report, "candidate")
-	if err != nil || base.ControlMode != "lexical" {
+	if err != nil || base.ControlMode != "lexical" || base.Version == Version {
 		t.Fatalf("control baseline provenance lost: %v", err)
 	}
 	plain := runScript(t, suite, &scriptedRuntime{}, "candidate")

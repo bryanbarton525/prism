@@ -27,6 +27,15 @@ type Baseline struct {
 	Cases         map[string]Score `json:"cases"`
 }
 
+// Older CLIs ignore unknown JSON fields. Give control artifacts a new version
+// so they reject a lexical baseline instead of treating it as a plain run.
+func artifactVersion(controlMode string) int {
+	if controlMode == "lexical" {
+		return 2
+	}
+	return Version
+}
+
 func Scores(r Report, model string) map[string]Score {
 	out := map[string]Score{}
 	signatures := map[string]map[string]int{}
@@ -66,7 +75,7 @@ func ValidateReport(r Report) error {
 	if (r.ControlMode != "" && r.ControlMode != "lexical") || (r.ControlMode != "" && r.LayaURL != "") {
 		return fmt.Errorf("invalid evaluation control mode")
 	}
-	if r.Version != Version || r.Grader != GraderVersion || !r.Completed || r.Repeat < 1 || len(r.Models) == 0 || r.Generation.MaxTokens < 1 || r.Repeat > 100 || math.IsNaN(r.Generation.Temperature) || math.IsInf(r.Generation.Temperature, 0) || r.Generation.Temperature < 0 || r.Generation.Temperature > 2 {
+	if r.Version != artifactVersion(r.ControlMode) || r.Grader != GraderVersion || !r.Completed || r.Repeat < 1 || len(r.Models) == 0 || r.Generation.MaxTokens < 1 || r.Repeat > 100 || math.IsNaN(r.Generation.Temperature) || math.IsInf(r.Generation.Temperature, 0) || r.Generation.Temperature < 0 || r.Generation.Temperature > 2 {
 		return fmt.Errorf("incomplete or incompatible evaluation report")
 	}
 	if (r.LayaURL == "" && r.LayaMode != "") || (r.LayaURL != "" && r.LayaMode != "first" && r.LayaMode != "advisory") {
@@ -111,7 +120,7 @@ func ValidateReport(r Report) error {
 }
 
 func CreateBaseline(r Report, model string) (Baseline, error) {
-	b := Baseline{ControlMode: r.ControlMode, LayaMode: r.LayaMode, LayaEnabled: r.LayaURL != "", Version: Version, Grader: GraderVersion, SuiteHash: r.SuiteHash, SourceRunHash: Hash(r), Model: model, Generation: r.Generation, Cases: Scores(r, model)}
+	b := Baseline{ControlMode: r.ControlMode, LayaMode: r.LayaMode, LayaEnabled: r.LayaURL != "", Version: r.Version, Grader: GraderVersion, SuiteHash: r.SuiteHash, SourceRunHash: Hash(r), Model: model, Generation: r.Generation, Cases: Scores(r, model)}
 	if err := ValidateReport(r); err != nil {
 		return b, err
 	}
@@ -192,7 +201,7 @@ func CheckBaseline(b Baseline, suite Suite, g Generation, repeat int) error {
 	if (b.ControlMode != "" && b.ControlMode != "lexical") || (b.ControlMode != "" && (b.LayaEnabled || b.LayaMode != "")) {
 		return fmt.Errorf("invalid baseline control mode")
 	}
-	if b.Version != Version || b.Grader != GraderVersion || b.SuiteHash != Hash(suite) || b.Generation != g || b.SourceRunHash == "" || b.Model == "" || len(b.Cases) != len(suite.Cases) {
+	if b.Version != artifactVersion(b.ControlMode) || b.Grader != GraderVersion || b.SuiteHash != Hash(suite) || b.Generation != g || b.SourceRunHash == "" || b.Model == "" || len(b.Cases) != len(suite.Cases) {
 		return fmt.Errorf("baseline and candidate suite, grader or generation settings differ")
 	}
 	for _, c := range suite.Cases {

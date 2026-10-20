@@ -102,6 +102,7 @@ func Run(ctx context.Context, s Suite, rt runtime.ModelRuntime, o Options) (Repo
 			return r, fmt.Errorf("lexical advice and Laya are separate evaluation modes")
 		}
 		r.ControlMode = "lexical"
+		r.Version = artifactVersion(r.ControlMode)
 	}
 	if err := s.Validate(); err != nil {
 		return r, err
