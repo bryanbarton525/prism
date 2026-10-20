@@ -18,6 +18,7 @@ import (
 	prismmcp "github.com/bryanbarton525/prism/internal/mcp"
 	"github.com/bryanbarton525/prism/internal/plugins"
 	"github.com/bryanbarton525/prism/internal/result"
+	"github.com/bryanbarton525/prism/internal/toolmodel"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -38,23 +39,25 @@ type FixtureCall struct {
 	Matched    bool                `json:"matched"`
 }
 type Trial struct {
-	MCPResponse *sdk.CallToolResult `json:"mcp_response,omitempty"`
-	CaseID      string              `json:"case_id"`
-	Model       string              `json:"model"`
-	Repetition  int                 `json:"repetition"`
-	DurationMS  int64               `json:"duration_ms"`
-	Calls       []ModelCall         `json:"calls"`
-	ToolCalls   []FixtureCall       `json:"tool_calls"`
-	Result      result.RunResult    `json:"result"`
-	MCPError    bool                `json:"mcp_error"`
-	Error       string              `json:"error,omitempty"`
-	Grade       Grade               `json:"grade"`
+	Recommendation *app.RecommendationTrace `json:"recommendation,omitempty"`
+	MCPResponse    *sdk.CallToolResult      `json:"mcp_response,omitempty"`
+	CaseID         string                   `json:"case_id"`
+	Model          string                   `json:"model"`
+	Repetition     int                      `json:"repetition"`
+	DurationMS     int64                    `json:"duration_ms"`
+	Calls          []ModelCall              `json:"calls"`
+	ToolCalls      []FixtureCall            `json:"tool_calls"`
+	Result         result.RunResult         `json:"result"`
+	MCPError       bool                     `json:"mcp_error"`
+	Error          string                   `json:"error,omitempty"`
+	Grade          Grade                    `json:"grade"`
 }
 type Generation struct {
 	Temperature float64 `json:"temperature"`
 	MaxTokens   int     `json:"max_tokens"`
 }
 type Report struct {
+	LayaURL    string         `json:"laya_url,omitempty"`
 	Version    int            `json:"version"`
 	Grader     string         `json:"grader"`
 	Suite      Suite          `json:"suite"`
@@ -69,6 +72,7 @@ type Report struct {
 	Trials     []Trial        `json:"trials"`
 }
 type Options struct {
+	LayaURL    string
 	Models     []string
 	Repeat     int
 	Timeout    time.Duration
@@ -79,12 +83,17 @@ type Options struct {
 // Run exercises the production run_agent MCP adapter and agent loop. Only the
 // model endpoint is live: downstream MCP tools are isolated HTTP replay servers.
 func Run(ctx context.Context, s Suite, rt runtime.ModelRuntime, o Options) (Report, error) {
-	r := Report{Version: Version, Grader: GraderVersion, Suite: s, SuiteHash: Hash(s), Build: buildinfo.Current(), Engine: rt.Engine(), Models: o.Models, Repeat: o.Repeat, Generation: o.Generation, Started: time.Now().UTC()}
+	r := Report{LayaURL: o.LayaURL, Version: Version, Grader: GraderVersion, Suite: s, SuiteHash: Hash(s), Build: buildinfo.Current(), Engine: rt.Engine(), Models: o.Models, Repeat: o.Repeat, Generation: o.Generation, Started: time.Now().UTC()}
 	if err := s.Validate(); err != nil {
 		return r, err
 	}
 	if len(o.Models) == 0 || o.Repeat < 1 || o.Repeat > 100 || o.Timeout <= 0 || o.Generation.MaxTokens < 1 || math.IsNaN(o.Generation.Temperature) || math.IsInf(o.Generation.Temperature, 0) || o.Generation.Temperature < 0 || o.Generation.Temperature > 2 {
 		return r, fmt.Errorf("models, 1–100 repetitions, positive timeout and max tokens required")
+	}
+	if o.LayaURL != "" {
+		if _, err := toolmodel.NewDecisionClient(o.LayaURL, "", "laya-english"); err != nil {
+			return r, err
+		}
 	}
 	seen := map[string]bool{}
 	for _, model := range o.Models {
@@ -100,7 +109,7 @@ func Run(ctx context.Context, s Suite, rt runtime.ModelRuntime, o Options) (Repo
 					return r, err
 				}
 				trialCtx, cancel := context.WithTimeout(ctx, o.Timeout)
-				t := runTrial(trialCtx, c, model, repetition, rt, o.Generation)
+				t := runTrial(trialCtx, c, model, repetition, rt, o.Generation, o.LayaURL)
 				cancel()
 				r.Trials = append(r.Trials, t)
 				if o.OnTrial != nil {
@@ -159,9 +168,12 @@ type replayClient struct {
 }
 
 func (c replayClient) Servers() []downstreammcp.Server { return c.public }
-func runTrial(ctx context.Context, c Case, model string, repetition int, rt runtime.ModelRuntime, g Generation) (t Trial) {
+func runTrial(ctx context.Context, c Case, model string, repetition int, rt runtime.ModelRuntime, g Generation, layaURL string) (t Trial) {
 	start := time.Now()
 	t = Trial{CaseID: c.ID, Model: model, Repetition: repetition}
+	if layaURL != "" {
+		t.Recommendation = &app.RecommendationTrace{Error: "recommendation step was not reached"}
+	}
 	traced := &tracedRuntime{ModelRuntime: rt, model: model, generation: g}
 	var mu sync.Mutex
 	defer func() {
@@ -217,7 +229,13 @@ func runTrial(ctx context.Context, c Case, model string, repetition int, rt runt
 		toolInventory = append(toolInventory, map[string]any{"server": f.Server, "name": f.Name, "description": f.Description, "input_schema": f.InputSchema})
 	}
 	inventory, _ = json.Marshal(toolInventory)
-	runner, err := app.New(app.Config{BundleFS: prismbundle.BundleFS(), ModelRuntime: traced, DownstreamMCP: client, RuntimePlugins: plugins.NewRegistry(fixturePlugin{"linear", "Use the MCP bridge to retrieve evidence. This is a synthetic evaluation workspace."}, fixturePlugin{"mcp", string(inventory)})})
+	cfg := app.Config{BundleFS: prismbundle.BundleFS(), ModelRuntime: traced, DownstreamMCP: client, RuntimePlugins: plugins.NewRegistry(fixturePlugin{"linear", "Use the MCP bridge to retrieve evidence. This is a synthetic evaluation workspace."}, fixturePlugin{"mcp", string(inventory)})}
+	if layaURL != "" {
+		cfg.DecisionURL, cfg.DecisionModel = layaURL, "laya-english"
+		cfg.ToolRecommendationAgents = []string{c.AgentID}
+		cfg.RecommendationObserver = func(trace app.RecommendationTrace) { t.Recommendation = &trace }
+	}
+	runner, err := app.New(cfg)
 	if err != nil {
 		t.Error = err.Error()
 		return

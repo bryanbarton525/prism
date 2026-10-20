@@ -52,6 +52,14 @@ func recommendationPrompt(recommendations ToolRecommendations) string {
 	return builder.String()
 }
 
+// RecommendationTrace records whether an automatic recommendation reached the prompt.
+type RecommendationTrace struct {
+	Result     ToolRecommendations `json:"result"`
+	DurationMS int64               `json:"duration_ms"`
+	Injected   bool                `json:"injected"`
+	Error      string              `json:"error,omitempty"`
+}
+
 type ToolRecommendations struct {
 	Tools         []ToolRecommendation `json:"tools"`
 	ScoreKind     string               `json:"score_kind"`

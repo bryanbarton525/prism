@@ -1,0 +1,1 @@
+{"status":"ok","loaded":["english"],"revisions":{"english":"55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851"},"device":"cuda","device_is_preference":false,"checkpoint_devices":{"english":"cuda"},"cpu_fallbacks":{"english":{"count":0,"last_reason":null}}}
