@@ -19,6 +19,7 @@ def main():
     data.mkdir(exist_ok=True)
     grouped = collections.defaultdict(list)
     failures = collections.Counter()
+    taxonomy = collections.Counter()
     for source in sorted(args.input_dir.glob("*/??-*.json")):
         report = json.loads(source.read_text())
         assert report["completed"] and len(report["trials"]) == len(report["suite"]["cases"]), source
@@ -28,6 +29,19 @@ def main():
         target = data / (name + "-" + source.name + ".gz")
         target.write_bytes(gzip.compress(source.read_bytes(), mtime=0))
         for t in report["trials"]:
+            if t["grade"]["passed"]:
+                category = "pass"
+            elif any(r.get("error") for r in t.get("routes") or []):
+                category = "route_or_binding_failure"
+            elif any(c.get("error") for c in t.get("calls") or []):
+                category = "provider_call_failure"
+            elif not t.get("tool_calls"):
+                category = "no_recorded_tool_execution"
+            elif not t["grade"]["checks"].get("response_schema", True) or not t["grade"]["checks"].get("decision_schema", True):
+                category = "response_contract_failure"
+            else:
+                category = "outcome_or_tool_trajectory_failure"
+            taxonomy[(name, mode, category)] += 1
             for m in t["grade"]["metrics"]:
                 if not m["passed"]:
                     failures[(name, mode, m["name"])] += 1
@@ -50,6 +64,10 @@ def main():
     with (args.output_dir / "failures.csv").open("w") as f:
         w = csv.writer(f); w.writerow(["cohort", "mode", "metric", "failed_trials"])
         for key, count in sorted(failures.items()):
+            w.writerow([*key, count])
+    with (args.output_dir / "error-taxonomy.csv").open("w") as f:
+        w = csv.writer(f); w.writerow(["cohort", "mode", "first_matching_category", "trials"])
+        for key, count in sorted(taxonomy.items()):
             w.writerow([*key, count])
     table = ["| Cohort | Mode | Full passes | Required calls | Median trial |", "|---|---|---:|---:|---:|"]
     for r in rows:

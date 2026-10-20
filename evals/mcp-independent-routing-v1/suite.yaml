@@ -18,7 +18,8 @@ cases:
     the supplied decision schema with those facts, preserving JSON nulls and exact
     field types. Empty lists and explicit access-denial results are final evidence,
     not invitations to invent records. Use authoritative current records rather than
-    unrelated historical searches.'
+    unrelated historical searches. Copy record field values as returned and preserve
+    search-result order.'
   decision_schema:
     type: object
     required:
@@ -128,7 +129,8 @@ cases:
     sufficient evidence is returned, populate the supplied decision schema with those
     facts, preserving JSON nulls and exact field types. Empty lists and explicit access-denial
     results are final evidence, not invitations to invent records. Use authoritative
-    current records rather than unrelated historical searches.'
+    current records rather than unrelated historical searches. Copy record field values
+    as returned and preserve search-result order.'
   decision_schema:
     type: object
     required:
@@ -239,7 +241,7 @@ cases:
     decision schema with those facts, preserving JSON nulls and exact field types.
     Empty lists and explicit access-denial results are final evidence, not invitations
     to invent records. Use authoritative current records rather than unrelated historical
-    searches.'
+    searches. Copy record field values as returned and preserve search-result order.'
   decision_schema:
     type: object
     required:
@@ -353,7 +355,8 @@ cases:
     Once sufficient evidence is returned, populate the supplied decision schema with
     those facts, preserving JSON nulls and exact field types. Empty lists and explicit
     access-denial results are final evidence, not invitations to invent records. Use
-    authoritative current records rather than unrelated historical searches.'
+    authoritative current records rather than unrelated historical searches. Copy
+    record field values as returned and preserve search-result order.'
   decision_schema:
     type: object
     required:
@@ -483,7 +486,7 @@ cases:
     decision schema with those facts, preserving JSON nulls and exact field types.
     Empty lists and explicit access-denial results are final evidence, not invitations
     to invent records. Use authoritative current records rather than unrelated historical
-    searches.'
+    searches. Copy record field values as returned and preserve search-result order.'
   decision_schema:
     type: object
     required:
@@ -592,7 +595,8 @@ cases:
     sufficient evidence is returned, populate the supplied decision schema with those
     facts, preserving JSON nulls and exact field types. Empty lists and explicit access-denial
     results are final evidence, not invitations to invent records. Use authoritative
-    current records rather than unrelated historical searches.'
+    current records rather than unrelated historical searches. Copy record field values
+    as returned and preserve search-result order.'
   decision_schema:
     type: object
     required:
