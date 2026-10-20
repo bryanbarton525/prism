@@ -74,6 +74,14 @@ func GradeTrial(c Case, t Trial) Grade {
 		checks["laya_applied"] = r.Injected && r.Error == "" && r.Result.ScoreKind == "laya_choice" && r.Result.ModelIdentity == "laya-english" && !r.Result.Incomplete && len(r.Result.Warnings) == 0 && len(r.Result.Tools) > 0
 	}
 	object, valid := outputObject(t.Result.RawOutput)
+	checks["structured_decision"] = valid && Hash(object["decision"]) == Hash(t.Result.Decision)
+	if len(c.DecisionSchema) > 0 {
+		contract, err := result.ResolveDecisionSchema(c.DecisionSchema)
+		checks["decision_schema"] = err == nil && contract.Validate(t.Result.Decision) == nil
+	}
+	if t.Routing {
+		checks["laya_route"] = validRoutes(t)
+	}
 	summary, summaryOK := object["summary"].(string)
 	findings, findingsOK := object["findings"].([]any)
 	confidence, _ := object["confidence"].(string)
@@ -84,7 +92,7 @@ func GradeTrial(c Case, t Trial) Grade {
 		}
 	}
 	for i, check := range c.Checks {
-		value, found := pointer(object, check.Path)
+		value, found := pointer(map[string]any{"decision": t.Result.Decision}, check.Path)
 		checks[fmt.Sprintf("outcome:%d:%s", i, check.Path)] = found && Hash(value) == Hash(check.Equals)
 	}
 	checks["tool_arguments"] = true
@@ -117,6 +125,11 @@ func GradeTrial(c Case, t Trial) Grade {
 	}
 	for _, name := range c.ForbiddenTools {
 		allowed := true
+		for _, executed := range t.ToolCalls {
+			if executed.Tool == name {
+				allowed = false
+			}
+		}
 		for _, call := range t.Calls {
 			messages := messagesForCalls(call)
 			for _, message := range messages {
@@ -238,4 +251,27 @@ func bridgeSucceeded(t Trial, name string) bool {
 		}
 	}
 	return false
+}
+
+func validRoutes(t Trial) bool {
+	if len(t.Routes) < 2 || len(t.Calls) == 0 || t.Routes[0].Started.After(t.Calls[0].Started) {
+		return false
+	}
+	executed := 0
+	for _, route := range t.Routes {
+		if route.Error != "" || route.ScoreKind != "laya_choice" || route.ModelIdentity != "laya-english" || route.Kind == "abstain" {
+			return false
+		}
+		if route.Executed {
+			if route.Selected == nil || executed >= len(t.ToolCalls) {
+				return false
+			}
+			call := t.ToolCalls[executed]
+			if call.Server != route.Selected.Server || call.Tool != route.Selected.Name || call.Started.Before(route.Started) {
+				return false
+			}
+			executed++
+		}
+	}
+	return executed > 0 && executed == len(t.ToolCalls) && t.Routes[len(t.Routes)-1].Kind == "finish"
 }

@@ -84,11 +84,14 @@ Respond with a single JSON object (no markdown wrapper required, but fenced json
   "summary": "One or two sentences for the orchestrator — key outcome only.",
   "findings": ["Short bullet strings — max 5, each under 120 characters."],
   "artifacts": [{"type": "snippet", "label": "name", "content": "code or evidence if needed"}],
-  "confidence": "low|medium|high"
+  "confidence": "low|medium|high",
+  "decision": {}
 }
 
+Put requested structured fields in root "decision", matching any supplied schema and evidence. Preserve root "linear_actions" and "next_action" when the skill requires them.
+
 For code-generation tasks, put full code in "code" or "artifacts"; keep "summary" and "findings" brief.
-The orchestrator receives only the compact summary and findings, not verbose prose.
+The orchestrator receives the structured response.
 `
 }
 

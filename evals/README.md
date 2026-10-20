@@ -93,17 +93,19 @@ python3 evals/run_matrix.py \
   --output-dir "$HOME/prism-eval-results/laya-on-001"
 ```
 
-The opt-in uses the production automatic recommendation path, its 500 ms budget,
-and a lexical shortlist (no local embedding weights). The current six-case suite
-has small tool catalogs; this evaluates integration and response contracts, not
-large-catalog ranking quality. Use the separate live ranking test above for that.
+Laya is optional. Without `--laya-url`, evaluations use the original model-driven
+tool loop and do not load or contact Laya. With an endpoint, `--laya-mode first`
+(the default) selects an authorized server/tool before generation, binds the
+execution target, validates arguments, and records each decision and execution.
+A configured service failure fails the route; it does not silently fall back.
+`--laya-mode advisory` explicitly reproduces legacy suggestions.
 
-Each trial records scores, model identity, duration, warnings, errors, and
-whether the suggestion entered the prompt. `laya_applied` fails on fallback,
-missing recommendations, incomplete retrieval, or prompt-budget omission, even
-when the final answer is correct. Baseline comparison rejects mixing Laya-on and
-Laya-off runs. The report records the Laya URL; review it before publication.
-Saved environment settings alone do not enable Laya in evaluations.
+The bundled `mcp-response-v2` suite supplies decision schemas without expected
+answers. Grader `mcp-outcomes-v2` checks the structured result delivered through
+MCP, schema validity, fixture outcomes, and bound route traces (`laya_route`).
+Baselines cannot mix routing modes or grader versions. These small catalogs test
+integration and response contracts, not general routing quality. Historical
+v0.1.32 reports used advisory routing and remain diagnostic evidence.
 
 The first live ranking check on 2026-10-20 failed: the two-candidate request
 exceeded the adapter's timeout, and the fifty-candidate request received HTTP

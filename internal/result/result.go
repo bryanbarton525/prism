@@ -48,14 +48,17 @@ type Artifact struct {
 // All fields are stable across CLI and MCP adapters so orchestrators can
 // depend on the schema regardless of how they call Prism.
 type RunResult struct {
-	AgentID    string     `json:"agent_id"`
-	Model      string     `json:"model"`
-	Status     string     `json:"status"`
-	Summary    string     `json:"summary"`
-	Findings   []Finding  `json:"findings"`
-	Artifacts  []Artifact `json:"artifacts"`
-	Confidence string     `json:"confidence,omitempty"`
-	Usage      Usage      `json:"usage"`
+	Decision      map[string]any `json:"decision,omitempty"`
+	LinearActions map[string]any `json:"linear_actions,omitempty"`
+	NextAction    any            `json:"next_action,omitempty"`
+	AgentID       string         `json:"agent_id"`
+	Model         string         `json:"model"`
+	Status        string         `json:"status"`
+	Summary       string         `json:"summary"`
+	Findings      []Finding      `json:"findings"`
+	Artifacts     []Artifact     `json:"artifacts"`
+	Confidence    string         `json:"confidence,omitempty"`
+	Usage         Usage          `json:"usage"`
 
 	// Metadata fields for the orchestrator to judge usefulness.
 

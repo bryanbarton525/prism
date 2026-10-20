@@ -15,6 +15,7 @@ type Score struct {
 	Consistency float64 `json:"consistency"`
 }
 type Baseline struct {
+	LayaMode      string           `json:"laya_mode,omitempty"`
 	LayaEnabled   bool             `json:"laya_enabled,omitempty"`
 	Version       int              `json:"version"`
 	Grader        string           `json:"grader"`
@@ -64,6 +65,9 @@ func ValidateReport(r Report) error {
 	if r.Version != Version || r.Grader != GraderVersion || !r.Completed || r.Repeat < 1 || len(r.Models) == 0 || r.Generation.MaxTokens < 1 || r.Repeat > 100 || math.IsNaN(r.Generation.Temperature) || math.IsInf(r.Generation.Temperature, 0) || r.Generation.Temperature < 0 || r.Generation.Temperature > 2 {
 		return fmt.Errorf("incomplete or incompatible evaluation report")
 	}
+	if (r.LayaURL == "" && r.LayaMode != "") || (r.LayaURL != "" && r.LayaMode != "first" && r.LayaMode != "advisory") {
+		return fmt.Errorf("invalid Laya report mode")
+	}
 	if err := r.Suite.Validate(); err != nil {
 		return err
 	}
@@ -89,7 +93,7 @@ func ValidateReport(r Report) error {
 			return fmt.Errorf("unexpected or duplicate trial")
 		}
 		seen[key] = true
-		if (r.LayaURL != "") != (t.Recommendation != nil) {
+		if (!t.Routing && len(t.Routes) > 0) || (r.LayaURL != "" && r.LayaMode == "advisory") != (t.Recommendation != nil) || (r.LayaURL != "" && r.LayaMode == "first") != t.Routing {
 			return fmt.Errorf("recommendation trace does not match report mode")
 		}
 		if Hash(GradeTrial(c, t)) != Hash(t.Grade) {
@@ -103,7 +107,7 @@ func ValidateReport(r Report) error {
 }
 
 func CreateBaseline(r Report, model string) (Baseline, error) {
-	b := Baseline{LayaEnabled: r.LayaURL != "", Version: Version, Grader: GraderVersion, SuiteHash: r.SuiteHash, SourceRunHash: Hash(r), Model: model, Generation: r.Generation, Cases: Scores(r, model)}
+	b := Baseline{LayaMode: r.LayaMode, LayaEnabled: r.LayaURL != "", Version: Version, Grader: GraderVersion, SuiteHash: r.SuiteHash, SourceRunHash: Hash(r), Model: model, Generation: r.Generation, Cases: Scores(r, model)}
 	if err := ValidateReport(r); err != nil {
 		return b, err
 	}
@@ -128,7 +132,7 @@ func Compare(b Baseline, r Report, model string) ([]string, error) {
 	if err := CheckBaseline(b, r.Suite, r.Generation, r.Repeat); err != nil {
 		return nil, err
 	}
-	if b.LayaEnabled != (r.LayaURL != "") {
+	if b.LayaEnabled != (r.LayaURL != "") || b.LayaMode != r.LayaMode {
 		return nil, fmt.Errorf("baseline and candidate Laya modes differ")
 	}
 	scores := Scores(r, model)

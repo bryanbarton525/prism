@@ -14,11 +14,12 @@ import (
 	"strings"
 
 	prismbundle "github.com/bryanbarton525/prism"
+	"github.com/bryanbarton525/prism/internal/result"
 	"gopkg.in/yaml.v3"
 )
 
 const Version = 1
-const GraderVersion = "mcp-outcomes-v1"
+const GraderVersion = "mcp-outcomes-v2"
 
 type Suite struct {
 	Version     int    `json:"version" yaml:"version"`
@@ -34,17 +35,18 @@ type ToolRef struct {
 }
 
 type Case struct {
-	ExpectedToolSequence []ToolRef     `json:"expected_tool_sequence,omitempty" yaml:"expected_tool_sequence,omitempty"`
-	ID                   string        `json:"id" yaml:"id"`
-	AgentID              string        `json:"agent_id" yaml:"agent_id"`
-	Skills               []string      `json:"skills" yaml:"skills"`
-	Task                 string        `json:"task" yaml:"task"`
-	Tools                []FixtureTool `json:"tools" yaml:"tools"`
-	Checks               []Check       `json:"checks" yaml:"checks"`
-	ConsistencyPaths     []string      `json:"consistency_paths" yaml:"consistency_paths"`
-	RequiredBridgeCalls  []string      `json:"required_bridge_calls,omitempty" yaml:"required_bridge_calls,omitempty"`
-	ForbiddenTools       []string      `json:"forbidden_tools,omitempty" yaml:"forbidden_tools,omitempty"`
-	MaxBytes             int           `json:"max_bytes,omitempty" yaml:"max_bytes,omitempty"`
+	DecisionSchema       map[string]any `json:"decision_schema,omitempty" yaml:"decision_schema,omitempty"`
+	ExpectedToolSequence []ToolRef      `json:"expected_tool_sequence,omitempty" yaml:"expected_tool_sequence,omitempty"`
+	ID                   string         `json:"id" yaml:"id"`
+	AgentID              string         `json:"agent_id" yaml:"agent_id"`
+	Skills               []string       `json:"skills" yaml:"skills"`
+	Task                 string         `json:"task" yaml:"task"`
+	Tools                []FixtureTool  `json:"tools" yaml:"tools"`
+	Checks               []Check        `json:"checks" yaml:"checks"`
+	ConsistencyPaths     []string       `json:"consistency_paths" yaml:"consistency_paths"`
+	RequiredBridgeCalls  []string       `json:"required_bridge_calls,omitempty" yaml:"required_bridge_calls,omitempty"`
+	ForbiddenTools       []string       `json:"forbidden_tools,omitempty" yaml:"forbidden_tools,omitempty"`
+	MaxBytes             int            `json:"max_bytes,omitempty" yaml:"max_bytes,omitempty"`
 }
 
 type FixtureTool struct {
@@ -73,7 +75,7 @@ func LoadSuite(path string) (Suite, error) {
 	var data []byte
 	var err error
 	if path == "" {
-		data, err = fs.ReadFile(prismbundle.EvaluationFS(), "evals/mcp-response-v1/suite.yaml")
+		data, err = fs.ReadFile(prismbundle.EvaluationFS(), "evals/mcp-response-v2/suite.yaml")
 	} else {
 		data, err = os.ReadFile(path)
 	}
@@ -109,6 +111,9 @@ func (s Suite) Validate() error {
 			return fmt.Errorf("case %q requires unique id, agent_id, task, checks, and consistency_paths", c.ID)
 		}
 		ids[c.ID] = true
+		if _, err := result.ResolveDecisionSchema(c.DecisionSchema); err != nil {
+			return fmt.Errorf("case %s: %w", c.ID, err)
+		}
 		if c.MaxBytes < 0 || c.MaxBytes > 1<<20 {
 			return fmt.Errorf("case %s: max_bytes must be 0–1048576", c.ID)
 		}

@@ -20,7 +20,7 @@ metadata:
 
 1. Identify whether the request is read-only or write-oriented.
 2. Use attached runtime evidence to report Linear MCP setup context, configured downstream MCP servers, and issue keys inferred from the task.
-3. For read-only work, use Prism MCP bridge tools against the configured `linear` downstream server: list tools, then search teams, issues, projects, labels, cycles, or users.
+3. For read-only work, use Prism MCP bridge tools against the authorized server names and tool schemas in runtime evidence. Never assume a server is named `linear`; discover available servers when the inventory is missing. Follow a runtime-selected route when one is supplied. Retrieve evidence before reporting external facts; do not invent successful reads.
 4. For create work, build a minimal issue payload with title, team, description, and optional assignee, priority, labels, project, cycle, and parent issue.
 5. For edit work, require a target issue key or UUID and list only the fields being changed.
 6. For triage work, search before mutating: dedupe likely duplicates, summarize current state, then propose comments/status/label changes.
@@ -49,9 +49,11 @@ When a write still needs approval or exact schema resolution, return proposed MC
 }
 ```
 
-Use the exact tool names exposed by `list_mcp_server_tools` when available. If the exact tool schema is not present in evidence, ask the parent to call Prism MCP `list_mcp_server_tools` for `server: "linear"` before executing a write.
+Use the exact tool names exposed by `list_mcp_server_tools` when available. If the exact tool schema is not present in evidence, ask the parent to call Prism MCP `list_mcp_server_tools` for the actual authorized server name before executing a write. The `linear` name in the artifact example is a placeholder, not a required alias.
 
 ## Output requirements
+
+Follow the common JSON envelope and any supplied decision schema. Put task-requested answer fields in root `decision`; keep evidence in `artifacts`.
 
 - `summary`: one sentence verdict or proposed action.
 - `findings`: concise evidence-backed observations.

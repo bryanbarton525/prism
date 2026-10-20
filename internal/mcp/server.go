@@ -253,6 +253,7 @@ func listAgentsHandler(runner app.AgentRunner) func(context.Context, *mcpsdk.Cal
 }
 
 type RunAgentInput struct {
+	DecisionSchema map[string]any  `json:"decision_schema,omitempty"`
 	AgentID        string          `json:"agent_id"`
 	Task           string          `json:"task"`
 	SkillNames     []string        `json:"skill_names,omitempty"`
@@ -291,6 +292,7 @@ func runAgentHandler(runner app.AgentRunner, cfg Config) func(context.Context, *
 			generationFingerprint = input.Workspace.GenerationFingerprint
 		}
 		res, err := runner.Run(ctx, app.RunRequest{
+			DecisionSchema: input.DecisionSchema,
 			AgentID:        input.AgentID,
 			Task:           input.Task,
 			SkillNames:     input.SkillNames,

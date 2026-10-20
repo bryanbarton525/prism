@@ -33,6 +33,7 @@ type Settings struct {
 	PolicyFile          string
 	StateDir            string
 	ToolRecommendAgents []string
+	DecisionRoutingMode string
 	ToolRecommendModel  string
 	DecisionURL         string
 	DecisionAPIKeyEnv   string
@@ -136,6 +137,7 @@ func settingsFrom(v *viper.Viper, fileEnv map[string]string) Settings {
 		EventStore:          configValue(v, fileEnv, "event_store", "PRISM_EVENT_STORE"),
 		PolicyFile:          configValue(v, fileEnv, "policy_file", "PRISM_POLICY_FILE"),
 		StateDir:            stateDir,
+		DecisionRoutingMode: configValue(v, fileEnv, "decision_routing_mode", "PRISM_DECISION_ROUTING_MODE"),
 		ToolRecommendAgents: splitCSV(configValue(v, fileEnv, "tool_recommend_agents", "PRISM_TOOL_RECOMMEND_AGENTS")),
 		ToolRecommendModel:  configValue(v, fileEnv, "tool_recommend_model", "PRISM_TOOL_RECOMMEND_MODEL"),
 		DecisionURL:         configValue(v, fileEnv, "decision_url", "PRISM_DECISION_URL"),
