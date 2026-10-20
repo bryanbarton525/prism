@@ -57,7 +57,8 @@ def main():
     p.add_argument('--output-dir', type=Path, required=True)
     p.add_argument('--prism', default='prism')
     p.add_argument('--suite', type=Path)
-    p.add_argument('--laya-url', help='Enable recorded Laya recommendations; requires a CLI with --laya-url')
+    p.add_argument('--laya-mode', choices=['first', 'advisory'], default='first')
+    p.add_argument('--laya-url', help='Optional Laya endpoint; omitted uses the original model-driven loop')
     p.add_argument('--repeat', type=int, default=3)
     p.add_argument('--max-tokens', type=int, default=1024)
     p.add_argument('--max-model-gib', type=float, default=8, help='Preflight artifact-size cap; not a runtime memory estimate')
@@ -106,7 +107,7 @@ def main():
             command = [a.prism, 'eval', 'run', '--model', model, '--repeat', str(a.repeat),
                        '--max-tokens', str(a.max_tokens), '--temperature', '0.1', '--timeout', '180s', '--output', str(output)]
             if a.laya_url:
-                command += ['--laya-url', a.laya_url]
+                command += ['--laya-url', a.laya_url, '--laya-mode', a.laya_mode]
             if a.suite:
                 command += ['--suite', str(root / 'suite.yaml')]
             row = {'model': model, 'command': command, 'memory': []}

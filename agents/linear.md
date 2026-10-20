@@ -33,4 +33,6 @@ The orchestrator supplies the requested Linear workspace context, issue keys, te
 
 ## Output contract
 
+Include a root `decision` object for task-requested structured answers, using the supplied schema when present. Use actual authorized MCP server aliases from runtime evidence, not a fixed name.
+
 Return a concise summary, ordered findings, `linear_actions`, artifacts containing proposed or executed Linear MCP calls, confidence, and next action.

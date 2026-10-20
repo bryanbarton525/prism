@@ -30,6 +30,9 @@ func (r *Runner) chatWithTools(ctx context.Context, req llmruntime.ChatRequest, 
 	if r.usesGraphifyCapability(spec) {
 		return r.chatWithGraphifyToolLoop(ctx, req, r.graphifyAccess(ctx, workspace), workspaceFS)
 	}
+	if r.decisionRoutingEnabled(spec.ID) && agentUsesMCP(spec) && r.downmcp != nil {
+		return r.chatWithDecisionRouting(ctx, req, spec.ID, skillNames)
+	}
 	managedResources := !r.isBundledAgent(spec.ID)
 	usesMCP := agentUsesMCP(spec) && r.downmcp != nil
 	if !usesMCP && !managedResources {

@@ -31,6 +31,8 @@ The Linear agent must not:
 
 ## Output contract
 
+Include a root `decision` object for task-requested structured answers, using the supplied schema when present. Use actual authorized MCP server aliases from runtime evidence, not a fixed name.
+
 Return summary, findings, linear actions, artifacts, confidence, and next action.
 
 `linear_actions` must separate:

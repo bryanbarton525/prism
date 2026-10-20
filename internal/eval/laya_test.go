@@ -26,7 +26,7 @@ func TestLayaEvaluationRecordsApplicationAndFallback(t *testing.T) {
 				_ = json.NewEncoder(w).Encode(map[string]any{"answers": map[string]any{"tool": map[string]any{"type": "choice", "probabilities": map[string]float64{"tool_0": 1}}}})
 			}))
 			defer server.Close()
-			report, err := Run(context.Background(), fixtureSuite(t), &scriptedRuntime{}, Options{Models: []string{"candidate"}, Repeat: 3, Timeout: 10 * time.Second, Generation: Generation{MaxTokens: 1024}, LayaURL: server.URL})
+			report, err := Run(context.Background(), fixtureSuite(t), &scriptedRuntime{}, Options{LayaMode: "advisory", Models: []string{"candidate"}, Repeat: 3, Timeout: 10 * time.Second, Generation: Generation{MaxTokens: 1024}, LayaURL: server.URL})
 			if err != nil {
 				t.Fatal(err)
 			}

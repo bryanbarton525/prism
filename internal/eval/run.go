@@ -39,6 +39,8 @@ type FixtureCall struct {
 	Matched    bool                `json:"matched"`
 }
 type Trial struct {
+	Routing        bool                     `json:"routing,omitempty"`
+	Routes         []app.RouteDecision      `json:"routes,omitempty"`
 	Recommendation *app.RecommendationTrace `json:"recommendation,omitempty"`
 	MCPResponse    *sdk.CallToolResult      `json:"mcp_response,omitempty"`
 	CaseID         string                   `json:"case_id"`
@@ -57,6 +59,7 @@ type Generation struct {
 	MaxTokens   int     `json:"max_tokens"`
 }
 type Report struct {
+	LayaMode   string         `json:"laya_mode,omitempty"`
 	LayaURL    string         `json:"laya_url,omitempty"`
 	Version    int            `json:"version"`
 	Grader     string         `json:"grader"`
@@ -72,6 +75,7 @@ type Report struct {
 	Trials     []Trial        `json:"trials"`
 }
 type Options struct {
+	LayaMode   string
 	LayaURL    string
 	Models     []string
 	Repeat     int
@@ -83,7 +87,13 @@ type Options struct {
 // Run exercises the production run_agent MCP adapter and agent loop. Only the
 // model endpoint is live: downstream MCP tools are isolated HTTP replay servers.
 func Run(ctx context.Context, s Suite, rt runtime.ModelRuntime, o Options) (Report, error) {
-	r := Report{LayaURL: o.LayaURL, Version: Version, Grader: GraderVersion, Suite: s, SuiteHash: Hash(s), Build: buildinfo.Current(), Engine: rt.Engine(), Models: o.Models, Repeat: o.Repeat, Generation: o.Generation, Started: time.Now().UTC()}
+	if o.LayaURL != "" && o.LayaMode == "" {
+		o.LayaMode = "first"
+	}
+	if o.LayaURL == "" {
+		o.LayaMode = ""
+	}
+	r := Report{LayaMode: o.LayaMode, LayaURL: o.LayaURL, Version: Version, Grader: GraderVersion, Suite: s, SuiteHash: Hash(s), Build: buildinfo.Current(), Engine: rt.Engine(), Models: o.Models, Repeat: o.Repeat, Generation: o.Generation, Started: time.Now().UTC()}
 	if err := s.Validate(); err != nil {
 		return r, err
 	}
@@ -91,6 +101,9 @@ func Run(ctx context.Context, s Suite, rt runtime.ModelRuntime, o Options) (Repo
 		return r, fmt.Errorf("models, 1–100 repetitions, positive timeout and max tokens required")
 	}
 	if o.LayaURL != "" {
+		if o.LayaMode != "first" && o.LayaMode != "advisory" {
+			return r, fmt.Errorf("laya mode must be first or advisory")
+		}
 		if _, err := toolmodel.NewDecisionClient(o.LayaURL, "", "laya-english"); err != nil {
 			return r, err
 		}
@@ -109,7 +122,7 @@ func Run(ctx context.Context, s Suite, rt runtime.ModelRuntime, o Options) (Repo
 					return r, err
 				}
 				trialCtx, cancel := context.WithTimeout(ctx, o.Timeout)
-				t := runTrial(trialCtx, c, model, repetition, rt, o.Generation, o.LayaURL)
+				t := runTrial(trialCtx, c, model, repetition, rt, o.Generation, o.LayaURL, o.LayaMode)
 				cancel()
 				r.Trials = append(r.Trials, t)
 				if o.OnTrial != nil {
@@ -168,10 +181,11 @@ type replayClient struct {
 }
 
 func (c replayClient) Servers() []downstreammcp.Server { return c.public }
-func runTrial(ctx context.Context, c Case, model string, repetition int, rt runtime.ModelRuntime, g Generation, layaURL string) (t Trial) {
+func runTrial(ctx context.Context, c Case, model string, repetition int, rt runtime.ModelRuntime, g Generation, layaURL, layaMode string) (t Trial) {
 	start := time.Now()
 	t = Trial{CaseID: c.ID, Model: model, Repetition: repetition}
-	if layaURL != "" {
+	t.Routing = layaURL != "" && layaMode == "first"
+	if layaURL != "" && !t.Routing {
 		t.Recommendation = &app.RecommendationTrace{Error: "recommendation step was not reached"}
 	}
 	traced := &tracedRuntime{ModelRuntime: rt, model: model, generation: g}
@@ -233,6 +247,8 @@ func runTrial(ctx context.Context, c Case, model string, repetition int, rt runt
 	if layaURL != "" {
 		cfg.DecisionURL, cfg.DecisionModel = layaURL, "laya-english"
 		cfg.ToolRecommendationAgents = []string{c.AgentID}
+		cfg.DecisionRoutingMode = layaMode
+		cfg.RouteObserver = func(route app.RouteDecision) { t.Routes = append(t.Routes, route) }
 		cfg.RecommendationObserver = func(trace app.RecommendationTrace) { t.Recommendation = &trace }
 	}
 	runner, err := app.New(cfg)
@@ -254,7 +270,11 @@ func runTrial(ctx context.Context, c Case, model string, repetition int, rt runt
 		return
 	}
 	defer cs.Close()
-	response, err := cs.CallTool(ctx, &sdk.CallToolParams{Name: "run_agent", Arguments: map[string]any{"agent_id": c.AgentID, "task": c.Task, "skill_names": c.Skills, "format": "json"}})
+	arguments := map[string]any{"agent_id": c.AgentID, "task": c.Task, "skill_names": c.Skills, "format": "json"}
+	if len(c.DecisionSchema) > 0 {
+		arguments["decision_schema"] = c.DecisionSchema
+	}
+	response, err := cs.CallTool(ctx, &sdk.CallToolParams{Name: "run_agent", Arguments: arguments})
 	if err != nil {
 		t.Error = err.Error()
 		return

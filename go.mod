@@ -3,6 +3,7 @@ module github.com/bryanbarton525/prism
 go 1.25.0
 
 require (
+	github.com/google/jsonschema-go v0.4.3
 	github.com/knights-analytics/hugot v0.7.0
 	github.com/modelcontextprotocol/go-sdk v1.6.1
 	github.com/pelletier/go-toml/v2 v2.2.4
@@ -38,7 +39,6 @@ require (
 	github.com/gomlx/gomlx v0.27.2 // indirect
 	github.com/gomlx/onnx-gomlx v0.4.2-0.20260327164137-4e2832549fc1 // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
-	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect

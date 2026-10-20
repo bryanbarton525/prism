@@ -1179,6 +1179,7 @@ func newRunnerWithControls(ctx context.Context, sink observe.Sink, policyEngine 
 		ModelRuntimeConfig:       effectivePrimary(),
 		ToolModelStateDir:        gf.stateDir,
 		ToolRecommendationAgents: cfg.ToolRecommendAgents,
+		DecisionRoutingMode:      cfg.DecisionRoutingMode,
 		ToolRecommendationModel:  cfg.ToolRecommendModel,
 		DecisionURL:              cfg.DecisionURL,
 		DecisionAPIKeyEnv:        cfg.DecisionAPIKeyEnv,

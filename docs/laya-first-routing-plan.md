@@ -1,7 +1,23 @@
 # Laya-first routing and aligned evaluation contracts
 
-Status: corrective design following the v0.1.32 diagnostic collection. This is
-not a description of functionality already implemented.
+Status: implementation and regression validation in progress following the
+v0.1.32 diagnostic collection. Historical results remain unchanged and do not
+measure the new routing path.
+
+## Optional configuration
+
+Laya is not required. With no Laya endpoint, or without agent opt-in, Prism keeps
+its original model-driven tool loop. No Laya installation or model download is
+needed for that path. To enable bound routing, configure `decision_url`,
+`decision_model: laya-english`, and the agent in `tool_recommend_agents`.
+`decision_routing_mode: first` is the default for this opt-in;
+`decision_routing_mode: advisory` retains legacy suggestions. A configured
+Laya service failure is recorded as a routing failure, not silently switched to
+another mode.
+
+Evaluations are isolated from saved Laya settings: omit `--laya-url` for the
+original loop; supply `--laya-url URL --laya-mode first` for bound routing.
+Baseline comparisons require matching modes.
 
 ## Confirmed defects in the comparison
 

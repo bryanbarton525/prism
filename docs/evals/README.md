@@ -10,7 +10,13 @@ never uses configured downstream servers, workspace files, or native service
 credentials. The configured primary model endpoint is live (and the explicitly selected Laya endpoint when `--laya-url` is used); no fallback is
 used. `--model` overrides the requested model for this evaluation only.
 
-The initial versioned suite covers issue lookup, empty results, permission
+The default `mcp-response-v2` suite supplies explicit decision schemas. Grader
+`mcp-outcomes-v2` validates structured delivery and evidence-based outcomes.
+Laya is optional: omit `--laya-url` to retain the original model-driven loop.
+An explicit endpoint enables bound routing; `--laya-mode advisory` selects the
+legacy advisory path. Baselines cannot mix these modes.
+
+The versioned suite covers issue lookup, empty results, permission
 errors, conflicting historical evidence, instructions embedded in tool data,
 and ordered lookups across two servers.
 These are MCP workflow probes, not claims of general model intelligence. Add
@@ -23,9 +29,9 @@ Using the configured runtime and the suite embedded in the binary (or select a
 custom YAML file with `--suite`):
 
 ```sh
-prism eval run --model qwen3.5:9b,qwen3.6:27b --repeat 5 --output comparison.json
+prism eval run --model qwen3.5:9b,llama3.1:8b --repeat 5 --output comparison.json
 prism eval baseline create comparison.json --model qwen3.5:9b --output baseline.json
-prism eval test --baseline baseline.json --model qwen3.6:27b --output candidate.json
+prism eval test --baseline baseline.json --model llama3.1:8b --output candidate.json
 ```
 
 Use exact model IDs served by the endpoint. Each response records the served ID;
@@ -63,7 +69,7 @@ suite expectations; do not automatically regenerate it in CI.
 For reports already collected:
 
 ```sh
-prism eval compare baseline.json candidate.json --model qwen3.6:27b
+prism eval compare baseline.json candidate.json --model llama3.1:8b
 ```
 
 ## Scoring

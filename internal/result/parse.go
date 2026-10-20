@@ -12,13 +12,16 @@ const DefaultCompactMaxChars = 400
 
 // agentOutput is the JSON envelope local models should emit.
 type agentOutput struct {
-	Summary    string          `json:"summary"`
-	Findings   json.RawMessage `json:"findings"`
-	Artifacts  []Artifact      `json:"artifacts"`
-	Confidence string          `json:"confidence"`
-	Patch      string          `json:"patch"`
-	Code       string          `json:"code"`
-	Notes      string          `json:"notes"`
+	Decision      map[string]any  `json:"decision,omitempty"`
+	LinearActions map[string]any  `json:"linear_actions,omitempty"`
+	NextAction    any             `json:"next_action,omitempty"`
+	Summary       string          `json:"summary"`
+	Findings      json.RawMessage `json:"findings"`
+	Artifacts     []Artifact      `json:"artifacts"`
+	Confidence    string          `json:"confidence"`
+	Patch         string          `json:"patch"`
+	Code          string          `json:"code"`
+	Notes         string          `json:"notes"`
 }
 
 var jsonFenceRE = regexp.MustCompile("(?s)```(?:json)?\\s*([\\s\\S]*?)```")
@@ -57,6 +60,7 @@ func ParseAgentOutput(raw string, compactMax int) RunResult {
 	}
 
 	return RunResult{
+		Decision: parsed.decision, LinearActions: parsed.linearActions, NextAction: parsed.nextAction,
 		Summary:    compact,
 		RawOutput:  raw,
 		Findings:   findings,
@@ -66,13 +70,16 @@ func ParseAgentOutput(raw string, compactMax int) RunResult {
 }
 
 type parsedFields struct {
-	summary    string
-	findings   []Finding
-	artifacts  []Artifact
-	confidence string
-	patch      string
-	code       string
-	notes      string
+	decision      map[string]any
+	linearActions map[string]any
+	nextAction    any
+	summary       string
+	findings      []Finding
+	artifacts     []Artifact
+	confidence    string
+	patch         string
+	code          string
+	notes         string
 }
 
 func (p parsedFields) empty() bool {
@@ -97,6 +104,7 @@ func tryParseJSON(raw string) parsedFields {
 			continue
 		}
 		parsed := parsedFields{
+			decision: ao.Decision, linearActions: ao.LinearActions, nextAction: ao.NextAction,
 			summary:    ao.Summary,
 			findings:   decodeFindings(ao.Findings),
 			artifacts:  ao.Artifacts,

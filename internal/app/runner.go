@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net"
@@ -148,6 +149,8 @@ type Config struct {
 	ModelRuntimeConfig       llmruntime.Config // diagnostic model discovery, including authentication
 	ToolModelStateDir        string
 	ToolRecommendationAgents []string
+	DecisionRoutingMode      string
+	RouteObserver            func(RouteDecision)
 	RecommendationObserver   func(RecommendationTrace)
 	ToolRecommendationModel  string
 	DecisionURL              string
@@ -245,6 +248,8 @@ func (c *Config) skillsDirLabel() string {
 
 // RunRequest is the input to Runner.Run.
 type RunRequest struct {
+	// DecisionSchema defines the root decision object, without expected answer values.
+	DecisionSchema map[string]any
 	// AgentID identifies the specialist to invoke.
 	AgentID string
 	// Task is the task text supplied by the orchestrator (from --input, --stdin,
@@ -317,6 +322,9 @@ var _ AgentRunner = (*Runner)(nil)
 // New creates a Runner from cfg, loads all agent specs, and returns.
 // It fails fast if the agent directory cannot be read or any spec is invalid.
 func New(cfg Config) (*Runner, error) {
+	if cfg.DecisionRoutingMode != "" && cfg.DecisionRoutingMode != "first" && cfg.DecisionRoutingMode != "advisory" {
+		return nil, fmt.Errorf("decision routing mode must be first or advisory")
+	}
 	if cfg.BundleVersion == "" {
 		cfg.BundleVersion = buildinfo.Current().Version
 	}
@@ -696,7 +704,15 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 	}
 
 	// ── 8. Assemble prompt with progressive disclosure ────────────────────
+	decisionContract, contractErr := result.ResolveDecisionSchema(req.DecisionSchema)
+	if contractErr != nil {
+		return emit(r.validationFail(req.AgentID, spec.Model, start, contractErr.Error())), nil
+	}
 	systemPrompt, userPrompt := assemblePrompt(constitutionText, skills, req.SkillNames, task)
+	if len(req.DecisionSchema) > 0 {
+		schemaJSON, _ := json.Marshal(req.DecisionSchema)
+		systemPrompt += "\n# Required decision schema\nThe root decision object must conform to this JSON Schema. Values must come from retrieved evidence, not guesses.\n" + string(schemaJSON)
+	}
 	if r.usesGraphifyCapability(spec) {
 		systemPrompt += graphifyMCPToolInstructions()
 	} else if agentUsesMCP(spec) && r.downmcp != nil {
@@ -705,7 +721,7 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 	if !r.isBundledAgent(spec.ID) {
 		systemPrompt += skillResourceToolInstructions(req.SkillNames)
 	}
-	if r.toolRecommendationEnabled(spec.ID) && agentUsesMCP(spec) && r.downmcp != nil {
+	if !r.decisionRoutingEnabled(spec.ID) && r.toolRecommendationEnabled(spec.ID) && agentUsesMCP(spec) && r.downmcp != nil {
 		routeStart := time.Now()
 		routeCtx, cancelRoute := context.WithTimeout(ctx, 500*time.Millisecond)
 		recommended, recommendErr := r.RecommendTools(routeCtx, spec.ID, req.Task, 5)
@@ -744,6 +760,9 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 		},
 		ContextLength: spec.ContextBudget,
 	}
+	if r.decisionRoutingEnabled(spec.ID) {
+		chatReq.Metadata = map[string]string{"routing_task": req.Task}
+	}
 	if spec.Temperature != nil {
 		temperature := *spec.Temperature
 		chatReq.Temperature = &temperature
@@ -753,6 +772,9 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 	elapsed := time.Since(start)
 	if err != nil {
 		status := result.StatusError
+		if toolChat != nil {
+			evidence.artifacts = append(evidence.artifacts, toolChat.artifacts...)
+		}
 		if ctx.Err() == context.DeadlineExceeded {
 			status = result.StatusTimeout
 		}
@@ -778,13 +800,21 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 	// ── 11. Build normalized result ───────────────────────────────────────
 	rawText := chatResp.Message.Content
 	parsed := result.ParseAgentOutput(rawText, result.DefaultCompactMaxChars)
+	outputStatus := result.StatusOK
+	if decisionContract != nil {
+		if err := decisionContract.Validate(parsed.Decision); err != nil {
+			outputStatus = result.StatusValidationFail
+			parsed.ValidationError = "decision schema: " + err.Error()
+		}
+	}
 	artifacts := append([]result.Artifact{}, evidence.artifacts...)
 	artifacts = append(artifacts, toolChat.artifacts...)
 	artifacts = append(artifacts, parsed.Artifacts...)
 	return emit(result.RunResult{
-		AgentID:    req.AgentID,
-		Model:      chatResp.Model,
-		Status:     result.StatusOK,
+		AgentID:  req.AgentID,
+		Model:    chatResp.Model,
+		Status:   outputStatus,
+		Decision: parsed.Decision, LinearActions: parsed.LinearActions, NextAction: parsed.NextAction, ValidationError: parsed.ValidationError,
 		Summary:    parsed.Summary,
 		RawOutput:  parsed.RawOutput,
 		Findings:   parsed.Findings,
