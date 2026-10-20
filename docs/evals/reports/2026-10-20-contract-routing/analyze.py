@@ -64,7 +64,7 @@ def main():
     fig.savefig(ROOT / 'latency.png', dpi=180)
     plt.close(fig)
     lines = ['# Response contracts and optional routing', '',
-        'Fresh results from the fixed implementation. Laya is optional: original mode',
+        'Single-pass smoke results from the fixed implementation. Laya is optional: original mode',
         'uses the model-driven tool loop without contacting Laya. First mode binds',
         'execution to a Laya-selected authorized server/tool before generation.', '',
         '![All-check pass rates](comparison.png)', '', '![Observed latency](latency.png)', '',
@@ -72,7 +72,10 @@ def main():
     lines += [f'| {label.replace(chr(10), " / ")} | {passed}/{total} |' for label, passed, total, _ in rows]
     lines += ['', 'These are small synthetic integration probes, not a ranking-quality benchmark.',
         'Expected answers stay in graders; models receive schemas and replayed tool evidence.',
-        'Failures remain in the data. No failing run is an approved baseline.',
+        'Failures remain in the data. One repetition cannot establish consistency;',
+        'no smoke run is an approved baseline. Repeat at least three times before approval.',
+        'The earlier 8/18 original-loop run is retained in `diagnostics/`, on revision ee6284f.',
+        'It preceded a Laya bridge-interface correction and is excluded from these charts.',
         'The historical v0.1.32 report used different contracts and advisory routing;',
         'its pass rates are not a controlled before/after comparison.', '', '## Failed checks', '',
         '| Model and mode | Check | Failed trials |', '|---|---|---:|']

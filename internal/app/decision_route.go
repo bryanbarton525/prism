@@ -123,6 +123,7 @@ func (r *Runner) chatWithDecisionRouting(ctx context.Context, req llmruntime.Cha
 	if original := req.Metadata["routing_task"]; original != "" {
 		task = original
 	}
+	baseSystem := req.Messages[0].Content
 	results := newRunToolResults()
 	out := &chatToolResult{}
 	evidence := ""
@@ -161,9 +162,9 @@ func (r *Runner) chatWithDecisionRouting(ctx context.Context, req llmruntime.Cha
 				},
 			}
 			req.Tools = []llmruntime.Tool{functionTool("call_mcp_tool", "Execute the runtime-selected route "+trace.Selected.Server+"."+trace.Selected.Name+". The destination is fixed; supply the required arguments.", boundSchema)}
-			req.Messages = append(req.Messages, llmruntime.Message{Role: "system", Content: "Laya selected " + trace.Selected.Server + "." + trace.Selected.Name + ". Call call_mcp_tool now with this destination and its arguments before answering. Discovery is complete. Do not select a different destination or invent tool results."})
+			req.Messages[0].Content = baseSystem + "\n\n# Runtime-selected route\nLaya selected " + trace.Selected.Server + "." + trace.Selected.Name + ". Call call_mcp_tool now with this destination and its arguments before answering. Discovery is complete. Do not select a different destination or invent tool results."
 		} else {
-			req.Messages = append(req.Messages, llmruntime.Message{Role: "system", Content: "Laya determined evidence collection is complete. Answer from retained tool evidence using the required response contract. Do not invent missing facts."})
+			req.Messages[0].Content = baseSystem + "\n\n# Runtime-selected route\nLaya determined evidence collection is complete. Answer from retained tool evidence using the required response contract. Do not invent missing facts."
 		}
 		if results.bytes > 0 {
 			req.Tools = append(req.Tools, resultReadTool())
