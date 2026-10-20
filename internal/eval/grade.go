@@ -70,6 +70,9 @@ func GradeTrial(c Case, t Trial) Grade {
 			checks["model_identity"] = false
 		}
 	}
+	if r := t.Recommendation; r != nil {
+		checks["laya_applied"] = r.Injected && r.Error == "" && r.Result.ScoreKind == "laya_choice" && r.Result.ModelIdentity == "laya-english" && !r.Result.Incomplete && len(r.Result.Warnings) == 0 && len(r.Result.Tools) > 0
+	}
 	object, valid := outputObject(t.Result.RawOutput)
 	summary, summaryOK := object["summary"].(string)
 	findings, findingsOK := object["findings"].([]any)

@@ -72,7 +72,7 @@ func newEvalCmd() *cobra.Command {
 	return cmd
 }
 func newEvalRunCmd(test bool) *cobra.Command {
-	var suitePath, output, baselinePath string
+	var suitePath, output, baselinePath, layaURL string
 	var models []string
 	var repeat, maxTokens int
 	var timeout time.Duration
@@ -121,6 +121,9 @@ func newEvalRunCmd(test bool) *cobra.Command {
 			}
 		}
 		if test {
+			if b.LayaEnabled != (layaURL != "") {
+				return fmt.Errorf("baseline and candidate Laya modes differ; select --laya-url for a Laya baseline")
+			}
 			if err := eval.CheckBaseline(b, suite, eval.Generation{Temperature: temperature, MaxTokens: maxTokens}, repeat); err != nil {
 				return err
 			}
@@ -143,7 +146,7 @@ func newEvalRunCmd(test bool) *cobra.Command {
 		}
 		defer journal.Close()
 		encoder := json.NewEncoder(journal)
-		report, runErr := eval.Run(cmd.Context(), suite, rt, eval.Options{Models: models, Repeat: repeat, Timeout: timeout, Generation: eval.Generation{Temperature: temperature, MaxTokens: maxTokens}, OnTrial: func(t eval.Trial) error {
+		report, runErr := eval.Run(cmd.Context(), suite, rt, eval.Options{LayaURL: layaURL, Models: models, Repeat: repeat, Timeout: timeout, Generation: eval.Generation{Temperature: temperature, MaxTokens: maxTokens}, OnTrial: func(t eval.Trial) error {
 			fmt.Fprintf(cmd.ErrOrStderr(), "%s %s trial %d: passed=%t (%dms)\n", t.Model, t.CaseID, t.Repetition, t.Grade.Passed, t.DurationMS)
 			if err := encoder.Encode(t); err != nil {
 				return err
@@ -169,6 +172,7 @@ func newEvalRunCmd(test bool) *cobra.Command {
 		}
 		return nil
 	}}
+	cmd.Flags().StringVar(&layaURL, "laya-url", "", "Enable Laya English recommendations (lexical shortlist, 500ms budget); record and grade application")
 	cmd.Flags().StringVar(&suitePath, "suite", "", "Versioned YAML replay suite (default: bundled mcp-response-v1)")
 	cmd.Flags().StringSliceVar(&models, "model", nil, "Model ID(s); repeat flag or use comma-separated IDs (default: configured model)")
 	cmd.Flags().IntVar(&repeat, "repeat", 3, "Trials per case and model")

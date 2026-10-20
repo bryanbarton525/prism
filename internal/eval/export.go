@@ -13,7 +13,7 @@ import (
 )
 
 // Export creates a local comparison dataset, preserving failed trials and raw
-// request/response traces. No credentials or configured provider URLs are stored.
+// request/response traces. No credentials are stored. An explicitly selected Laya origin is recorded.
 func Export(r Report, dir string) error {
 	if err := ValidateReport(r); err != nil {
 		return err

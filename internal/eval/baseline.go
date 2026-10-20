@@ -15,6 +15,7 @@ type Score struct {
 	Consistency float64 `json:"consistency"`
 }
 type Baseline struct {
+	LayaEnabled   bool             `json:"laya_enabled,omitempty"`
 	Version       int              `json:"version"`
 	Grader        string           `json:"grader"`
 	SuiteHash     string           `json:"suite_hash"`
@@ -88,6 +89,9 @@ func ValidateReport(r Report) error {
 			return fmt.Errorf("unexpected or duplicate trial")
 		}
 		seen[key] = true
+		if (r.LayaURL != "") != (t.Recommendation != nil) {
+			return fmt.Errorf("recommendation trace does not match report mode")
+		}
 		if Hash(GradeTrial(c, t)) != Hash(t.Grade) {
 			return fmt.Errorf("grade mismatch for %s/%s/%d", t.Model, t.CaseID, t.Repetition)
 		}
@@ -99,7 +103,7 @@ func ValidateReport(r Report) error {
 }
 
 func CreateBaseline(r Report, model string) (Baseline, error) {
-	b := Baseline{Version: Version, Grader: GraderVersion, SuiteHash: r.SuiteHash, SourceRunHash: Hash(r), Model: model, Generation: r.Generation, Cases: Scores(r, model)}
+	b := Baseline{LayaEnabled: r.LayaURL != "", Version: Version, Grader: GraderVersion, SuiteHash: r.SuiteHash, SourceRunHash: Hash(r), Model: model, Generation: r.Generation, Cases: Scores(r, model)}
 	if err := ValidateReport(r); err != nil {
 		return b, err
 	}
@@ -123,6 +127,9 @@ func Compare(b Baseline, r Report, model string) ([]string, error) {
 	}
 	if err := CheckBaseline(b, r.Suite, r.Generation, r.Repeat); err != nil {
 		return nil, err
+	}
+	if b.LayaEnabled != (r.LayaURL != "") {
+		return nil, fmt.Errorf("baseline and candidate Laya modes differ")
 	}
 	scores := Scores(r, model)
 	var regressions []string

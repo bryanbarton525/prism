@@ -1,10 +1,13 @@
 # Model response evaluations
 
+For a memory-guarded Ollama runner and recorded Laya off/on commands, see
+[the reproducible evaluation guide](../../evals/README.md).
+
 `prism eval` measures functional correctness and response consistency through
 Prism's production `run_agent` MCP adapter, bundled agent prompts, and model/tool
 loop. Local HTTP MCP servers replay synthetic downstream responses. The run
 never uses configured downstream servers, workspace files, or native service
-credentials. Only the configured primary model endpoint is live; no fallback is
+credentials. The configured primary model endpoint is live (and the explicitly selected Laya endpoint when `--laya-url` is used); no fallback is
 used. `--model` overrides the requested model for this evaluation only.
 
 The initial versioned suite covers issue lookup, empty results, permission

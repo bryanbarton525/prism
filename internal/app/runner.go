@@ -148,6 +148,7 @@ type Config struct {
 	ModelRuntimeConfig       llmruntime.Config // diagnostic model discovery, including authentication
 	ToolModelStateDir        string
 	ToolRecommendationAgents []string
+	RecommendationObserver   func(RecommendationTrace)
 	ToolRecommendationModel  string
 	DecisionURL              string
 	DecisionAPIKeyEnv        string
@@ -705,16 +706,25 @@ func (r *Runner) Run(ctx context.Context, req RunRequest) (result.RunResult, err
 		systemPrompt += skillResourceToolInstructions(req.SkillNames)
 	}
 	if r.toolRecommendationEnabled(spec.ID) && agentUsesMCP(spec) && r.downmcp != nil {
+		routeStart := time.Now()
 		routeCtx, cancelRoute := context.WithTimeout(ctx, 500*time.Millisecond)
 		recommended, recommendErr := r.RecommendTools(routeCtx, spec.ID, req.Task, 5)
 		cancelRoute()
+		trace := RecommendationTrace{Result: recommended, DurationMS: time.Since(routeStart).Milliseconds()}
+		if recommendErr != nil {
+			trace.Error = recommendErr.Error()
+		}
 		if recommendErr == nil {
 			block := recommendationPrompt(recommended)
 			// Reserve output and subsequent tool history; recommendations are omitted
 			// when the original prompt is already close to its configured window.
 			if spec.ContextBudget <= 0 || (len(systemPrompt)+len(userPrompt)+len(block))/4+1024 <= spec.ContextBudget {
 				userPrompt += block
+				trace.Injected = true
 			}
+		}
+		if r.cfg.RecommendationObserver != nil {
+			r.cfg.RecommendationObserver(trace)
 		}
 	}
 

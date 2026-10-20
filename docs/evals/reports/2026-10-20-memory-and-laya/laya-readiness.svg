@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360" role="img" aria-label="Both Laya integration tests failed: two tools timed out after 5.26 seconds total, fifty tools returned 503 after 2.96 seconds total.">
+<rect width="960" height="360" rx="18" fill="#111827"/>
+<g font-family="Arial,sans-serif" fill="#f9fafb">
+<text x="36" y="48" font-size="25" font-weight="bold">Laya health passed. Decision tests failed.</text>
+<text x="36" y="78" font-size="15" fill="#cbd5e1">2026-10-20 · Production adapter · Total recommendation time</text>
+<text x="36" y="139" font-size="17">2-tool catalog</text>
+<rect x="210" y="112" width="526" height="40" rx="6" fill="#f59e0b"/>
+<text x="752" y="139" font-size="17">5.26 s</text>
+<text x="210" y="177" font-size="15" fill="#fcd34d">Request timeout → MiniLM fallback</text>
+<text x="36" y="229" font-size="17">50-tool catalog</text>
+<rect x="210" y="202" width="296" height="40" rx="6" fill="#f87171"/>
+<text x="522" y="229" font-size="17">2.96 s</text>
+<text x="210" y="267" font-size="15" fill="#fca5a5">HTTP 503 → MiniLM fallback</text>
+<text x="36" y="321" font-size="14" fill="#cbd5e1">Includes embedding retrieval and remote call; not isolated inference latency or model quality.</text>
+</g></svg>
