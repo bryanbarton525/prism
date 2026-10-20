@@ -1,0 +1,10 @@
+=== RUN   TestRecommendToolsWithLiveLaya
+=== RUN   TestRecommendToolsWithLiveLaya/two
+    laya_integration_test.go:48: catalog=two elapsed=290.8215ms first=[{Server:issues Name:find_issue Description:Search open issues by keywords InputSchema:map[type:object] Score:0.7164} {Server:issues Name:create_issue Description:Create a new issue InputSchema:<nil> Score:0.2836}]
+=== RUN   TestRecommendToolsWithLiveLaya/fifty
+    laya_integration_test.go:48: catalog=fifty elapsed=2.887001666s first=[{Server:workspace Name:find_issue Description:Find an issue by ID or keyword and return its status InputSchema:<nil> Score:0.9975} {Server:workspace Name:tool_34 Description:Inspect workspace artifact category 34 and return matching records InputSchema:<nil> Score:0.0003} {Server:workspace Name:tool_43 Description:Inspect workspace artifact category 43 and return matching records InputSchema:<nil> Score:0.0003} {Server:workspace Name:tool_38 Description:Inspect workspace artifact category 38 and return matching records InputSchema:<nil> Score:0.0002} {Server:workspace Name:tool_33 Description:Inspect workspace artifact category 33 and return matching records InputSchema:<nil> Score:0.0002}]
+--- PASS: TestRecommendToolsWithLiveLaya (3.18s)
+    --- PASS: TestRecommendToolsWithLiveLaya/two (0.29s)
+    --- PASS: TestRecommendToolsWithLiveLaya/fifty (2.89s)
+PASS
+ok  	github.com/bryanbarton525/prism/internal/app	3.554s

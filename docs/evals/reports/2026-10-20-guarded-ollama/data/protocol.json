@@ -1,0 +1,31 @@
+{
+  "created": "2026-10-20T02:58:03.024841+00:00",
+  "revision": "0cbacf6a250948fb1984e5c6d3911acebf7f3064",
+  "models": [
+    "qwen3.5:9b",
+    "qwen2.5-coder:7b",
+    "llama3.1:8b"
+  ],
+  "laya_model_arm": "llama3.1:8b",
+  "cases": 6,
+  "repeat": 3,
+  "temperature": 0.1,
+  "max_tokens": 4096,
+  "timeout": "180s",
+  "model_artifact_cap_gib": 8,
+  "resident_cap_gib": 12,
+  "minimum_free_percent": 40,
+  "retries": 0,
+  "warmup": false,
+  "order": "three sequential baseline blocks, then one Laya-on block",
+  "laya_probe_before": "one HTTP decision request and live catalog integration test; separate from scored trials",
+  "laya_mode": "automatic recommendation, lexical shortlist, 500ms budget",
+  "limitations": [
+    "not randomized or counterbalanced",
+    "small synthetic replay suite",
+    "small candidate catalogs",
+    "no model seed set",
+    "no claim of statistical significance",
+    "Ollama resident-memory samples are not a hard allocation limit"
+  ]
+}

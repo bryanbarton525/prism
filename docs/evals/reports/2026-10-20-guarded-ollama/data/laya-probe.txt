@@ -1,0 +1,2 @@
+{"model":"laya-rl-agent","answers":{"tool":{"type":"choice","choice":"tool_0","probabilities":{"tool_0":0.9843,"tool_1":0.0157},"confidence":0.8835,"answer_confidence":0.9843,"action":{"act_probability":1.0}}},"usage":{"input_tokens":41,"output_tokens":0,"state_tokens":14,"state_tokens_dropped":0,"truncated":false,"truncated_questions":[]},"routing":{"model":"english","repo":"convaiinnovations/laya","reason":"explicit model='english'","detection":null,"workflow":null}}
+HTTP 200 elapsed 0.101212
