@@ -1,8 +1,8 @@
 # Laya-first routing and aligned evaluation contracts
 
-Status: implementation and regression validation in progress following the
-v0.1.32 diagnostic collection. Historical results remain unchanged and do not
-measure the new routing path.
+Status: response-contract and optional bound-routing fixes implemented and
+covered by deterministic regression tests. Live model validation is recorded
+separately; historical results remain unchanged and do not measure the new path.
 
 ## Optional configuration
 
@@ -19,7 +19,7 @@ Evaluations are isolated from saved Laya settings: omit `--laya-url` for the
 original loop; supply `--laya-url URL --laya-mode first` for bound routing.
 Baseline comparisons require matching modes.
 
-## Confirmed defects in the comparison
+## Defects established by the historical comparison
 
 1. The Linear skill tells the model to use the `linear` server. The fixtures
    register `tracker` and `projects`, and user-level tasks name those aliases.
@@ -40,7 +40,7 @@ Baseline comparisons require matching modes.
 Keep the existing traces and failed checks unchanged. Treat them as diagnostic
 evidence. Do not lower thresholds or relabel failed responses as passing.
 
-## Intended execution flow
+## Opt-in execution flow
 
 ```mermaid
 flowchart TD
@@ -62,11 +62,11 @@ to the selected server/tool; model-generated server names cannot silently bypass
 that decision. Routing selects from authorized capabilities and never grants
 permission or authorizes writes.
 
-A route may be selected jointly as a server/tool pair; use a separate server
-selection followed by tool selection when catalog size requires it. Evaluate
-that tradeoff with realistic catalogs before committing to two network calls
-for every step. Make `no suitable route` an explicit outcome. Do not treat raw
-choice probabilities as calibrated confidence thresholds without calibration.
+The implementation selects a server/tool pair from a deterministic lexical
+shortlist of at most 18 authorized tools. It also offers abstention and, after
+evidence collection, completion. It records the complete shortlist. Large-catalog
+retrieval and ranking quality remain separate evaluation work; the response
+probes do not establish those properties. Scores are not calibrated confidence.
 
 Further decisions should be explicit and bounded: select another evidence source,
 handle a tool failure, or determine whether enough evidence exists to answer.
