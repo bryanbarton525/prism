@@ -31,7 +31,7 @@ def main():
     p.add_argument("--suite", type=Path)
     p.add_argument("--warm-model", action="store_true", help="Ollama only: recorded 6144-context warm-up, unload at exit")
     p.add_argument("--repeat", type=int, default=3)
-    p.add_argument("--arms", nargs="+", choices=["off", "first", "advisory"], default=["off", "first"])
+    p.add_argument("--arms", nargs="+", choices=["off", "first", "advisory", "lexical"], default=["off", "first"])
     p.add_argument("--laya-url", default="https://laya-gpu.iambarton.com")
     p.add_argument("--output-dir", type=Path, required=True)
     args = p.parse_args()
@@ -80,7 +80,9 @@ def main():
             cmd = [args.prism, "eval", "run", "--model", args.model, "--repeat", "1", "--max-tokens", "4096", "--temperature", "0.1", "--timeout", "180s", "--output", str(report)]
             if args.suite:
                 cmd += ["--suite", str(args.suite.resolve())]
-            if arm != "off":
+            if arm == "lexical":
+                cmd += ["--lexical-advice"]
+            elif arm != "off":
                 cmd += ["--laya-url", args.laya_url, "--laya-mode", arm]
             block = dict(name=name, command=cmd, started=time.time())
             print("Starting", name, flush=True)

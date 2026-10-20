@@ -39,6 +39,7 @@ type FixtureCall struct {
 	Matched    bool                `json:"matched"`
 }
 type Trial struct {
+	ControlMode    string                   `json:"control_mode,omitempty"`
 	Routing        bool                     `json:"routing,omitempty"`
 	Routes         []app.RouteDecision      `json:"routes,omitempty"`
 	Recommendation *app.RecommendationTrace `json:"recommendation,omitempty"`
@@ -59,29 +60,31 @@ type Generation struct {
 	MaxTokens   int     `json:"max_tokens"`
 }
 type Report struct {
-	LayaMode   string         `json:"laya_mode,omitempty"`
-	LayaURL    string         `json:"laya_url,omitempty"`
-	Version    int            `json:"version"`
-	Grader     string         `json:"grader"`
-	Suite      Suite          `json:"suite"`
-	SuiteHash  string         `json:"suite_hash"`
-	Build      buildinfo.Info `json:"build"`
-	Engine     runtime.Engine `json:"engine"`
-	Models     []string       `json:"models"`
-	Repeat     int            `json:"repeat"`
-	Generation Generation     `json:"generation"`
-	Started    time.Time      `json:"started"`
-	Completed  bool           `json:"completed"`
-	Trials     []Trial        `json:"trials"`
+	ControlMode string         `json:"control_mode,omitempty"`
+	LayaMode    string         `json:"laya_mode,omitempty"`
+	LayaURL     string         `json:"laya_url,omitempty"`
+	Version     int            `json:"version"`
+	Grader      string         `json:"grader"`
+	Suite       Suite          `json:"suite"`
+	SuiteHash   string         `json:"suite_hash"`
+	Build       buildinfo.Info `json:"build"`
+	Engine      runtime.Engine `json:"engine"`
+	Models      []string       `json:"models"`
+	Repeat      int            `json:"repeat"`
+	Generation  Generation     `json:"generation"`
+	Started     time.Time      `json:"started"`
+	Completed   bool           `json:"completed"`
+	Trials      []Trial        `json:"trials"`
 }
 type Options struct {
-	LayaMode   string
-	LayaURL    string
-	Models     []string
-	Repeat     int
-	Timeout    time.Duration
-	Generation Generation
-	OnTrial    func(Trial) error
+	LexicalAdvice bool
+	LayaMode      string
+	LayaURL       string
+	Models        []string
+	Repeat        int
+	Timeout       time.Duration
+	Generation    Generation
+	OnTrial       func(Trial) error
 }
 
 // Run exercises the production run_agent MCP adapter and agent loop. Only the
@@ -94,6 +97,12 @@ func Run(ctx context.Context, s Suite, rt runtime.ModelRuntime, o Options) (Repo
 		o.LayaMode = ""
 	}
 	r := Report{LayaMode: o.LayaMode, LayaURL: o.LayaURL, Version: Version, Grader: GraderVersion, Suite: s, SuiteHash: Hash(s), Build: buildinfo.Current(), Engine: rt.Engine(), Models: o.Models, Repeat: o.Repeat, Generation: o.Generation, Started: time.Now().UTC()}
+	if o.LexicalAdvice {
+		if o.LayaURL != "" {
+			return r, fmt.Errorf("lexical advice and Laya are separate evaluation modes")
+		}
+		r.ControlMode = "lexical"
+	}
 	if err := s.Validate(); err != nil {
 		return r, err
 	}
@@ -122,7 +131,7 @@ func Run(ctx context.Context, s Suite, rt runtime.ModelRuntime, o Options) (Repo
 					return r, err
 				}
 				trialCtx, cancel := context.WithTimeout(ctx, o.Timeout)
-				t := runTrial(trialCtx, c, model, repetition, rt, o.Generation, o.LayaURL, o.LayaMode)
+				t := runTrial(trialCtx, c, model, repetition, rt, o.Generation, o.LayaURL, o.LayaMode, r.ControlMode)
 				cancel()
 				r.Trials = append(r.Trials, t)
 				if o.OnTrial != nil {
@@ -181,11 +190,12 @@ type replayClient struct {
 }
 
 func (c replayClient) Servers() []downstreammcp.Server { return c.public }
-func runTrial(ctx context.Context, c Case, model string, repetition int, rt runtime.ModelRuntime, g Generation, layaURL, layaMode string) (t Trial) {
+func runTrial(ctx context.Context, c Case, model string, repetition int, rt runtime.ModelRuntime, g Generation, layaURL, layaMode, controlMode string) (t Trial) {
 	start := time.Now()
 	t = Trial{CaseID: c.ID, Model: model, Repetition: repetition}
+	t.ControlMode = controlMode
 	t.Routing = layaURL != "" && layaMode == "first"
-	if layaURL != "" && !t.Routing {
+	if (layaURL != "" && !t.Routing) || controlMode == "lexical" {
 		t.Recommendation = &app.RecommendationTrace{Error: "recommendation step was not reached"}
 	}
 	traced := &tracedRuntime{ModelRuntime: rt, model: model, generation: g}
@@ -244,6 +254,10 @@ func runTrial(ctx context.Context, c Case, model string, repetition int, rt runt
 	}
 	inventory, _ = json.Marshal(toolInventory)
 	cfg := app.Config{BundleFS: prismbundle.BundleFS(), ModelRuntime: traced, DownstreamMCP: client, RuntimePlugins: plugins.NewRegistry(fixturePlugin{"linear", "Use the MCP bridge to retrieve evidence. This is a synthetic evaluation workspace."}, fixturePlugin{"mcp", string(inventory)})}
+	if controlMode == "lexical" {
+		cfg.ToolRecommendationAgents = []string{c.AgentID}
+		cfg.RecommendationObserver = func(trace app.RecommendationTrace) { t.Recommendation = &trace }
+	}
 	if layaURL != "" {
 		cfg.DecisionURL, cfg.DecisionModel = layaURL, "laya-english"
 		cfg.ToolRecommendationAgents = []string{c.AgentID}

@@ -15,6 +15,7 @@ type Score struct {
 	Consistency float64 `json:"consistency"`
 }
 type Baseline struct {
+	ControlMode   string           `json:"control_mode,omitempty"`
 	LayaMode      string           `json:"laya_mode,omitempty"`
 	LayaEnabled   bool             `json:"laya_enabled,omitempty"`
 	Version       int              `json:"version"`
@@ -62,6 +63,9 @@ func Scores(r Report, model string) map[string]Score {
 
 // ValidateReport recomputes grades instead of trusting editable saved scores.
 func ValidateReport(r Report) error {
+	if (r.ControlMode != "" && r.ControlMode != "lexical") || (r.ControlMode != "" && r.LayaURL != "") {
+		return fmt.Errorf("invalid evaluation control mode")
+	}
 	if r.Version != Version || r.Grader != GraderVersion || !r.Completed || r.Repeat < 1 || len(r.Models) == 0 || r.Generation.MaxTokens < 1 || r.Repeat > 100 || math.IsNaN(r.Generation.Temperature) || math.IsInf(r.Generation.Temperature, 0) || r.Generation.Temperature < 0 || r.Generation.Temperature > 2 {
 		return fmt.Errorf("incomplete or incompatible evaluation report")
 	}
@@ -93,7 +97,7 @@ func ValidateReport(r Report) error {
 			return fmt.Errorf("unexpected or duplicate trial")
 		}
 		seen[key] = true
-		if (!t.Routing && len(t.Routes) > 0) || (r.LayaURL != "" && r.LayaMode == "advisory") != (t.Recommendation != nil) || (r.LayaURL != "" && r.LayaMode == "first") != t.Routing {
+		if t.ControlMode != r.ControlMode || (!t.Routing && len(t.Routes) > 0) || ((r.LayaURL != "" && r.LayaMode == "advisory") || r.ControlMode == "lexical") != (t.Recommendation != nil) || (r.LayaURL != "" && r.LayaMode == "first") != t.Routing {
 			return fmt.Errorf("recommendation trace does not match report mode")
 		}
 		if Hash(GradeTrial(c, t)) != Hash(t.Grade) {
@@ -107,7 +111,7 @@ func ValidateReport(r Report) error {
 }
 
 func CreateBaseline(r Report, model string) (Baseline, error) {
-	b := Baseline{LayaMode: r.LayaMode, LayaEnabled: r.LayaURL != "", Version: Version, Grader: GraderVersion, SuiteHash: r.SuiteHash, SourceRunHash: Hash(r), Model: model, Generation: r.Generation, Cases: Scores(r, model)}
+	b := Baseline{ControlMode: r.ControlMode, LayaMode: r.LayaMode, LayaEnabled: r.LayaURL != "", Version: Version, Grader: GraderVersion, SuiteHash: r.SuiteHash, SourceRunHash: Hash(r), Model: model, Generation: r.Generation, Cases: Scores(r, model)}
 	if err := ValidateReport(r); err != nil {
 		return b, err
 	}
@@ -131,6 +135,9 @@ func Compare(b Baseline, r Report, model string) ([]string, error) {
 	}
 	if err := CheckBaseline(b, r.Suite, r.Generation, r.Repeat); err != nil {
 		return nil, err
+	}
+	if b.ControlMode != r.ControlMode {
+		return nil, fmt.Errorf("baseline and candidate lexical control modes differ")
 	}
 	if b.LayaEnabled != (r.LayaURL != "") || b.LayaMode != r.LayaMode {
 		return nil, fmt.Errorf("baseline and candidate Laya modes differ")
@@ -182,6 +189,9 @@ func WriteJSON(path string, value any) error {
 
 // CheckBaseline validates compatibility before spending model calls on a test.
 func CheckBaseline(b Baseline, suite Suite, g Generation, repeat int) error {
+	if (b.ControlMode != "" && b.ControlMode != "lexical") || (b.ControlMode != "" && (b.LayaEnabled || b.LayaMode != "")) {
+		return fmt.Errorf("invalid baseline control mode")
+	}
 	if b.Version != Version || b.Grader != GraderVersion || b.SuiteHash != Hash(suite) || b.Generation != g || b.SourceRunHash == "" || b.Model == "" || len(b.Cases) != len(suite.Cases) {
 		return fmt.Errorf("baseline and candidate suite, grader or generation settings differ")
 	}

@@ -24,7 +24,7 @@ def main():
         report = json.loads(source.read_text())
         assert report["completed"] and len(report["trials"]) == len(report["suite"]["cases"]), source
         name = source.parent.name
-        mode = report.get("laya_mode") or "off"
+        mode = report.get("control_mode") or report.get("laya_mode") or "off"
         grouped[(name, mode)].extend(report["trials"])
         target = data / (name + "-" + source.name + ".gz")
         target.write_bytes(gzip.compress(source.read_bytes(), mtime=0))
@@ -79,13 +79,13 @@ def main():
         import matplotlib.pyplot as plt
         import numpy as np
         names = sorted({r["cohort"] for r in rows})
-        modes = ["off", "advisory", "first"]
+        modes = ["off", "advisory", "first", "lexical"]
         values = np.full((len(names), len(modes)), np.nan)
         for r in rows:
             values[names.index(r["cohort"]), modes.index(r["mode"])] = r["passed"] / r["trials"]
         fig, ax = plt.subplots(figsize=(10, max(4, len(names) * .55)))
         im = ax.imshow(values, vmin=0, vmax=1, cmap="viridis", aspect="auto")
-        ax.set_xticks(range(3), modes); ax.set_yticks(range(len(names)), names)
+        ax.set_xticks(range(len(modes)), modes); ax.set_yticks(range(len(names)), names)
         for y, name in enumerate(names):
             for x, mode in enumerate(modes):
                 match = next((r for r in rows if r["cohort"] == name and r["mode"] == mode), None)
