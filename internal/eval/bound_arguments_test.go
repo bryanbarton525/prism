@@ -52,7 +52,8 @@ func TestBoundRoutingAdvertisesArgumentsAndBindsDestination(t *testing.T) {
 				var body struct {
 					State     string `json:"state"`
 					Questions map[string]struct {
-						Criteria map[string]string `json:"criteria"`
+						Criteria     map[string]string `json:"criteria"`
+						Instructions string            `json:"instructions"`
 					} `json:"questions"`
 				}
 				if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
@@ -61,6 +62,13 @@ func TestBoundRoutingAdvertisesArgumentsAndBindsDestination(t *testing.T) {
 				prefix := "custom-tracker.get_issue:"
 				if strings.Contains(body.State, "call_mcp_tool:") {
 					prefix = "finish:"
+				}
+				wantQuestion := "Choose the first tool call"
+				if prefix == "finish:" {
+					wantQuestion = "Choose the next action"
+				}
+				if !strings.HasPrefix(body.Questions["tool"].Instructions, wantQuestion) {
+					t.Error("routing did not ask for the current execution phase")
 				}
 				scores := map[string]float64{}
 				for key, description := range body.Questions["tool"].Criteria {
