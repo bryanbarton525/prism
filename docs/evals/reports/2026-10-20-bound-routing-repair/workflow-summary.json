@@ -1,0 +1,466 @@
+{
+  "cohorts": [
+    {
+      "stage": "bridge-workflows",
+      "suite": "independent",
+      "arm": "adapted",
+      "passed": 15,
+      "total": 18,
+      "median_ms": 5802.0
+    },
+    {
+      "stage": "bridge-workflows",
+      "suite": "independent",
+      "arm": "stock",
+      "passed": 3,
+      "total": 18,
+      "median_ms": 1713.5
+    },
+    {
+      "stage": "bridge-workflows",
+      "suite": "original",
+      "arm": "adapted",
+      "passed": 15,
+      "total": 18,
+      "median_ms": 4683.0
+    },
+    {
+      "stage": "bridge-workflows",
+      "suite": "original",
+      "arm": "stock",
+      "passed": 8,
+      "total": 18,
+      "median_ms": 2583.5
+    },
+    {
+      "stage": "phase-workflows",
+      "suite": "independent",
+      "arm": "adapted",
+      "passed": 18,
+      "total": 18,
+      "median_ms": 2755.0
+    },
+    {
+      "stage": "phase-workflows",
+      "suite": "independent",
+      "arm": "off",
+      "passed": 13,
+      "total": 18,
+      "median_ms": 2968.0
+    },
+    {
+      "stage": "phase-workflows",
+      "suite": "independent",
+      "arm": "stock",
+      "passed": 3,
+      "total": 18,
+      "median_ms": 1714.0
+    },
+    {
+      "stage": "phase-workflows",
+      "suite": "original",
+      "arm": "adapted",
+      "passed": 18,
+      "total": 18,
+      "median_ms": 2660.0
+    },
+    {
+      "stage": "phase-workflows",
+      "suite": "original",
+      "arm": "off",
+      "passed": 3,
+      "total": 18,
+      "median_ms": 1775.5
+    },
+    {
+      "stage": "phase-workflows",
+      "suite": "original",
+      "arm": "stock",
+      "passed": 6,
+      "total": 18,
+      "median_ms": 2716.0
+    },
+    {
+      "stage": "workflows",
+      "suite": "independent",
+      "arm": "adapted",
+      "passed": 11,
+      "total": 18,
+      "median_ms": 5886.0
+    },
+    {
+      "stage": "workflows",
+      "suite": "independent",
+      "arm": "stock",
+      "passed": 3,
+      "total": 18,
+      "median_ms": 634.5
+    },
+    {
+      "stage": "workflows",
+      "suite": "original",
+      "arm": "adapted",
+      "passed": 14,
+      "total": 18,
+      "median_ms": 4586.0
+    },
+    {
+      "stage": "workflows",
+      "suite": "original",
+      "arm": "stock",
+      "passed": 10,
+      "total": 18,
+      "median_ms": 3004.0
+    }
+  ],
+  "write_calls": [
+    {
+      "stage": "bridge-workflows",
+      "suite": "independent",
+      "arm": "stock",
+      "repetition": 1,
+      "case": "ops-owner",
+      "call": {
+        "started": "2026-10-21T00:55:45.221109123Z",
+        "duration_ms": 0,
+        "response": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"error\":\"fixture argument mismatch\"}"
+            }
+          ],
+          "structuredContent": {
+            "error": "fixture argument mismatch"
+          },
+          "isError": true
+        },
+        "server": "tracker",
+        "tool": "update_issue",
+        "arguments": {
+          "id": "OPS-314"
+        },
+        "matched": false
+      }
+    },
+    {
+      "stage": "bridge-workflows",
+      "suite": "independent",
+      "arm": "stock",
+      "repetition": 1,
+      "case": "nullable-owner",
+      "call": {
+        "started": "2026-10-21T00:55:50.349270369Z",
+        "duration_ms": 0,
+        "response": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"error\":\"fixture argument mismatch\"}"
+            }
+          ],
+          "structuredContent": {
+            "error": "fixture argument mismatch"
+          },
+          "isError": true
+        },
+        "server": "tracker",
+        "tool": "update_issue",
+        "arguments": {
+          "id": "OPS-90"
+        },
+        "matched": false
+      }
+    },
+    {
+      "stage": "bridge-workflows",
+      "suite": "independent",
+      "arm": "stock",
+      "repetition": 2,
+      "case": "ops-owner",
+      "call": {
+        "started": "2026-10-21T00:57:50.288486801Z",
+        "duration_ms": 0,
+        "response": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"error\":\"fixture argument mismatch\"}"
+            }
+          ],
+          "structuredContent": {
+            "error": "fixture argument mismatch"
+          },
+          "isError": true
+        },
+        "server": "tracker",
+        "tool": "update_issue",
+        "arguments": {
+          "id": "OPS-314"
+        },
+        "matched": false
+      }
+    },
+    {
+      "stage": "bridge-workflows",
+      "suite": "independent",
+      "arm": "stock",
+      "repetition": 2,
+      "case": "nullable-owner",
+      "call": {
+        "started": "2026-10-21T00:57:54.474900947Z",
+        "duration_ms": 0,
+        "response": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"error\":\"fixture argument mismatch\"}"
+            }
+          ],
+          "structuredContent": {
+            "error": "fixture argument mismatch"
+          },
+          "isError": true
+        },
+        "server": "tracker",
+        "tool": "update_issue",
+        "arguments": {
+          "id": "OPS-90"
+        },
+        "matched": false
+      }
+    },
+    {
+      "stage": "bridge-workflows",
+      "suite": "independent",
+      "arm": "stock",
+      "repetition": 3,
+      "case": "ops-owner",
+      "call": {
+        "started": "2026-10-21T00:58:44.907842905Z",
+        "duration_ms": 0,
+        "response": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"error\":\"fixture argument mismatch\"}"
+            }
+          ],
+          "structuredContent": {
+            "error": "fixture argument mismatch"
+          },
+          "isError": true
+        },
+        "server": "tracker",
+        "tool": "update_issue",
+        "arguments": {
+          "id": "OPS-314"
+        },
+        "matched": false
+      }
+    },
+    {
+      "stage": "bridge-workflows",
+      "suite": "independent",
+      "arm": "stock",
+      "repetition": 3,
+      "case": "nullable-owner",
+      "call": {
+        "started": "2026-10-21T00:58:48.614334594Z",
+        "duration_ms": 0,
+        "response": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"error\":\"fixture argument mismatch\"}"
+            }
+          ],
+          "structuredContent": {
+            "error": "fixture argument mismatch"
+          },
+          "isError": true
+        },
+        "server": "tracker",
+        "tool": "update_issue",
+        "arguments": {
+          "id": "OPS-90"
+        },
+        "matched": false
+      }
+    },
+    {
+      "stage": "phase-workflows",
+      "suite": "independent",
+      "arm": "stock",
+      "repetition": 1,
+      "case": "ops-owner",
+      "call": {
+        "started": "2026-10-21T02:05:27.783879061Z",
+        "duration_ms": 0,
+        "response": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"error\":\"fixture argument mismatch\"}"
+            }
+          ],
+          "structuredContent": {
+            "error": "fixture argument mismatch"
+          },
+          "isError": true
+        },
+        "server": "tracker",
+        "tool": "update_issue",
+        "arguments": {
+          "id": "OPS-314"
+        },
+        "matched": false
+      }
+    },
+    {
+      "stage": "phase-workflows",
+      "suite": "independent",
+      "arm": "stock",
+      "repetition": 1,
+      "case": "nullable-owner",
+      "call": {
+        "started": "2026-10-21T02:05:32.624542726Z",
+        "duration_ms": 0,
+        "response": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"error\":\"fixture argument mismatch\"}"
+            }
+          ],
+          "structuredContent": {
+            "error": "fixture argument mismatch"
+          },
+          "isError": true
+        },
+        "server": "tracker",
+        "tool": "update_issue",
+        "arguments": {
+          "id": "OPS-90"
+        },
+        "matched": false
+      }
+    },
+    {
+      "stage": "phase-workflows",
+      "suite": "independent",
+      "arm": "stock",
+      "repetition": 2,
+      "case": "ops-owner",
+      "call": {
+        "started": "2026-10-21T02:06:48.553454404Z",
+        "duration_ms": 0,
+        "response": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"error\":\"fixture argument mismatch\"}"
+            }
+          ],
+          "structuredContent": {
+            "error": "fixture argument mismatch"
+          },
+          "isError": true
+        },
+        "server": "tracker",
+        "tool": "update_issue",
+        "arguments": {
+          "id": "OPS-314"
+        },
+        "matched": false
+      }
+    },
+    {
+      "stage": "phase-workflows",
+      "suite": "independent",
+      "arm": "stock",
+      "repetition": 2,
+      "case": "nullable-owner",
+      "call": {
+        "started": "2026-10-21T02:06:54.622092889Z",
+        "duration_ms": 0,
+        "response": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"error\":\"fixture argument mismatch\"}"
+            }
+          ],
+          "structuredContent": {
+            "error": "fixture argument mismatch"
+          },
+          "isError": true
+        },
+        "server": "tracker",
+        "tool": "update_issue",
+        "arguments": {
+          "id": "OPS-90"
+        },
+        "matched": false
+      }
+    },
+    {
+      "stage": "phase-workflows",
+      "suite": "independent",
+      "arm": "stock",
+      "repetition": 3,
+      "case": "ops-owner",
+      "call": {
+        "started": "2026-10-21T02:09:06.262861837Z",
+        "duration_ms": 0,
+        "response": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"error\":\"fixture argument mismatch\"}"
+            }
+          ],
+          "structuredContent": {
+            "error": "fixture argument mismatch"
+          },
+          "isError": true
+        },
+        "server": "tracker",
+        "tool": "update_issue",
+        "arguments": {
+          "id": "OPS-314"
+        },
+        "matched": false
+      }
+    },
+    {
+      "stage": "phase-workflows",
+      "suite": "independent",
+      "arm": "stock",
+      "repetition": 3,
+      "case": "nullable-owner",
+      "call": {
+        "started": "2026-10-21T02:09:10.066407702Z",
+        "duration_ms": 0,
+        "response": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"error\":\"fixture argument mismatch\"}"
+            }
+          ],
+          "structuredContent": {
+            "error": "fixture argument mismatch"
+          },
+          "isError": true
+        },
+        "server": "tracker",
+        "tool": "update_issue",
+        "arguments": {
+          "id": "OPS-90"
+        },
+        "matched": false
+      }
+    }
+  ]
+}

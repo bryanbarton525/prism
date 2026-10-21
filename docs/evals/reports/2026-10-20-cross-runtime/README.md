@@ -1,5 +1,8 @@
 # Cross-runtime Laya and evidence-protocol evaluation
 
+Follow-up: [bound-routing diagnosis and repair](../2026-10-20-bound-routing-repair/README.md)
+retains this report’s grades and tests the subsequent argument, question, and model changes.
+
 Collected on the homelab RTX 5060 Ti (16 GiB), after installing **Prism v0.1.35**,
 revision `83a9727986fa1c65ecf4a956f5b5c7ef2762eff4`. This report separates
 routing quality, actual tool execution, answer correctness, and instruction

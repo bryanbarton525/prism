@@ -94,6 +94,66 @@ Remote mode does not support `laya_shortlist` or `laya_tournament`.
 See [Laya MCP setup](https://nandhakishorm.github.io/laya/cli-mcp/) and the
 [versioned remote implementation](https://github.com/NandhaKishorM/laya/blob/v0.4.8/laya/mcp/server.py).
 
+## Optional adapted tool-routing MCP
+
+The homelab also serves a separately adapted English choice checkpoint at
+`https://laya-routing.iambarton.com`. Its model artifact SHA-256 is
+`1920ee68f11b2d657b8500448f31c0ff8d56e8eca2913e978991ae3c7bb7c991`.
+Stock `laya-gpu.iambarton.com` retains the original revision `55cf4c4…`.
+Both endpoints execute on CUDA; startup requires the pinned identities and zero
+CPU fallbacks. This optional endpoint requires the homelab LAN/private network.
+
+Register a second stdio wrapper using the environment installed above:
+
+```bash
+prism mcp add laya-routing --transport command --timeout-ms 15000 -- \
+  env LAYA_BASE_URL=https://laya-routing.iambarton.com \
+  "$HOME/.local/share/prism-laya-mcp/bin/laya-mcp-server"
+prism mcp tools laya-routing --schema
+prism mcp call laya-routing laya_status
+```
+
+Grant access with the same agent/default MCP policy used for other servers,
+including existing servers when replacing an allowlist. Reconnect the MCP host.
+The official wrapper requires an object for `laya_predict.state`; pass
+`{"text": "TASK:\n<task>\nCOMPLETED TOOL EVIDENCE:\n<actual results>"}`.
+The specialized server unwraps only that exact one-field string envelope, for
+single and batch predictions. Other structured objects retain their structure.
+HTTP also accepts a plain string; the general stock endpoint keeps SDK behavior.
+
+For the tested next-tool protocol, supply `model: "english"`, `max_len: 1024`,
+`head_max_len: 512`, and a choice catalog keyed `tool_0`, `tool_1`, etc., with
+values `server.tool: description`. Before execution, the question is:
+
+> Choose the first tool call required by the task. Obtain prerequisite identifiers before following linked records.
+
+After a completed result, the question is:
+
+> Choose the next action needed for the task using the completed results. Finish only after the requested records have been retrieved.
+
+Include a finish alternative only after a completed result. Keep relevant
+catalogs small (training covered 2–8 choices). This model is specialized for
+English tool-routing choice questions; general `noul`, `score`, language routing,
+and built-in presets belong on the stock endpoint. Confidence is not calibrated.
+The parent still creates arguments and checks authorization; Laya returns a
+choice, not an MCP invocation.
+
+Prism's experimental bound HTTP path can target this same origin explicitly:
+
+```bash
+prism eval run --suite evals/mcp-response-v2/suite.yaml \
+  --model Qwen3-8B-AWQ --repeat 3 \
+  --laya-url https://laya-routing.iambarton.com --laya-mode first \
+  --output routing-check.json
+```
+
+The argument-binding and first/next-question fixes are in PR #49, tested with
+its recorded clean development binary. The installed published v0.1.35 binary
+retains its released behavior until these changes are merged and released.
+Registering the MCP server does not install or enable that HTTP routing loop.
+See the [bound-routing repair report](evals/reports/2026-10-20-bound-routing-repair/README.md)
+for the training corpus, stage-by-stage comparisons, limitations, and artifacts.
+
 ## Jev MCP backed by TypeSafe
 
 This example uses the **community-maintained**

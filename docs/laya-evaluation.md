@@ -1,5 +1,9 @@
 # Laya evaluation for Prism decision reranking
 
+For subsequent live GPU workflows and the bound-routing repair, see the
+[2026-10-20 follow-up](evals/reports/2026-10-20-bound-routing-repair/README.md).
+The measurements below retain their original CPU scope.
+
 Evaluated 2026-09-30 on this machine. Laya is a promising replacement for explicit tool recommendations **when the adapter uses a single categorical choice question**. Switching the current Kev endpoint to Laya without changing its question format substantially reduced ranking quality. The CPU configurations tested here do not establish a suitable replacement for Prism's 500 ms automatic shortlist path.
 
 ## Local results

@@ -1,7 +1,9 @@
 # Model response evaluations
 
-Latest repeated cluster results, controls, raw traces, and graphs:
-[cross-runtime Laya and task-protocol evaluation](reports/2026-10-20-cross-runtime/README.md).
+Latest bound-routing diagnosis, argument/prompt fixes, adapted checkpoint, and repeated GPU workflows:
+[bound-routing repair](reports/2026-10-20-bound-routing-repair/README.md).
+The [cross-runtime Laya and task-protocol evaluation](reports/2026-10-20-cross-runtime/README.md)
+retains the earlier stock-model comparisons and controls.
 The earlier [optional-routing comparison](reports/2026-10-20-contract-routing/README.md)
 remains a single-pass smoke dataset, not an approved consistency baseline.
 
