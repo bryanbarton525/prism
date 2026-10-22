@@ -1,6 +1,11 @@
 # Model response evaluations
 
-Latest fixed-contract smoke results, raw data, and graphs: [optional routing comparison](reports/2026-10-20-contract-routing/README.md). These single-pass runs are not approved consistency baselines.
+Latest bound-routing diagnosis, argument/prompt fixes, adapted checkpoint, and repeated GPU workflows:
+[bound-routing repair](reports/2026-10-20-bound-routing-repair/README.md).
+The [cross-runtime Laya and task-protocol evaluation](reports/2026-10-20-cross-runtime/README.md)
+retains the earlier stock-model comparisons and controls.
+The earlier [optional-routing comparison](reports/2026-10-20-contract-routing/README.md)
+remains a single-pass smoke dataset, not an approved consistency baseline.
 
 For a memory-guarded Ollama runner and recorded Laya off/on commands, see
 [the reproducible evaluation guide](../../evals/README.md).
@@ -17,6 +22,15 @@ The default `mcp-response-v2` suite supplies explicit decision schemas. Grader
 Laya is optional: omit `--laya-url` to retain the original model-driven loop.
 An explicit endpoint enables bound routing; `--laya-mode advisory` selects the
 legacy advisory path. Baselines cannot mix these modes.
+
+For a production-path lexical comparator, use `--lexical-advice` instead of
+`--laya-url`. It enables the same recommendation injection with word-overlap
+scores, without an embedding model or Laya call. The actual recommendation trace
+and a `lexical_applied` check are retained. Control reports and baselines record
+`control_mode: "lexical"` and artifact version 2; older CLIs reject them, and
+comparisons cannot mix lexical, plain, or Laya modes. Existing non-control
+artifacts remain version 1. Build the current checkout if the installed CLI
+does not list this flag.
 
 The versioned suite covers issue lookup, empty results, permission
 errors, conflicting historical evidence, instructions embedded in tool data,

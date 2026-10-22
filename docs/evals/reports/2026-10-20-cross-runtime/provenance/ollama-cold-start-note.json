@@ -1,0 +1,4 @@
+{
+  "reason": "Model not ready within the 60-second agent budget; /api/ps empty during tensor loading. Collection interrupted and kept separate from subsequent warm-model cohorts.",
+  "reports_must_not_be_pooled": true
+}

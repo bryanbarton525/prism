@@ -71,7 +71,11 @@ func GradeTrial(c Case, t Trial) Grade {
 		}
 	}
 	if r := t.Recommendation; r != nil {
-		checks["laya_applied"] = r.Injected && r.Error == "" && r.Result.ScoreKind == "laya_choice" && r.Result.ModelIdentity == "laya-english" && !r.Result.Incomplete && len(r.Result.Warnings) == 0 && len(r.Result.Tools) > 0
+		if t.ControlMode == "lexical" {
+			checks["lexical_applied"] = r.Injected && r.Error == "" && r.Result.ScoreKind == "lexical_overlap" && r.Result.ModelIdentity == "" && !r.Result.Incomplete && len(r.Result.Warnings) == 0 && len(r.Result.Tools) > 0
+		} else {
+			checks["laya_applied"] = r.Injected && r.Error == "" && r.Result.ScoreKind == "laya_choice" && r.Result.ModelIdentity == "laya-english" && !r.Result.Incomplete && len(r.Result.Warnings) == 0 && len(r.Result.Tools) > 0
+		}
 	}
 	object, valid := outputObject(t.Result.RawOutput)
 	checks["structured_decision"] = valid && Hash(object["decision"]) == Hash(t.Result.Decision)

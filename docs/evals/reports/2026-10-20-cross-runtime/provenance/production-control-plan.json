@@ -1,0 +1,14 @@
+[
+  [
+    "sglang-production-lexical-original",
+    "evals/mcp-response-v2/suite.yaml"
+  ],
+  [
+    "sglang-production-lexical-protocol",
+    "evals/mcp-response-protocol-v1/suite.yaml"
+  ],
+  [
+    "sglang-production-lexical-independent",
+    "evals/mcp-independent-routing-v1/suite.yaml"
+  ]
+]

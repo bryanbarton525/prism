@@ -1,0 +1,20 @@
+[
+  {
+    "name": "sglang",
+    "sync": "Synced",
+    "health": "Healthy",
+    "revision": "04ec5d701af470c325d3a0630d951c7cd87e55e6"
+  },
+  {
+    "name": "ollama",
+    "sync": "Synced",
+    "health": "Healthy",
+    "revision": "04ec5d701af470c325d3a0630d951c7cd87e55e6"
+  },
+  {
+    "name": "laya",
+    "sync": "Synced",
+    "health": "Healthy",
+    "revision": "04ec5d701af470c325d3a0630d951c7cd87e55e6"
+  }
+]

@@ -11,6 +11,40 @@ import (
 	"testing"
 )
 
+func TestLayaExplicitChoiceKeepsAdvisoryQuestionUnchanged(t *testing.T) {
+	var instructions []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request struct {
+			Questions map[string]struct {
+				Instructions string `json:"instructions"`
+			} `json:"questions"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Error(err)
+		}
+		instructions = append(instructions, request.Questions["tool"].Instructions)
+		_, _ = io.WriteString(w, `{"answers":{"tool":{"type":"choice","probabilities":{"tool_0":1}}}}`)
+	}))
+	defer server.Close()
+	client, err := NewDecisionClient(server.URL, "", "laya-english")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tools := []DecisionTool{{Name: "read"}}
+	if _, err := client.ScoreChoice(context.Background(), "task", tools, "Which tool should run first?"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Score(context.Background(), "task", tools); err != nil {
+		t.Fatal(err)
+	}
+	if len(instructions) != 2 || instructions[0] != "Which tool should run first?" || instructions[1] != "Select the single tool that best directly carries out the user's task. Respect requests to read or inspect without making changes." {
+		t.Fatalf("choice/advisory questions were mixed: %q", instructions)
+	}
+	if _, err := client.ScoreChoice(context.Background(), "task", tools, " "); err == nil {
+		t.Fatal("empty explicit question accepted")
+	}
+}
+
 func TestLayaUsesOneOrderedChoice(t *testing.T) {
 	tools := make([]DecisionTool, 20)
 	probabilities := map[string]float64{}

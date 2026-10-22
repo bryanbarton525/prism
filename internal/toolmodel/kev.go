@@ -61,6 +61,19 @@ func NewDecisionClient(rawURL, apiKeyEnv, model string) (*DecisionClient, error)
 }
 
 func (c *DecisionClient) Score(ctx context.Context, task string, tools []KevTool) ([]float64, error) {
+	return c.score(ctx, task, tools, "")
+}
+
+// ScoreChoice asks an explicit categorical question. Routing uses a next-action
+// question rather than reusing the advisory recommender's whole-task question.
+func (c *DecisionClient) ScoreChoice(ctx context.Context, task string, tools []DecisionTool, instructions string) ([]float64, error) {
+	if c.model != "laya-english" || strings.TrimSpace(instructions) == "" {
+		return nil, fmt.Errorf("an explicit choice question requires Laya and nonempty instructions")
+	}
+	return c.score(ctx, task, tools, instructions)
+}
+
+func (c *DecisionClient) score(ctx context.Context, task string, tools []KevTool, instructions string) ([]float64, error) {
 	c.mu.Lock()
 	disabled := c.disabled
 	c.mu.Unlock()
@@ -84,7 +97,7 @@ func (c *DecisionClient) Score(ctx context.Context, task string, tools []KevTool
 		defer func() { <-c.slot }()
 		hardCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		scores, err := c.scoreHTTP(hardCtx, task, tools)
+		scores, err := c.scoreHTTP(hardCtx, task, tools, instructions)
 		var networkErr net.Error
 		if hardCtx.Err() != nil || errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &networkErr) && networkErr.Timeout()) {
 			c.mu.Lock()
@@ -101,20 +114,23 @@ func (c *DecisionClient) Score(ctx context.Context, task string, tools []KevTool
 	}
 }
 
-func (c *DecisionClient) scoreHTTP(ctx context.Context, task string, tools []KevTool) ([]float64, error) {
+func (c *DecisionClient) scoreHTTP(ctx context.Context, task string, tools []KevTool, instructions string) ([]float64, error) {
 	questions := map[string]any{}
 	for i, tool := range tools {
 		questions[fmt.Sprintf("tool_%d", i)] = map[string]any{"type": "noul", "instructions": "Would this specific tool help complete the task?", "criteria": map[string]string{"true": tool.Name + ": " + tool.Description, "false": "This tool does not help."}}
 	}
 	payload := map[string]any{"state": task, "model": c.model, "questions": questions}
 	if c.model == "laya-english" {
+		if instructions == "" {
+			instructions = "Select the single tool that best directly carries out the user's task. Respect requests to read or inspect without making changes."
+		}
 		criteria := choiceCriteria(tools)
 		payload["model"] = "english"
 		payload["max_len"] = 1024
 		payload["head_max_len"] = 512
 		payload["questions"] = map[string]any{"tool": map[string]any{
 			"type":         "choice",
-			"instructions": "Select the single tool that best directly carries out the user's task. Respect requests to read or inspect without making changes.",
+			"instructions": instructions,
 			"criteria":     criteria,
 		}}
 	}

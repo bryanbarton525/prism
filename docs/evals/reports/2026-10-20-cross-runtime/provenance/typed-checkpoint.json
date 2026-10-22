@@ -1,0 +1,9 @@
+{
+  "package": "laya==0.3.22",
+  "model": "typed-decisions",
+  "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+  "device": "cpu",
+  "threads": 2,
+  "purpose": "accuracy-only control; latency not comparable to GPU English",
+  "temporary_server_stopped": true
+}

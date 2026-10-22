@@ -1,6 +1,26 @@
 package app
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
+
+func TestSelectedRoutePreservesFieldsNamedLikeRoutingMetadata(t *testing.T) {
+	selected := &ToolRecommendation{Server: "authorized", Name: "inspect", InputSchema: map[string]any{
+		"type": "object", "additionalProperties": false,
+		"required": []string{"server", "tool", "arguments"},
+		"properties": map[string]any{
+			"server":    map[string]any{"type": "string"},
+			"tool":      map[string]any{"type": "string"},
+			"arguments": map[string]any{"type": "object"},
+		},
+	}}
+	input := map[string]any{"server": "application-data", "tool": "a-record-field", "arguments": map[string]any{"value": "retained"}}
+	got, err := selectedRouteArguments(selected, input)
+	if err != nil || !reflect.DeepEqual(got, input) {
+		t.Fatalf("valid downstream data was interpreted as a destination: %v %v", got, err)
+	}
+}
 
 func TestDecisionRoutingIsOptional(t *testing.T) {
 	for _, tc := range []struct {

@@ -77,11 +77,15 @@ func newEvalRunCmd(test bool) *cobra.Command {
 	var repeat, maxTokens int
 	var timeout time.Duration
 	var temperature float64
+	var lexicalAdvice bool
 	use, short := "run", "Run repeated model comparisons against fixed MCP responses"
 	if test {
 		use, short = "test", "Run a candidate model and fail on baseline regressions"
 	}
 	cmd := &cobra.Command{Use: use, Short: short, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+		if lexicalAdvice && layaURL != "" {
+			return fmt.Errorf("--lexical-advice and --laya-url are separate evaluation modes")
+		}
 		suite, err := eval.LoadSuite(suitePath)
 		if err != nil {
 			return err
@@ -121,6 +125,9 @@ func newEvalRunCmd(test bool) *cobra.Command {
 			}
 		}
 		if test {
+			if (b.ControlMode == "lexical") != lexicalAdvice {
+				return fmt.Errorf("baseline and candidate lexical control modes differ")
+			}
 			if b.LayaEnabled != (layaURL != "") || (layaURL != "" && b.LayaMode != layaMode) {
 				return fmt.Errorf("baseline and candidate Laya modes differ; select --laya-url for a Laya baseline")
 			}
@@ -146,7 +153,7 @@ func newEvalRunCmd(test bool) *cobra.Command {
 		}
 		defer journal.Close()
 		encoder := json.NewEncoder(journal)
-		report, runErr := eval.Run(cmd.Context(), suite, rt, eval.Options{LayaMode: layaMode, LayaURL: layaURL, Models: models, Repeat: repeat, Timeout: timeout, Generation: eval.Generation{Temperature: temperature, MaxTokens: maxTokens}, OnTrial: func(t eval.Trial) error {
+		report, runErr := eval.Run(cmd.Context(), suite, rt, eval.Options{LexicalAdvice: lexicalAdvice, LayaMode: layaMode, LayaURL: layaURL, Models: models, Repeat: repeat, Timeout: timeout, Generation: eval.Generation{Temperature: temperature, MaxTokens: maxTokens}, OnTrial: func(t eval.Trial) error {
 			fmt.Fprintf(cmd.ErrOrStderr(), "%s %s trial %d: passed=%t (%dms)\n", t.Model, t.CaseID, t.Repetition, t.Grade.Passed, t.DurationMS)
 			if err := encoder.Encode(t); err != nil {
 				return err
@@ -173,7 +180,8 @@ func newEvalRunCmd(test bool) *cobra.Command {
 		return nil
 	}}
 	cmd.Flags().StringVar(&layaMode, "laya-mode", "first", "Laya control mode: first (bound route before generation) or advisory (legacy suggestions)")
-	cmd.Flags().StringVar(&layaURL, "laya-url", "", "Optional Laya endpoint; without it the original model-driven tool loop is used")
+	cmd.Flags().StringVar(&layaURL, "laya-url", "", "Optional Laya endpoint; omit for model-only or explicit lexical control")
+	cmd.Flags().BoolVar(&lexicalAdvice, "lexical-advice", false, "Use production lexical tool hints without Laya (separate evaluation control)")
 	cmd.Flags().StringVar(&suitePath, "suite", "", "Versioned YAML replay suite (default: bundled mcp-response-v2)")
 	cmd.Flags().StringSliceVar(&models, "model", nil, "Model ID(s); repeat flag or use comma-separated IDs (default: configured model)")
 	cmd.Flags().IntVar(&repeat, "repeat", 3, "Trials per case and model")

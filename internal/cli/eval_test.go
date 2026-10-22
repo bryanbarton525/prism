@@ -32,6 +32,14 @@ func TestEvalCommandSurface(t *testing.T) {
 		})
 	}
 }
+
+func TestEvalRejectsMixedLexicalAndLayaBeforeProviderCalls(t *testing.T) {
+	cmd := newEvalCmd()
+	cmd.SetArgs([]string{"run", "--model", "candidate", "--lexical-advice", "--laya-url", "http://127.0.0.1:1", "--output", filepath.Join(t.TempDir(), "run.json")})
+	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "separate evaluation modes") {
+		t.Fatalf("expected mode validation before runtime construction, got %v", err)
+	}
+}
 func TestEvalRequiresConcreteOutputAndBaseline(t *testing.T) {
 	for _, args := range [][]string{{"run"}, {"test", "--output", "candidate.json"}, {"baseline", "create", "run.json", "--model", "candidate"}, {"compare", "baseline.json", "run.json"}, {"export", "run.json"}} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {

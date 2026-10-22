@@ -1,0 +1,56 @@
+{
+  "platform": "Linux-7.2.8-9-omarchy-x86_64-with-glibc2.44",
+  "machine": "x86_64",
+  "laya": {
+    "status": "ok",
+    "loaded": [
+      "english"
+    ],
+    "revisions": {
+      "english": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851"
+    },
+    "device": "cuda",
+    "device_is_preference": false,
+    "checkpoint_devices": {
+      "english": "cuda"
+    },
+    "cpu_fallbacks": {
+      "english": {
+        "count": 0,
+        "last_reason": null
+      }
+    }
+  },
+  "sglang": {
+    "model_path": "Qwen/Qwen3-8B-AWQ",
+    "revision": null,
+    "context_length": 65536,
+    "dtype": "auto",
+    "quantization": null,
+    "kv_cache_dtype": "fp8_e4m3",
+    "mem_fraction_static": 0.8,
+    "max_running_requests": 1,
+    "default_chat_template_kwargs": {
+      "enable_thinking": false
+    },
+    "tool_call_parser": "qwen",
+    "version": "0.5.19",
+    "weight_revision_verified": false
+  },
+  "models": {
+    "object": "list",
+    "data": [
+      {
+        "id": "Qwen3-8B-AWQ",
+        "object": "model",
+        "created": 1792468306,
+        "owned_by": "sglang",
+        "root": "Qwen3-8B-AWQ",
+        "parent": null,
+        "max_model_len": 65536
+      }
+    ]
+  },
+  "prism": "Prism:  v0.1.35\nBundle: v0.1.35\nDigest: 288b3f5c459b38b2ce561f28f49ea88ef57960e0a331693407f83a56b4164da6\nCommit: 83a9727986fa1c65ecf4a956f5b5c7ef2762eff4\n",
+  "gpu": "name, driver_version, memory.total [MiB]\nNVIDIA GeForce RTX 5060 Ti, 615.78.08, 16311 MiB\n"
+}

@@ -1,0 +1,13 @@
+{
+  "complete_reports": 108,
+  "scored_trials": 648,
+  "direct_classifier_probes": 154,
+  "original_outcome_fixtures": 6,
+  "new_outcome_fixtures": 6,
+  "task_families": [
+    "synthetic Linear issue/project/search lookup"
+  ],
+  "release_source": "83a9727986fa1c65ecf4a956f5b5c7ef2762eff4",
+  "lexical_control_source": "0ec7084a7bbd3ebaa4597130f2968d0be93b33c2",
+  "homelab_final_source": "04ec5d701af470c325d3a0630d951c7cd87e55e6"
+}
