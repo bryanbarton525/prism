@@ -669,10 +669,11 @@ func listMCPServerToolsHandler(client *downstreammcp.Client) func(context.Contex
 }
 
 type CallMCPToolInput struct {
-	Server    string         `json:"server"`
-	Tool      string         `json:"tool"`
-	Arguments map[string]any `json:"arguments,omitempty"`
-	MaxBytes  int            `json:"max_bytes,omitempty" jsonschema:"Response byte budget for this call; zero uses the server default"`
+	IncludeText bool           `json:"include_text,omitempty" jsonschema:"Also return the legacy text copy of structured output; increases response size"`
+	Server      string         `json:"server"`
+	Tool        string         `json:"tool"`
+	Arguments   map[string]any `json:"arguments,omitempty"`
+	MaxBytes    int            `json:"max_bytes,omitempty" jsonschema:"Response byte budget for this call; zero uses the server default"`
 }
 
 func callMCPToolHandler(client *downstreammcp.Client) func(context.Context, *mcpsdk.CallToolRequest, CallMCPToolInput) (*mcpsdk.CallToolResult, downstreammcp.CallResult, error) {
@@ -693,7 +694,10 @@ func callMCPToolHandler(client *downstreammcp.Client) func(context.Context, *mcp
 		if err != nil {
 			return nil, downstreammcp.CallResult{}, err
 		}
-		out := textResult(marshalJSON(res))
+		out := &mcpsdk.CallToolResult{Content: []mcpsdk.Content{}}
+		if input.IncludeText {
+			out = textResult(marshalJSON(res))
+		}
 		// Surface downstream tool failures on the MCP result itself so hosts
 		// (and their models) that key off isError do not treat the payload as
 		// successful evidence.
