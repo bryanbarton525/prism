@@ -165,13 +165,23 @@ func (c *Client) CallToolWithOptions(ctx context.Context, serverName, toolName s
 		return CallResult{}, fmt.Errorf("calling %s.%s: %w", serverName, toolName, err)
 	}
 	fullContent := contentText(res.Content)
-	content, truncated := trimWithFlag(fullContent, server.MaxBytes)
 	structured, structuredTruncated := boundedStructuredContent(res.StructuredContent, server.MaxBytes)
+	duplicate := equivalentJSON(fullContent, res.StructuredContent)
+	content, truncated := trimWithFlag(fullContent, server.MaxBytes)
+	if duplicate && !structuredTruncated {
+		content = ""
+		truncated = false
+	}
 	if res.StructuredContent != nil {
 		if raw, marshalErr := json.Marshal(res.StructuredContent); marshalErr == nil {
-			fullContent += "\n" + string(raw)
+			if duplicate || fullContent == "" {
+				fullContent = string(raw)
+			} else {
+				fullContent += "\n" + string(raw)
+			}
 		}
 	}
+
 	return CallResult{
 		Server:            serverName,
 		Tool:              toolName,
@@ -421,4 +431,38 @@ func ParseArguments(raw string) (map[string]any, error) {
 		return nil, err
 	}
 	return args, nil
+}
+
+// equivalentJSON removes only a complete, semantically identical JSON copy.
+// UseNumber avoids rounding distinct large numeric identifiers through float64.
+func equivalentJSON(text string, value any) bool {
+	if value == nil {
+		return false
+	}
+	var decoded any
+	decoder := json.NewDecoder(strings.NewReader(text))
+	decoder.UseNumber()
+	if decoder.Decode(&decoded) != nil {
+		return false
+	}
+	var extra any
+	if decoder.Decode(&extra) != io.EOF {
+		return false
+	}
+	left, err := json.Marshal(decoded)
+	if err != nil {
+		return false
+	}
+	right, err := json.Marshal(value)
+	if err != nil {
+		return false
+	}
+	var normalized any
+	decoder = json.NewDecoder(strings.NewReader(string(right)))
+	decoder.UseNumber()
+	if decoder.Decode(&normalized) != nil {
+		return false
+	}
+	right, err = json.Marshal(normalized)
+	return err == nil && string(left) == string(right)
 }
